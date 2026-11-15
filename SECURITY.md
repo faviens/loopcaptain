@@ -21,7 +21,10 @@
    status ignores a line whose signature fails. A process with the user's
    full file access can read that key too.
 5. **The network:** the board listens on `127.0.0.1` only, answers only to
-   its own host name, and every form carries a per-process token. No page
+   its own host name and the names given with `--host-name` (for a proxy
+   on this machine such as `tailscale serve`, which makes the board
+   reachable for every device that reaches that name), and every form
+   carries a per-process token. No page
    loads anything from another origin. Nothing is sent off the machine.
 
 ## Reporting a vulnerability
