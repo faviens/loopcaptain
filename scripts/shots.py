@@ -5,7 +5,8 @@ alone and photographs five pages with headless Chrome: the overview, large, and 
 for a two-by-two grid. Corners are rounded in the picture itself, so they are round wherever it is
 shown. Nothing of this machine's own loops can appear: the board reads only the temporary folder,
 and the folder stands in for the home folder, so paths read `~/projects/...`. Needs Chrome and
-Pillow (`make shots` brings Pillow); costs nothing.
+Pillow (`make shots` brings Pillow); costs nothing. `make shots ONLY=connect` retakes the pictures
+whose name contains that word and leaves the others as they are.
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ PAGES = (
     ("/loop/checkout-service/coverage", "screenshot-loop", TILE_HEIGHT),
     ("/loop/pricing-research/tracker-scan?tab=rounds&round=3", "screenshot-rounds", TILE_HEIGHT),
     ("/loop/pricing-research/tracker-scan?tab=findings", "screenshot-findings", TILE_HEIGHT),
+    ("/connect?agent=claude-code", "screenshot-connect", TILE_HEIGHT),
 )
 SCHEMES = {"light": 1, "dark": 0}  # Blink's preferredColorScheme
 
@@ -87,7 +89,7 @@ def photograph(path: str, target: Path, height: int, scheme: int) -> None:
     )
 
 
-def main() -> int:
+def main(only: str = "") -> int:
     if not Path(CHROME).exists():
         raise SystemExit(f"shots: no Chrome at {CHROME}; set CHROME to its path")
     with tempfile.TemporaryDirectory() as scratch:
@@ -106,7 +108,7 @@ def main() -> int:
         )
         try:
             wait_for(lambda: answers(f"http://127.0.0.1:{PORT}/"), "the board")
-            for path, name, height in PAGES:
+            for path, name, height in (page for page in PAGES if only in page[1]):
                 for scheme, value in SCHEMES.items():
                     shot = base / f"{name}-{scheme}.png"
                     photograph(path, shot, height, value)
@@ -120,4 +122,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1] if len(sys.argv) > 1 else ""))

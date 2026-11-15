@@ -35,6 +35,10 @@ Open <http://127.0.0.1:8484>. The board answers on this machine only.
 4. It reads your answer at its next round, converges and ends `done`
    within seconds.
 
+A question looks like this, here from an invented loop:
+
+![Waiting for you: a loop's question with two answer buttons and a box for your own words.](assets/screenshot-waiting.webp)
+
 That is everything a connected loop does: it says what it is, what
 happened and what it needs from you, and it reads what you send.
 
