@@ -139,6 +139,9 @@ nav.tabs .n.hot::before { content: ""; display: inline-block; width: 6px; height
 .kpi span { display: block; color: var(--text-2); font-size: 13px; line-height: 1.4; margin-top: var(--s1); }
 .kpi.hot { background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .kpi.hot b { color: var(--accent); }
+/* the two other tiles that ask for a look: something runs, something is stuck */
+.kpi.live b { color: var(--run); } .kpi.live b::after { content: ""; display: inline-block; width: 9px; height: 9px; margin-left: 10px; border-radius: 50%; background: var(--run-mark); vertical-align: 9px; animation: beat 1.6s var(--ease) infinite; }
+.kpi.alarm { background: var(--bad-bg); box-shadow: inset 0 0 0 1px rgb(200 16 46 / .22); } .kpi.alarm b { color: var(--bad); }
 
 /* ---- what waits for the person: the one accent surface ---- */
 .ask { margin-top: var(--s3); padding: var(--s3); border-radius: var(--radius-l); background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent-line); }
@@ -390,6 +393,13 @@ form.filters .tick { font-size: var(--t14); display: flex; gap: 6px; align-items
 pre.prompt { margin: var(--s1) 0 var(--s2); white-space: normal; overflow-wrap: anywhere; font: var(--t14)/1.55 var(--mono); }
 /* a loop's latest rounds on the overview: darker for more findings left open, a dot for none, a ring while it runs */
 table.loops td.name { min-width: 230px; }
+/* where to look first: a stripe in the status colour at the row's left edge, a tint where a person is needed */
+table.loops tr.is-waiting td.name { box-shadow: inset 4px 0 0 var(--accent); } table.loops tr.is-waiting { background: var(--accent-tint); }
+table.loops tr.is-failed td.name { box-shadow: inset 4px 0 0 var(--bad-mark); } table.loops tr.is-failed { background: var(--bad-bg); }
+table.loops tr.is-stalled td.name, table.loops tr.is-capped td.name { box-shadow: inset 4px 0 0 var(--warn-mark); }
+table.loops tr.is-running td.name, table.loops tr.is-sleeping td.name { box-shadow: inset 4px 0 0 var(--run-mark); }
+table.loops tr.is-done td.name { box-shadow: inset 4px 0 0 var(--ok-mark); }
+table.loops td.goal span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .trail { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 7px; }
 .trail i { width: 10px; height: 14px; border-radius: 3px; background: var(--heat-1); }
 .trail i.h2 { background: var(--heat-2); } .trail i.h3 { background: var(--heat-3); } .trail i.h4 { background: var(--heat-4); }

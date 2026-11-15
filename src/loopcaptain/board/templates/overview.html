@@ -9,12 +9,13 @@
 
 {% if views %}
 {% set running = views|selectattr('state')|selectattr('state.status', 'equalto', 'running')|list %}
+{% set troubled = views|selectattr('state')|selectattr('state.status', 'in', ['stalled', 'failed'])|list %}
 {% set here = url_for('overview') %}
 <section class="kpis" aria-label="Totals">
   <div class="kpi"><b>{{ views|length }}</b><span>loop{{ 's' if views|length != 1 }} in {{ project_count }} project{{ 's' if project_count != 1 }}</span></div>
   <div class="kpi{{ ' hot' if waiting }}"><b>{{ waiting|length }}</b><span>wait{{ 's' if waiting|length == 1 }} for your answer</span></div>
-  <div class="kpi"><b>{{ running|length }}</b><span>running now</span></div>
-  <div class="kpi"><b>{{ views|selectattr('state')|map(attribute='state.rounds')|map('length')|sum }}</b><span>rounds in total</span></div>
+  <div class="kpi{{ ' live' if running }}"><b>{{ running|length }}</b><span>running now</span></div>
+  <div class="kpi{{ ' alarm' if troubled }}"><b>{{ troubled|length }}</b><span>stalled or failed</span></div>
   <div class="kpi"><b>{{ total_usd|usd or '$0' }}</b><span>reported cost of all rounds</span></div>
 </section>
 
@@ -69,12 +70,12 @@
     <th scope="rowgroup" colspan="9"><span class="eyebrow">Project</span><b>{{ project.repo.key }}</b><span class="where">{{ project.place }}{% if project.branch %} · branch {{ project.branch }}{% endif %} · {{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}</th>
   </tr>
   {% for view in project.views %}
-  <tr>
+  <tr class="is-{{ view.state.status if view.state else 'failed' }}">
     <td class="name"><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a><span class="id">{{ view.loop_id }}</span></td>
     {% if view.state %}
     {% set s = view.state %}
     <td><span class="pill {{ s.status }}" title="{{ status_text[s.status] }}">{{ s.status }}</span>{% if s.question and s.status != 'waiting' %}<span class="asks" title="it has a question for you">asks</span>{% endif %}{% set signs = no_progress(s) %}{% if signs %}<span class="stuck" title="{{ signs|join('; ') }}">no progress?</span>{% endif %}</td>
-    <td class="goal">{{ s.manifest.brief.goal|truncate(150) }}</td>
+    <td class="goal"><span>{{ s.manifest.brief.goal|truncate(150) }}</span></td>
     <td class="r num">{{ s.rounds|length }}{% if s.manifest.round_cap %}<span class="grey"> / {{ s.manifest.round_cap }}</span>{% endif %}{% set trail = trail_of(s) %}{% if trail %}<span class="trail" role="img" aria-label="{{ trail|map(attribute='label')|join('; ') }}">{% for cell in trail %}<i class="{{ cell.look }}" title="{{ cell.label }}"></i>{% endfor %}</span>{% endif %}</td>
     <td class="r num">{{ s.open_findings|length or '' }}</td>
     <td class="r num">{{ s.minutes|minutes }}</td>
