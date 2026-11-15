@@ -39,10 +39,6 @@ shots: ## Retake the screenshots from invented loops, light and dark (needs Chro
 readme: ## Free: redraw the banner, the how-it-works picture and the architecture picture into docs/assets/
 	uv run python scripts/readme_assets.py
 
-release: ## Prepare a release: make release VERSION=x.y.z (bumps, dates the changelog, commits; no tag, no push)
-	@test -n "$(VERSION)" || { echo "usage: make release VERSION=x.y.z"; exit 2; }
-	uv run python scripts/release.py $(VERSION)
-
 check: ## Format check, lint, types, tests: what CI runs
 	uv run ruff format --check .
 	uv run ruff check .
@@ -50,4 +46,4 @@ check: ## Format check, lint, types, tests: what CI runs
 	uv run pytest -q --cov=loopcaptain --cov-report=term:skip-covered --cov-fail-under=85
 	uv run --group docs zensical build --clean
 
-.PHONY: help setup hooks serve demo validate schema docs-pages docs docs-serve shots readme release check
+.PHONY: help setup hooks serve demo validate schema docs-pages docs docs-serve shots readme check

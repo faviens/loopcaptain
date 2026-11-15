@@ -386,3 +386,25 @@ others implement needs more than a library does.
 **Rejected.** MIT: shorter, but silent on patents. A copyleft licence
 (GPL, AGPL): a loop would hesitate to paste the helper. A source-available
 licence: not open source, and no standard grows under one.
+
+## 19. Releases are cut from the commits, not by hand
+
+**Decision.** `.github/workflows/release.yml` runs release-please on every
+push to `main`. It keeps one pull request open that sets the next version
+in `pyproject.toml` and writes that version's section of `CHANGELOG.md`
+from the subjects of the `feat` and `fix` commits; `release-please-config.json`
+and `.release-please-manifest.json` hold its settings and the last released
+version. Merging the pull request creates the tag and the GitHub release,
+and the same run builds, smoke-tests and attaches the wheel.
+
+**Why.** A version bumped and tagged by hand is a step that is forgotten
+or done differently each time. The commits already say what changed and
+how much, once their types are held to one meaning (AGENTS.md, "Commits
+and pull requests"). A tag made with the workflow's own token starts no
+other workflow, so the build is a job of the same run.
+
+**Rejected.** A tag pushed by hand after `make release`: two manual steps
+and a changelog kept twice, in commits and in prose. A version read from
+the git tag at build time: no version in the checkout, and a wheel built
+outside a tag carries a version nobody chose. Publishing on every merge:
+a release would have no pull request to read before it goes out.

@@ -3,7 +3,7 @@
 
 ## What changes for a user
 
-<!-- One or two sentences. The CHANGELOG entry says the same. -->
+<!-- One or two sentences. The subjects of the feat and fix commits become the changelog. -->
 
 ## Why
 
@@ -14,6 +14,6 @@
 - [ ] A test fails without this change, and `make check` is green.
 - [ ] Looked at for real (`make demo`, `make serve`), or listed in `.agent/DEFERRED_VERIFICATION.md`.
 - [ ] Text, models and schema of the standard agree (`make schema`), if the protocol changed.
-- [ ] `CHANGELOG.md` updated; a decision has its section in `docs/ARCHITECTURE.md`.
+- [ ] `feat` and `fix` subjects read as changelog lines; a decision has its section in `docs/ARCHITECTURE.md`.
 - [ ] Nothing names a company, a client or a real loop.
 - [ ] The title and this text describe the change, not the conversation that led to it.

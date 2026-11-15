@@ -1,8 +1,8 @@
 name: pr-description
 
-# The commit-msg hook keeps AI attribution out of commits, but nothing local ever sees a
-# pull request description, and coding agents add a "Generated with" line there by default.
-# This runs the same hook on the description, so the pattern lives in one place
+# The commit-msg hooks keep AI attribution and conversation out of commits and hold the subject
+# to Conventional Commits, but nothing local ever sees a pull request's title or description.
+# This runs the same hooks on both, so each pattern lives in one place
 # (.pre-commit-config.yaml). Separate from ci.yml so editing a description re-runs
 # only this, not the whole gate.
 
@@ -38,3 +38,25 @@ jobs:
           extra_args: >-
             no-agent-coauthors --hook-stage commit-msg
             --commit-msg-filename ${{ runner.temp }}/pr-description.txt
+
+      # The description is about the change, never about the conversation that led to it
+      # (AGENTS.md, "Commits and pull requests").
+      - name: Reject conversation in the PR description
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        with:
+          extra_args: >-
+            no-conversation --hook-stage commit-msg
+            --commit-msg-filename ${{ runner.temp }}/pr-description.txt
+
+      # The title becomes a line of the changelog when a pull request is squashed.
+      - name: Write the PR title to a file
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$TITLE" > "$RUNNER_TEMP/pr-title.txt"
+
+      - name: The PR title is a Conventional Commit subject
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        with:
+          extra_args: >-
+            conventional-commit --hook-stage commit-msg
+            --commit-msg-filename ${{ runner.temp }}/pr-title.txt

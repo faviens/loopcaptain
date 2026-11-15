@@ -1,8 +1,11 @@
 # Changelog
 
-What changed for someone who uses Loopcaptain. Newest first.
+What changed for someone who uses Loopcaptain. Newest first. From 0.2.0 on
+each section is written by the release from the subjects of the commits.
 
-## Unreleased
+## 0.1.0 (2026-11-15)
+
+The first public version.
 
 ### Security
 

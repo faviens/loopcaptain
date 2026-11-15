@@ -119,13 +119,24 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 
 ### Releasing
 
-1. `make release VERSION=x.y.z` on `main`: bumps `pyproject.toml`, moves
-   "Unreleased" in `CHANGELOG.md` under the version and date, commits.
-2. The person pushes the tag `vX.Y.Z`; the release workflow builds,
-   installs the wheel in a clean environment, smoke-tests it and publishes.
-3. The package version is not the protocol number: a release may add
+1. Nobody bumps a version or pushes a tag by hand. The release workflow
+   (`.github/workflows/release.yml`, release-please) reads the commits on
+   `main` since the last release and keeps one pull request open that
+   sets the next version in `pyproject.toml` and writes that version's
+   section of `CHANGELOG.md`.
+2. The version follows the commit types (the table under "Commits and
+   pull requests"): `fix` raises the patch number, `feat` the minor one.
+   Before 1.0 a breaking change raises the minor number, after it the
+   major one.
+3. Merging the release pull request is the release: the workflow tags
+   `vX.Y.Z`, opens the GitHub release, builds the wheel, installs it in a
+   clean environment, smoke-tests it and attaches it. It publishes to
+   PyPI once the repository variable `PUBLISH_PYPI` is `true`.
+4. Never edit `CHANGELOG.md` or the version by hand: a commit subject is
+   the changelog line, so write it for a user.
+5. The package version is not the protocol number: a release may add
    optional fields and events, never break a loop written today.
-4. Not on PyPI yet: the documentation installs from the repository.
+6. Not on PyPI yet: the documentation installs from the repository.
 
 ### Where each fact lives
 
@@ -135,7 +146,7 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 | Rules, commands, how a change moves | this file |
 | Why it is built the way it is | `docs/ARCHITECTURE.md` |
 | Setup, first run, everyday use | `README.md` |
-| What changed for users | `CHANGELOG.md` |
+| What changed for users | `CHANGELOG.md`, written by the release from the subjects of `feat` and `fix` commits |
 | Work a person has chosen to do | `docs/BACKLOG.md`, created when the first finding is picked |
 | Open observations and proposals | the ledgers in `.agent/` |
 
@@ -255,7 +266,8 @@ and no model.
    or the live demo loop. Otherwise a row in
    `.agent/DEFERRED_VERIFICATION.md`.
 3. Text, models and schema of the standard agree (rule 1).
-4. `CHANGELOG.md` says what changed for a user; a decision has its section
+4. The subject of a `feat` or `fix` commit says what changed for a user,
+   since it becomes the changelog line; a decision has its section
    in `docs/ARCHITECTURE.md`.
 5. Nothing names a company, a client or a real loop (rule 8).
 6. One logical change per commit; nothing pushed without the person's yes.
