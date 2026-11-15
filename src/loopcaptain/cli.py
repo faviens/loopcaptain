@@ -57,6 +57,39 @@ def emit(repo: Path, loop_id: str, event: str, fields: list[str]) -> None:
     store.append_event(repo, loop_id, parsed)
 
 
+def run_telegram(pair: bool) -> int:
+    import logging
+    import os
+    import secrets
+
+    from loopcaptain.board.discover import config_target, load_config
+    from loopcaptain.board.steer import STATE_ENV
+    from loopcaptain.notify.bridge import Bridge
+    from loopcaptain.notify.settings import add_chat, load_settings
+    from loopcaptain.notify.telegram import TOKEN_ENV, Bot, https_transport
+
+    token = os.environ.get(TOKEN_ENV, "")
+    if not token:
+        raise StoreError(f"set {TOKEN_ENV} to the token BotFather gave your bot")
+    source = load_config().source or config_target()
+    settings = load_settings(source)
+    bridge = Bridge(
+        Bot(https_transport(token)), settings, load_config, Path(os.environ.get(STATE_ENV, ".state"))
+    )
+    if pair:
+        code = secrets.token_hex(5)
+        sys.stdout.write(f"within five minutes, send this to your bot from Telegram: {code}\n")
+        add_chat(source, bridge.pair(code))
+        sys.stdout.write(f"paired; the chat is allowed in {as_written(source)}\n")
+        return 0
+    if not settings.chats:
+        raise StoreError("no chat is allowed yet: run `loopcaptain telegram --pair` first")
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    sys.stdout.write(f"telling {len(settings.chats)} chat(s) about your loops; Ctrl-C ends it\n")
+    bridge.run()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="loopcaptain", description="One board for every agent loop.")
     parser.add_argument(
@@ -117,6 +150,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_parser("spec", help="print LOOPS.md, the protocol to paste into a loop")
     commands.add_parser("mcp", help="run the MCP server on stdio")
+
+    telegram = commands.add_parser(
+        "telegram", help="message a Telegram chat when a loop needs you, and take answers back"
+    )
+    telegram.add_argument(
+        "--pair", action="store_true", help="allow the private chat that sends the code this prints"
+    )
     return parser
 
 
@@ -201,6 +241,8 @@ def run(args: argparse.Namespace) -> int:
 
         serve_stdio()
         return 0
+    if args.command == "telegram":
+        return run_telegram(pair=args.pair)
     from loopcaptain.board.app import serve
 
     serve(args.port, args.host_name)

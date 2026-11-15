@@ -466,3 +466,29 @@ then need a real login. A native app: a second codebase that excludes
 one of the two phone platforms and still needs a way to the laptop.
 Accepting any host: a web page that points its own name at this
 machine could then reach the board.
+
+## 23. The board may tell a chat the person turned on, and takes answers back only as inbox lines
+
+**Decision.** `loopcaptain telegram` (`src/loopcaptain/notify/`) reads the
+status the board derives, sends one message per new piece of news (an
+open question, failed, stalled, capped, done, stopped) to the chats in
+`telegram.chats`, and long-polls Telegram for button presses and
+replies. An answer goes through `board/answer.py`, the code the board's
+forms use, and becomes a signed `reply` or `stop` line. By default a
+message holds the loop's name and status only (`text: minimal`).
+
+**Why.** A loop that waits for an answer while the person is away
+wastes hours. A push to the phone is the one thing a page cannot do. A
+Telegram bot works on both phone platforms, needs no account beyond the
+app, and polling means nothing on this machine listens. Sharing one
+answer path keeps the checks (a closed question, a withdrawn choice, a
+stop sent twice) in one place.
+
+**Rejected.** ntfy: its buttons call a URL from the phone, so the board
+would have to be reachable first; a later channel. Email and SMS: no
+buttons, and a reply has to be parsed or needs a public webhook. Signal:
+no bot interface. A webhook: a port open to Telegram. Starting a loop
+from a chat: Start runs a command, and a chat is a weaker proof of who
+pressed than the page on the person's own machine. The full question by
+default: Telegram can read a bot's chats, so loop text leaves the
+machine only when the person says so.

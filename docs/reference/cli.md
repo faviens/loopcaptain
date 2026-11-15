@@ -141,3 +141,15 @@ Run the mcp server on stdio.
 ```text
 loopcaptain mcp [-h]
 ```
+
+## `telegram`
+
+Message a telegram chat when a loop needs you, and take answers back.
+
+```text
+loopcaptain telegram [-h] [--pair]
+```
+
+| Argument | Meaning |
+|---|---|
+| `--pair` | allow the private chat that sends the code this prints |
