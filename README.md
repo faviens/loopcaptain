@@ -1,7 +1,7 @@
 <!-- Banner and how-it-works picture are drawn by scripts/readme_assets.py, light and dark: make readme. -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
-  <img alt="Loopcaptain: an open protocol for agent loops and a local dashboard to monitor and steer them. A loop writes three small files; the board shows where it stands and takes your answer." src="docs/assets/banner-light.svg">
+  <img alt="Loopcaptain: monitor and steer your agent loops from one local board. An open protocol lets any loop report to it." src="docs/assets/banner-light.svg">
 </picture>
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE)

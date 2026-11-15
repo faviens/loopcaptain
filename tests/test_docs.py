@@ -45,12 +45,25 @@ def readme_assets() -> types.ModuleType:
     return module
 
 
-@pytest.mark.parametrize("theme", ["light", "dark"])
-def test_the_architecture_picture_is_current_and_linked(readme_assets: types.ModuleType, theme: str) -> None:
-    drawn = ROOT / "docs" / "assets" / f"parts-{theme}.svg"
+PICTURES = ("parts_picture", "trust_picture", "request_picture")
 
-    assert drawn.read_text(encoding="utf-8") == readme_assets.parts_picture(theme), "run make readme"
-    assert f"assets/parts-{theme}.svg" in (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("draw", PICTURES)
+def test_the_architecture_pictures_are_current_and_linked(
+    readme_assets: types.ModuleType, draw: str, theme: str
+) -> None:
+    name = draw.removesuffix("_picture")
+    drawn = ROOT / "docs" / "assets" / f"{name}-{theme}.svg"
+
+    assert drawn.read_text(encoding="utf-8") == getattr(readme_assets, draw)(theme), "run make readme"
+    assert f"assets/{name}-{theme}.svg" in (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+
+
+def test_no_page_mixes_in_a_chart_of_another_style() -> None:
+    pages = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
+
+    assert [page.name for page in pages if "```mermaid" in page.read_text(encoding="utf-8")] == []
 
 
 def test_the_first_screen_says_what_it_is_in_the_words_people_search() -> None:

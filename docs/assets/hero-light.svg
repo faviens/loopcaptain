@@ -1,25 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-label="How it works. On the left, a loop in any repository: a script that pastes the helper from LOOPS.md, or an agent session that uses the loopcaptain MCP server. Both write the loop's folder, .loops/loop-id, with three files: loop.json, events.jsonl and inbox.jsonl. On the right, the board on this machine reads the folder and shows every loop, one loop in detail, and the protocol to copy. Your answer, a stop or a start goes back through inbox.jsonl, which the loop reads at its next round.">
   <title>How Loopcaptain works</title>
   <rect width="1200" height="470" fill="#F6F5F2"/>
-  <defs><marker id="tip" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#646469"/></marker><marker id="tip-red" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#4A3FE0"/></marker></defs>
+  <defs><marker id="tip" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#646469"/></marker><marker id="tip-red" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#4A3FE0"/></marker><filter id="lift" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#1D1D1F" flood-opacity="0.16"/></filter></defs>
   <g font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
   <text x="40" y="44" font-size="11" font-weight="600" fill="#646469" letter-spacing="1.6">A LOOP, IN ANY REPOSITORY</text>
   <text x="440" y="44" font-size="11" font-weight="600" fill="#646469" letter-spacing="1.6">ITS FOLDER: THE WHOLE INTERFACE</text>
   <text x="840" y="44" font-size="11" font-weight="600" fill="#646469" letter-spacing="1.6">THE BOARD, ON THIS MACHINE</text>
-  <rect x="40" y="64" width="300" height="118" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <rect x="40" y="70" width="300" height="118" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="40" y="64" width="300" height="118" rx="20" fill="#FFFFFF"/>
   <g transform="translate(58 82)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/><path d="M9 12l-2 2 2 2 M13 12l2 2-2 2"/></g>
   <text x="94" y="100" font-size="16" font-weight="600" fill="#1D1D1F" >A loop with a script</text>
   <text x="58" y="130" font-size="13" font-weight="400" fill="#646469" >Pastes the helper from LOOPS.md,</text>
   <text x="58" y="149" font-size="13" font-weight="400" fill="#646469" >50 lines, standard library. One call</text>
   <text x="58" y="168" font-size="13" font-weight="400" fill="#646469" >per step: emit(loop, event, fields).</text>
-  <rect x="40" y="204" width="300" height="118" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <rect x="40" y="210" width="300" height="118" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="40" y="204" width="300" height="118" rx="20" fill="#FFFFFF"/>
   <g transform="translate(58 222)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H11l-4 4v-4H4z"/><path d="M12 8v5 M9.5 10.5h5"/></g>
   <text x="94" y="240" font-size="16" font-weight="600" fill="#1D1D1F" >A loop an agent session drives</text>
   <text x="58" y="270" font-size="13" font-weight="400" fill="#646469" >Uses the loopcaptain MCP server:</text>
   <text x="58" y="289" font-size="13" font-weight="400" fill="#646469" >loop_register, emit,</text>
   <text x="58" y="308" font-size="13" font-weight="400" fill="#646469" >inbox_read, loop_status.</text>
   <g transform="translate(304 286)" fill="none" stroke="#646469" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5 M15 3v5 M7 8h10v3a5 5 0 0 1-10 0z M12 16v5"/></g>
-  <rect x="440" y="64" width="300" height="258" rx="8" fill="#EDECE8" stroke="#DAD9D5" stroke-width="1.2"/>
+  <rect x="440" y="70" width="300" height="258" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="440" y="64" width="300" height="258" rx="20" fill="#ECEAE5" stroke="#DAD9D5"/>
   <g transform="translate(458 82)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6l2 2h10v11H3z"/></g>
   <text x="494" y="100" font-size="14" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">.loops/&lt;loop-id&gt;/</text>
   <rect x="458" y="126" width="264" height="52" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
@@ -34,7 +34,7 @@
   <g transform="translate(468 268)" fill="none" stroke="#4A3FE0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/></g>
   <text x="500" y="277" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">inbox.jsonl</text>
   <text x="500" y="295" font-size="12.5" font-weight="400" fill="#646469" >what the person sends</text>
-  <rect x="840" y="64" width="320" height="258" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <rect x="840" y="70" width="320" height="258" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="840" y="64" width="320" height="258" rx="20" fill="#FFFFFF"/>
   <g transform="translate(858 82)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18 M6 6.5h.5 M8.5 6.5h.5"/></g>
   <text x="894" y="100" font-size="16" font-weight="600" fill="#1D1D1F" >Loopcaptain</text>
   <text x="1142" y="100" font-size="12" fill="#646469" text-anchor="end" font-family="ui-monospace, SF Mono, Menlo, monospace">127.0.0.1:8484</text>

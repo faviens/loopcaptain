@@ -130,16 +130,16 @@ def banner(theme: str) -> str:
                     f'<text x="{x + 17}" y="{y + 18}" font-size="13" font-weight="700" text-anchor="middle" '
                     f'fill="{t["paper"] if dark else t["ink"]}" font-family="{FONT}">{key}</text>'
                 )
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-label="Loopcaptain: an open protocol for agent loops and a local dashboard to monitor and steer them. A loop writes three small files; the board shows where it stands and takes your answer.">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-label="Loopcaptain: monitor and steer your agent loops from one local board. An open protocol lets any loop report to it.">
   <title>Loopcaptain</title>
   <rect width="1200" height="340" fill="{t["paper"]}"/>
   <rect y="339" width="1200" height="1" fill="{t["hair"]}"/>
   {mark(66, 72, 84)}
   <g font-family="{FONT}">
     {text(172, 141, "Loopcaptain", 84, t["ink"], 700, 'letter-spacing="-3.4"')}
-    {text(68, 208, "One board for every agent loop", 22, t["ink"], 600, 'letter-spacing="-0.4"')}
-    {text(68, 242, "A loop writes three small files. The board shows where it stands,", 16.5, t["grey"])}
-    {text(68, 267, "round by round, and takes your answer. No loop needs this repository.", 16.5, t["grey"])}
+    {text(68, 208, "Monitor and steer your agent loops", 22, t["ink"], 600, 'letter-spacing="-0.4"')}
+    {text(68, 242, "One board for every loop on your machine: where it stands, what it found,", 16.5, t["grey"])}
+    {text(68, 267, "what it cost and what waits for you. An open protocol lets any loop report.", 16.5, t["grey"])}
     {text(962, 56, "ROUNDS", 11, t["grey"], 600, 'letter-spacing="1.2"')}
     {text(962, 300, "a step per row, its open findings", 12, t["grey"])}
   </g>
@@ -156,20 +156,20 @@ def hero(theme: str) -> str:
     ink, grey, accent = t["ink"], t["grey"], t["accent"]
     parts = [
         f'<rect width="1200" height="470" fill="{t["paper"]}"/>',
-        f"<defs>{marker('tip', grey)}{marker('tip-red', accent)}</defs>",
+        defs(t),
         f'<g font-family="{FONT}">',
         # column titles
         text(40, 44, "A LOOP, IN ANY REPOSITORY", 11, grey, 600, 'letter-spacing="1.6"'),
         text(440, 44, "ITS FOLDER: THE WHOLE INTERFACE", 11, grey, 600, 'letter-spacing="1.6"'),
         text(840, 44, "THE BOARD, ON THIS MACHINE", 11, grey, 600, 'letter-spacing="1.6"'),
         # left: the two kinds of loop
-        card(40, 64, 300, 118, t),
+        plate(40, 64, 300, 118, t, t["card"]),
         icon("script", 58, 82, ink),
         text(94, 100, "A loop with a script", 16, ink, 600),
         text(58, 130, "Pastes the helper from LOOPS.md,", 13, grey),
         text(58, 149, "50 lines, standard library. One call", 13, grey),
         text(58, 168, "per step: emit(loop, event, fields).", 13, grey),
-        card(40, 204, 300, 118, t),
+        plate(40, 204, 300, 118, t, t["card"]),
         icon("agent", 58, 222, ink),
         text(94, 240, "A loop an agent session drives", 16, ink, 600),
         text(58, 270, "Uses the loopcaptain MCP server:", 13, grey),
@@ -177,7 +177,7 @@ def hero(theme: str) -> str:
         text(58, 308, "inbox_read, loop_status.", 13, grey),
         icon("plug", 304, 286, grey),
         # middle: the folder
-        card(440, 64, 300, 258, t, "sunk"),
+        plate(440, 64, 300, 258, t),
         icon("folder", 458, 82, ink),
         f'<text x="494" y="100" font-size="14" font-weight="600" fill="{ink}" font-family="{MONO}">.loops/&lt;loop-id&gt;/</text>',
     ]
@@ -195,7 +195,7 @@ def hero(theme: str) -> str:
         ]
     parts += [
         # right: the board
-        card(840, 64, 320, 258, t),
+        plate(840, 64, 320, 258, t, t["card"]),
         icon("browser", 858, 82, ink),
         text(894, 100, "Loopcaptain", 16, ink, 600),
         f'<text x="1142" y="100" font-size="12" fill="{grey}" text-anchor="end" font-family="{MONO}">127.0.0.1:8484</text>',
@@ -262,7 +262,9 @@ def group_height(tiles: int) -> int:
     return GROUP_HEAD + tiles * TILE_STEP + 2
 
 
-def group(x: int, y: int, title: str, tiles: list[tuple[str, str, str]], t: dict[str, str]) -> str:
+def group(
+    x: int, y: int, title: str, tiles: list[tuple[str, str, str]], t: dict[str, str], width: int = GROUP_WIDTH
+) -> str:
     """A lifted background tile with its flat tiles: each is (name, what it does, look).
 
     The look is `mono` for a file of this repository, `plain` for anything else, `key` for a tile
@@ -270,8 +272,8 @@ def group(x: int, y: int, title: str, tiles: list[tuple[str, str, str]], t: dict
     """
     h = group_height(len(tiles))
     parts = [
-        f'<rect x="{x}" y="{y + LIFT}" width="{GROUP_WIDTH}" height="{h}" rx="20" fill="{t["edge"]}" filter="url(#lift)"/>',
-        f'<rect x="{x}" y="{y}" width="{GROUP_WIDTH}" height="{h}" rx="20" fill="{t["group"]}" stroke="{t["hair"]}"/>',
+        f'<rect x="{x}" y="{y + LIFT}" width="{width}" height="{h}" rx="20" fill="{t["edge"]}" filter="url(#lift)"/>',
+        f'<rect x="{x}" y="{y}" width="{width}" height="{h}" rx="20" fill="{t["group"]}" stroke="{t["hair"]}"/>',
         text(x + 18, y + 26, title, 11, t["grey"], 600, 'letter-spacing="1.4"'),
     ]
     for row, (name, what, look) in enumerate(tiles):
@@ -280,7 +282,7 @@ def group(x: int, y: int, title: str, tiles: list[tuple[str, str, str]], t: dict
         family = FONT if look == "plain" else MONO
         left = x + 48 if look == "file" else x + 26
         parts.append(
-            f'<rect x="{x + 12}" y="{ty}" width="{GROUP_WIDTH - 24}" height="{TILE_HEIGHT}" rx="12" '
+            f'<rect x="{x + 12}" y="{ty}" width="{width - 24}" height="{TILE_HEIGHT}" rx="12" '
             f'fill="{t["card"]}" stroke="{stroke}" stroke-width="{width}"/>'
         )
         if look == "file":
@@ -427,10 +429,188 @@ def parts_picture(theme: str) -> str:
     )
 
 
+def defs(t: dict[str, str]) -> str:
+    """Arrow tips and the shadow under a lifted tile: the same in every picture."""
+    return (
+        f"<defs>{marker('tip', t['grey'])}{marker('tip-red', t['accent'])}"
+        f'<filter id="lift" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" '
+        f'stdDeviation="9" flood-color="{t["shade"]}" flood-opacity="0.16"/></filter></defs>'
+    )
+
+
+def picture(title: str, label: str, height: int, body: list[str], t: dict[str, str]) -> str:
+    """One drawn picture: the canvas, the shared defs, the body, and a label for a screen reader."""
+    inner = "\n  ".join([f'<rect width="1200" height="{height}" fill="{t["paper"]}"/>', defs(t), *body])
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="{height}" viewBox="0 0 1200 {height}" '
+        f'role="img" aria-label="{label}">\n  <title>{title}</title>\n  <g font-family="{FONT}">\n  {inner}\n  </g>\n</svg>\n'
+    )
+
+
+def plate(x: int, y: int, w: int, h: int, t: dict[str, str], fill: str = "") -> str:
+    """A lifted background tile: an edge below it and a soft shadow."""
+    face = f'fill="{fill}"' if fill else f'fill="{t["group"]}" stroke="{t["hair"]}"'
+    return (
+        f'<rect x="{x}" y="{y + LIFT}" width="{w}" height="{h}" rx="20" fill="{t["edge"]}" filter="url(#lift)"/>'
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="20" {face}/>'
+    )
+
+
+def footer(height: int, line: str, t: dict[str, str]) -> str:
+    return f'<rect x="40" y="{height - 58}" width="1120" height="1" fill="{t["hair"]}"/>' + text(
+        40, height - 26, line, 14, t["grey"]
+    )
+
+
+def trust_picture(theme: str) -> str:
+    """Who may do what: the loop's repository, the board on this machine, and the person."""
+    t = THEMES[theme]
+    grey, accent = t["grey"], t["accent"]
+    top, wide = 70, 330
+    repo_x, board_x, you_x = 40, 480, 920
+    repo = [
+        ("loop.json, events.jsonl", "the loop writes them", "file"),
+        ("inbox.jsonl", "the loop reads it at its next round", "file"),
+        ("The loop", "a script or an agent session", "plain"),
+    ]
+    board = [
+        ("Reads", "the files again on every request", "plain"),
+        ("Writes one file", "a signed line per answer or stop", "plain"),
+        ("Runner", "commands.start, without a shell", "plain"),
+    ]
+    h = group_height(3)
+    rows = [top + GROUP_HEAD + row * TILE_STEP + TILE_HEIGHT // 2 for row in range(3)]
+    middle, right = (repo_x + wide + board_x) // 2, (board_x + wide + you_x) // 2
+    height = top + h + LIFT + 96
+    body = [
+        group(repo_x, top, "THE LOOP'S REPOSITORY, ITS OWN TRUST", repo, t, wide),
+        group(board_x, top, "LOOPCAPTAIN, ON THIS MACHINE ONLY", board, t, wide),
+        plate(you_x, top, 240, h, t, accent),
+        icon("person", you_x + 22, top + 26, t["paper"]),
+        text(you_x + 58, top + 46, "You", 19, t["paper"], 600),
+        text(you_x + 24, top + 92, "Read where a loop stands.", 13, t["paper"], 400, 'fill-opacity="0.9"'),
+        text(you_x + 24, top + 114, "Answer it, or stop it after", 13, t["paper"], 400, 'fill-opacity="0.9"'),
+        text(
+            you_x + 24, top + 134, "its round. Start it, after a", 13, t["paper"], 400, 'fill-opacity="0.9"'
+        ),
+        text(you_x + 24, top + 154, "tick the first time.", 13, t["paper"], 400, 'fill-opacity="0.9"'),
+        # the loop's files are read; nothing else leaves the repository
+        arrow(f"M {repo_x + wide} {rows[0]} H {board_x - 5}", grey, "tip"),
+        text(middle, rows[0] - 9, "read", 12.5, grey, 400, 'text-anchor="middle"'),
+        arrow(f"M {board_x + wide} {rows[0]} H {you_x - 5}", grey, "tip"),
+        text(right, rows[0] - 9, "pages", 12.5, grey, 400, 'text-anchor="middle"'),
+        # the two ways back into a loop
+        arrow(f"M {you_x} {rows[1]} H {board_x + wide + 5}", accent, "tip-red"),
+        text(right, rows[1] - 9, "answer, stop", 12.5, accent, 600, 'text-anchor="middle"'),
+        arrow(f"M {board_x} {rows[1]} H {repo_x + wide + 5}", accent, "tip-red"),
+        text(middle, rows[1] - 9, "appends", 12.5, accent, 600, 'text-anchor="middle"'),
+        arrow(f"M {you_x} {rows[2]} H {board_x + wide + 5}", grey, "tip", dashed=True),
+        text(right, rows[2] - 9, "start", 12.5, grey, 400, 'text-anchor="middle"'),
+        arrow(f"M {board_x} {rows[2]} H {repo_x + wide + 5}", grey, "tip", dashed=True),
+        text(middle, rows[2] - 9, "its command", 12.5, grey, 400, 'text-anchor="middle"'),
+        footer(
+            height,
+            "Nothing crosses from the board into a loop except the inbox file and the one command the loop declared.",
+            t,
+        ),
+    ]
+    label = (
+        "Who may do what. The loop's repository holds loop.json and events.jsonl, which the loop "
+        "writes, inbox.jsonl, which it reads at its next round, and the loop itself. Loopcaptain, on "
+        "this machine only, reads the files on every request and shows you pages. Your answer or stop "
+        "is appended to inbox.jsonl as a signed line. Start makes the runner run the one command the "
+        "loop declared, without a shell."
+    )
+    return picture("Who may do what", label, height, body, t)
+
+
+def request_picture(theme: str) -> str:
+    """How one page comes about: two rows of five steps, read left to right."""
+    t = THEMES[theme]
+    grey = t["grey"]
+    first = [
+        ("GET /loop/...", ("a request for", "one loop's page"), "plain"),
+        ("board/app.py", ("the host guard,", "then the route"), "mono"),
+        ("board/discover.py", ("find_loop: only", "watched repositories"), "mono"),
+        ("protocol/store.py", ("reads the three files;", "a bad line is a Problem"), "mono"),
+        ("protocol/models.py", ("validates", "each line"), "mono"),
+    ]
+    second = [
+        ("board/steer.py", ("is the process the", "board started alive?"), "mono"),
+        ("protocol/state.py", ("fold(): rounds, runs,", "findings, status"), "key"),
+        ("board/graph.py", ("layout(): columns,", "rows, curves"), "mono"),
+        ("templates/loop.html", ("with style.css", "and board.js"), "mono"),
+        ("HTML", ("under a content policy", "without inline script"), "plain"),
+    ]
+    left, tile_w, gap, tile_h = 40, 196, 22, 84
+    band_w = 5 * tile_w + 4 * gap + 44
+    band_h = GROUP_HEAD + tile_h + 14
+    top, low = 60, 60 + band_h + 70
+    height = low + band_h + LIFT + 92
+
+    def band(y: int, title: str, tiles: list[tuple[str, tuple[str, str], str]]) -> list[str]:
+        out = [
+            plate(left, y, band_w, band_h, t),
+            text(left + 18, y + 26, title, 11, grey, 600, 'letter-spacing="1.4"'),
+        ]
+        for col, (name, lines, look) in enumerate(tiles):
+            x, ty = left + 22 + col * (tile_w + gap), y + GROUP_HEAD
+            stroke, width = (t["accent"], 2) if look == "key" else (t["hair"], 1.2)
+            out.append(
+                f'<rect x="{x}" y="{ty}" width="{tile_w}" height="{tile_h}" rx="12" fill="{t["card"]}" '
+                f'stroke="{stroke}" stroke-width="{width}"/>'
+            )
+            family = FONT if look == "plain" else MONO
+            out.append(
+                f'<text x="{x + 14}" y="{ty + 25}" font-size="13.5" font-weight="600" fill="{t["ink"]}" '
+                f'font-family="{family}">{name}</text>'
+            )
+            out += [text(x + 14, ty + 47 + 17 * n, line, 12.5, grey) for n, line in enumerate(lines)]
+            if col:
+                out.append(arrow(f"M {x - gap + 2} {ty + tile_h // 2} H {x - 4}", grey, "tip"))
+        return out
+
+    fold_x = left + 22 + (tile_w + gap) + tile_w // 2
+    end_x = left + 22 + 4 * (tile_w + gap) + tile_w // 2
+    turn = top + band_h + LIFT + 32
+    body = [
+        *band(top, "A REQUEST COMES IN: FIND THE LOOP AND READ ITS FILES", first),
+        *band(low, "FOLD, DRAW, ANSWER", second),
+        arrow(f"M {end_x} {top + band_h + LIFT} V {turn} H {fold_x} V {low + GROUP_HEAD - 5}", grey, "tip"),
+        text(
+            (fold_x + end_x) // 2,
+            turn - 9,
+            "the manifest, the events, the inbox",
+            12.5,
+            grey,
+            400,
+            'text-anchor="middle"',
+        ),
+        footer(
+            height, "Nothing is stored between two requests: the page is the files, read and folded again.", t
+        ),
+    ]
+    label = (
+        "How one page comes about. A request for a loop's page passes the host guard in board/app.py, "
+        "board/discover.py finds the loop among the watched repositories, protocol/store.py reads the "
+        "three files and protocol/models.py validates each line. protocol/state.py folds the lines "
+        "into rounds, runs, findings and a status, with board/steer.py saying whether a started "
+        "process is alive; board/graph.py lays out the round, the template renders it, and the answer "
+        "is HTML under a content policy without inline script."
+    )
+    return picture("How one page comes about", label, height, body, t)
+
+
 def main() -> int:
     ASSETS.mkdir(parents=True, exist_ok=True)
     for theme in THEMES:
-        for name, draw in (("banner", banner), ("hero", hero), ("parts", parts_picture)):
+        for name, draw in (
+            ("banner", banner),
+            ("hero", hero),
+            ("parts", parts_picture),
+            ("trust", trust_picture),
+            ("request", request_picture),
+        ):
             path = ASSETS / f"{name}-{theme}.svg"
             path.write_text(draw(theme), encoding="utf-8")
             sys.stdout.write(f"{path.relative_to(ASSETS.parents[1])}\n")
