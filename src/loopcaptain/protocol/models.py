@@ -329,6 +329,8 @@ class StepFinished(Event):
     error: StepError | None = None
     #: The agent session the step ran in, to resume it by hand: shown as text, never run.
     session: str | None = None
+    #: The model this run really used, where it differs from the step's in loop.json (a fallback).
+    model: str | None = None
 
     _artifact = field_validator("artifact")(relative_path)
 

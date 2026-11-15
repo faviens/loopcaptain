@@ -930,6 +930,18 @@
           "title": "Metrics",
           "type": "array"
         },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
         "round": {
           "minimum": 1,
           "title": "Round",

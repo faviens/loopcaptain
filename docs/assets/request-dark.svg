@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="504" viewBox="0 0 1200 504" role="img" aria-label="How one page comes about. A request for a loop's page passes the host guard in board/app.py, board/discover.py finds the loop among the watched repositories, protocol/store.py reads the three files and protocol/models.py validates each line. protocol/state.py folds the lines into rounds, runs, findings and a status, with board/steer.py saying whether a started process is alive; board/graph.py lays out the round, the template renders it, and the answer is HTML under a content policy without inline script.">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="504" viewBox="0 0 1200 504" role="img" aria-label="How one page comes about. A request for a loop's page passes the host guard in board/app.py, board/discover.py finds the loop among the watched repositories, protocol/store.py reads the loop's files and protocol/models.py validates each line. protocol/state.py folds the lines into rounds, runs, findings and a status, with board/steer.py saying whether a started process is alive; board/graph.py lays out the round, the template renders it, and the answer is HTML under a content policy without inline script.">
   <title>How one page comes about</title>
   <g font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
   <rect width="1200" height="504" fill="#000000"/>
@@ -21,7 +21,7 @@
   <path d="M 478 142 H 494" fill="none" stroke="#A1A1A6" stroke-width="1.6" marker-end="url(#tip)"/>
   <rect x="716" y="100" width="196" height="84" rx="12" fill="#1C1C1E" stroke="#38383A" stroke-width="1.2"/>
   <text x="730" y="125" font-size="13.5" font-weight="600" fill="#F5F5F7" font-family="ui-monospace, SF Mono, Menlo, monospace">protocol/store.py</text>
-  <text x="730" y="147" font-size="12.5" font-weight="400" fill="#A1A1A6" >reads the three files;</text>
+  <text x="730" y="147" font-size="12.5" font-weight="400" fill="#A1A1A6" >reads the loop's files;</text>
   <text x="730" y="164" font-size="12.5" font-weight="400" fill="#A1A1A6" >a bad line is a Problem</text>
   <path d="M 696 142 H 712" fill="none" stroke="#A1A1A6" stroke-width="1.6" marker-end="url(#tip)"/>
   <rect x="934" y="100" width="196" height="84" rx="12" fill="#1C1C1E" stroke="#38383A" stroke-width="1.2"/>

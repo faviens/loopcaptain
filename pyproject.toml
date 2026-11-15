@@ -1,7 +1,7 @@
 [project]
 name = "loopcaptain"
 version = "0.0.0"  # a release is a git tag made by CI (scripts/release.py); the wheel is stamped with it
-description = "An open protocol for agent loops and a local dashboard to monitor and steer them: three files, any agent, no dependency."
+description = "An open protocol for agent loops and a local dashboard to monitor and steer them: plain files, any agent, no dependency."
 authors = [{ name = "Daniel Vogler" }]
 readme = "README.md"
 requires-python = ">=3.12"

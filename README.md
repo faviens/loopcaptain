@@ -71,9 +71,9 @@ macOS or Linux. From a checkout: `make setup && make demo && make serve`.
 The documentation has [Installation](docs/installation.md),
 [Get started](docs/get-started.md) and [Setup](docs/setup.md).
 
-## The loop protocol: three files
+## The loop protocol
 
-A loop does not import this repository. It writes three small files into
+A loop does not import this repository. It writes a few small files into
 `.loops/<loop-id>/` in its own repository; the board reads them and writes
 the person's answers back.
 
@@ -153,7 +153,7 @@ From a checkout, put `uv run` in front, or use the `make` targets in
 ## How it differs
 
 1. **A dashboard for one kind of loop** watches the loops of its own
-   runner. Loopcaptain watches any loop that writes the three files.
+   runner. Loopcaptain watches any loop that writes the protocol's files.
 2. **A session monitor** shows an agent's live session and its transcript.
    Loopcaptain shows what sits above: rounds, steps, findings, verdicts,
    cost and the question that waits for you.

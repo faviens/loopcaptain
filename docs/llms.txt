@@ -1,7 +1,7 @@
 # Loopcaptain
 
 > An open protocol for agent loops and a local dashboard to monitor and steer them. A loop
-> (a script, a Ralph loop, a long-running agent session) writes three small files into
+> (a script, a Ralph loop, a long-running agent session) writes a few small files into
 > .loops/<loop-id>/ in its own repository: loop.json, events.jsonl, inbox.jsonl. The board
 > shows where each loop stands, what it cost and what waits for a person, and writes the
 > person's answer, note or stop back. No dependency, no cloud, nothing leaves the machine.

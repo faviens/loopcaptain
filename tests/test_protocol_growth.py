@@ -153,7 +153,7 @@ def test_metrics_outcome_and_where_it_runs_are_kept(repo: Path, helper: types.Mo
     )
     line(repo, "round_started", round=1)
     metric = {"name": "score", "value": 0.7, "target": 0.9, "better": "higher"}
-    line(repo, "step_finished", round=1, step="work", metrics=[metric], session="abc-123")
+    line(repo, "step_finished", round=1, step="work", metrics=[metric], session="abc-123", model="small")
     line(repo, "round_finished", round=1, verdict="continue", outcome="discarded", stop_reason="impossible")
 
     state = state_at(repo, T0)
@@ -162,6 +162,7 @@ def test_metrics_outcome_and_where_it_runs_are_kept(repo: Path, helper: types.Mo
     assert state.manifest.workspace is not None and state.manifest.workspace.branch == "loop/scan"
     assert [m.name for m in last.all_metrics] == ["score"] and last.all_metrics[0].met is False
     assert last.outcome == "discarded" and last.runs[0].session == "abc-123"
+    assert last.runs[0].model == "small"
 
 
 def test_the_board_sees_no_progress_before_the_loop_says_so(repo: Path, helper: types.ModuleType) -> None:

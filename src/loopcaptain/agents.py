@@ -134,7 +134,7 @@ def markdown(checkout: str = "<checkout>") -> str:
     parts = [
         "# Works with every agent",
         "",
-        "The protocol names no vendor: a loop writes three files, whatever runs it. Around it, each",
+        "The protocol names no vendor: a loop writes its files, whatever runs it. Around it, each",
         "agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio; from a",
         f"checkout it is `{' '.join(server_argv(checkout))}`.",
         "",

@@ -1,6 +1,6 @@
 [project]
 site_name = "Loopcaptain"
-site_description = "An open protocol for agent loops and a local dashboard to monitor and steer them: three files, any agent, no dependency."
+site_description = "An open protocol for agent loops and a local dashboard to monitor and steer them: plain files, any agent, no dependency."
 docs_dir = "docs"
 site_dir = "site"
 repo_url = "https://github.com/faviens/loopcaptain"
