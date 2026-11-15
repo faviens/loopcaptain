@@ -42,6 +42,10 @@ Check it:
 loopcaptain --version
 ```
 
+An install from the repository's `main` branch reports `0.0.0`; a released
+wheel, from the [releases page](https://github.com/faviens/loopcaptain/releases),
+reports its version.
+
 ## Install from a checkout
 
 For changing Loopcaptain itself, or for running it without installing:

@@ -1,7 +1,9 @@
 # Changelog
 
-What changed for someone who uses Loopcaptain. Newest first. From 0.2.0 on
-each section is written by the release from the subjects of the commits.
+What changed for someone who uses Loopcaptain. This file holds the first
+version; every later version has its notes on the
+[releases page](https://github.com/faviens/loopcaptain/releases), written
+from the commits.
 
 ## 0.1.0 (2026-11-15)
 

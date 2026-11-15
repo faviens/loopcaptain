@@ -1,34 +1,76 @@
-"""The release settings agree with the package: the version, the name, the changelog's form."""
+"""scripts/release.py: the next tag and its notes from the commits since the last one."""
 
 from __future__ import annotations
 
-import json
-import re
+import importlib.util
+import sys
 import tomllib
+import types
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_the_last_released_version_is_the_package_version() -> None:
-    manifest = json.loads((ROOT / ".release-please-manifest.json").read_text(encoding="utf-8"))
+@pytest.fixture(scope="module")
+def release() -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location("release", ROOT / "scripts" / "release.py")
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses look their module up while it is being defined
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_largest_change_decides_the_step(release: types.ModuleType) -> None:
+    commit, bump_of = release.Commit, release.bump_of
+
+    assert bump_of([commit("a", "fix(board): x"), commit("b", "feat(protocol): y")]) == "minor"
+    assert bump_of([commit("a", "fix(board): x"), commit("b", "perf: y")]) == "patch"
+    assert bump_of([commit("a", "feat(protocol)!: drop a field")]) == "major"
+    assert bump_of([commit("a", "fix: x", "BREAKING CHANGE: the inbox key moves")]) == "major"
+
+
+def test_housekeeping_alone_makes_no_release(release: types.ModuleType) -> None:
+    commit = release.Commit
+    commits = [
+        commit("a", "docs: x"),
+        commit("b", "chore(agent): y"),
+        commit("c", "ci: z"),
+        commit("d", "Merge x"),
+    ]
+
+    assert release.bump_of(commits) is None
+
+
+def test_the_tag_counts_up_from_the_last_one(release: types.ModuleType) -> None:
+    next_tag = release.next_tag
+
+    assert next_tag(None, "minor") == "v0.1.0", "the first release"
+    assert next_tag("v0.3.2", "patch") == "v0.3.3"
+    assert next_tag("v0.3.2", "minor") == "v0.4.0"
+    assert next_tag("v0.3.2", "major") == "v0.4.0", "before 1.0 a breaking change is a minor step"
+    assert next_tag("v1.3.2", "major") == "v2.0.0"
+
+
+def test_the_notes_list_what_users_notice_under_headings(release: types.ModuleType) -> None:
+    commit = release.Commit
+
+    text = release.notes(
+        [
+            commit("1234567890", "feat(board): draw each loop's latest rounds"),
+            commit("abcdef1234", "fix(protocol): refuse an unsigned stop"),
+            commit("ffffffffff", "test(board): keep the table readable"),
+        ]
+    )
+
+    assert "## New\n\n- **board**: draw each loop's latest rounds (1234567)" in text
+    assert "## Fixed\n\n- **protocol**: refuse an unsigned stop (abcdef1)" in text
+    assert "keep the table readable" not in text
+
+
+def test_the_checkout_carries_no_version_of_its_own() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
-    assert manifest == {".": project["version"]}
-
-
-def test_the_release_names_the_package_and_keeps_the_lock_in_step() -> None:
-    config = json.loads((ROOT / "release-please-config.json").read_text(encoding="utf-8"))
-    package = config["packages"]["."]
-
-    assert config["release-type"] == "python" and package["package-name"] == "loopcaptain"
-    assert [extra["path"] for extra in package["extra-files"]] == ["uv.lock"]
-
-
-def test_the_changelog_starts_with_a_version_the_release_can_write_above() -> None:
-    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    first = re.search(r"^## (.+)$", changelog, flags=re.MULTILINE)
-
-    assert first is not None and re.match(r"\[?\d+\.\d+\.\d+", first.group(1)), (
-        "no hand-kept Unreleased section"
-    )
+    assert project["version"] == "0.0.0", "a release stamps its tag into the wheel; nothing is committed back"

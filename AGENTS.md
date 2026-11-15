@@ -119,24 +119,27 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 
 ### Releasing
 
-1. Nobody bumps a version or pushes a tag by hand. The release workflow
-   (`.github/workflows/release.yml`, release-please) reads the commits on
-   `main` since the last release and keeps one pull request open that
-   sets the next version in `pyproject.toml` and writes that version's
-   section of `CHANGELOG.md`.
+1. Nobody bumps a version, pushes a tag or opens a pull request for a
+   release. On every push to `main` the release workflow
+   (`.github/workflows/release.yml`) runs `scripts/release.py`, which reads
+   the commits since the last tag.
 2. The version follows the commit types (the table under "Commits and
-   pull requests"): `fix` raises the patch number, `feat` the minor one.
-   Before 1.0 a breaking change raises the minor number, after it the
-   major one.
-3. Merging the release pull request is the release: the workflow tags
-   `vX.Y.Z`, opens the GitHub release, builds the wheel, installs it in a
-   clean environment, smoke-tests it and attaches it. It publishes to
-   PyPI once the repository variable `PUBLISH_PYPI` is `true`.
-4. Never edit `CHANGELOG.md` or the version by hand: a commit subject is
-   the changelog line, so write it for a user.
-5. The package version is not the protocol number: a release may add
+   pull requests"): `fix` and `perf` raise the patch number, `feat` the
+   minor one. Before 1.0 a breaking change raises the minor number, after
+   it the major one. A push with only `docs`, `test`, `chore`, `ci` or
+   `refactor` commits makes no release.
+3. A release is a tag `vX.Y.Z` and a GitHub release whose notes are the
+   subjects of those commits, with the wheel attached: built with the
+   tag's version, installed in a clean environment and smoke-tested first.
+   It goes to PyPI once the repository variable `PUBLISH_PYPI` is `true`.
+4. Nothing is committed back. `pyproject.toml` says `0.0.0`; a checkout
+   and an install from `main` report that, a released wheel its tag.
+5. A commit subject is a line of the release notes, so write it for a
+   user. `CHANGELOG.md` holds the first version and points to the
+   releases.
+6. The package version is not the protocol number: a release may add
    optional fields and events, never break a loop written today.
-6. Not on PyPI yet: the documentation installs from the repository.
+7. Not on PyPI yet: the documentation installs from the repository.
 
 ### Where each fact lives
 
@@ -146,7 +149,7 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 | Rules, commands, how a change moves | this file |
 | Why it is built the way it is | `docs/ARCHITECTURE.md` |
 | Setup, first run, everyday use | `README.md` |
-| What changed for users | `CHANGELOG.md`, written by the release from the subjects of `feat` and `fix` commits |
+| What changed for users | the release notes on GitHub, written from the subjects of `feat`, `fix` and `perf` commits |
 | Work a person has chosen to do | `docs/BACKLOG.md`, created when the first finding is picked |
 | Open observations and proposals | the ledgers in `.agent/` |
 
@@ -198,10 +201,10 @@ years later, who has the repository and nothing else.
 
    | Type | Use it for | Release |
    |---|---|---|
-   | `fix` | a fault a user could meet | patch |
+   | `fix`, `perf` | a fault a user could meet, or the same thing faster | patch |
    | `feat` | something a user can newly do or see | minor |
    | `feat!`, `fix!`, or a `BREAKING CHANGE:` footer | a loop or a command of today stops working | major |
-   | `docs`, `test`, `refactor`, `perf`, `ci`, `build`, `chore`, `style`, `revert` | everything else | none |
+   | `docs`, `test`, `refactor`, `ci`, `build`, `chore`, `style`, `revert` | everything else | none |
 
 2. **A pull request title is a commit subject** of the same form. It names
    the change that matters most to a user.
@@ -267,7 +270,7 @@ and no model.
    `.agent/DEFERRED_VERIFICATION.md`.
 3. Text, models and schema of the standard agree (rule 1).
 4. The subject of a `feat` or `fix` commit says what changed for a user,
-   since it becomes the changelog line; a decision has its section
+   since it becomes a line of the release notes; a decision has its section
    in `docs/ARCHITECTURE.md`.
 5. Nothing names a company, a client or a real loop (rule 8).
 6. One logical change per commit; nothing pushed without the person's yes.
