@@ -6,20 +6,40 @@ three small files; the board shows what it is for, where it stands, what
 every round and reviewer found, what it cost, and what waits for you. You
 answer and steer from the board.
 
-![The board: a loop waits for an answer and offers two buttons](assets/screenshot-overview.webp)
+![The board's front page with eight invented loops in four projects: one waits for an answer, two run, one stalled and one failed are marked, each with its rounds, open findings, time and cost.](assets/screenshot-overview.webp)
 
-## Copy one of these into your coding agent
+Invented loops, photographed from the board itself.
 
-```text
---8<-- "standard/prompts/build-a-loop.md"
-```
+## Get started
+
+**Want to monitor the loops you already run?** Paste this into your coding
+agent, whichever you use. It finds the loops on your machine, sets up the
+board and proposes the smallest change that connects each one:
 
 ```text
 --8<-- "standard/prompts/watch-my-loops.md"
 ```
 
-Or [install it](installation.md) and [get started](get-started.md) with
-the example loop, which costs nothing.
+**Want to set up a new loop that speaks the protocol?** Paste this one. It
+asks what the loop is for, builds it in your repository and shows you one
+real round on the board:
+
+```text
+--8<-- "standard/prompts/build-a-loop.md"
+```
+
+**Want to look first?** [Install it](installation.md) and
+[get started](get-started.md) with the example loop, which costs nothing.
+
+## What you see
+
+![Waiting for you: a loop's question with two answer buttons and a box for your own words.](assets/screenshot-waiting.webp){ width="49%" }
+![One loop: key figures, rounds against the cap, and a line per measure showing whether it converges.](assets/screenshot-loop.webp){ width="49%" }
+
+![The rounds of one loop: every round against every step, and one round with what each step did, found and cost.](assets/screenshot-rounds.webp){ width="49%" }
+![Open findings of one loop: what the last reviewed round left open, by reviewer.](assets/screenshot-findings.webp){ width="49%" }
+
+[The board](board.md) walks through each page.
 
 ## How it works
 
