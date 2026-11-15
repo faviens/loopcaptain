@@ -3,58 +3,22 @@
 Why Loopcaptain is built the way it is. One section per decision; a changed
 decision gets a new section that names the one it replaces.
 
-```mermaid
-%%{init: {"theme":"base","themeVariables":{"primaryColor":"#FFFFFF","primaryTextColor":"#202124","primaryBorderColor":"#DADCE0","lineColor":"#5F6368","secondaryColor":"#F8F9FA","tertiaryColor":"#F8F9FA","clusterBkg":"#F8F9FA","clusterBorder":"#DADCE0","edgeLabelBackground":"#FFFFFF"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":64,"useMaxWidth":true}} }%%
-flowchart LR
-  subgraph REPO["The loop's repository: the loop's own trust"]
-    L("The loop<br/>script or agent session")
-    F[(".loops/&lt;loop-id&gt;/<br/>loop.json · events.jsonl")]
-    I[("inbox.jsonl")]
-    L -->|writes| F
-    I -.->|reads| L
-  end
-  subgraph MACHINE["This machine, 127.0.0.1 only"]
-    B("Loopcaptain<br/>reads files, renders pages")
-    R("Runner<br/>starts commands.start, no shell")
-  end
-  P(["The person"])
-  F -->|read on every request| B
-  B -->|pages| P
-  P -->|"answer · stop<br/>(form with the server's token)"| B
-  B -->|appends| I
-  P -->|start| R
-  R -.->|the loop's own command| L
-  classDef node fill:#FFFFFF,stroke:#DADCE0,stroke-width:1px,color:#202124
-  classDef store fill:#F1F3F4,stroke:#DADCE0,color:#202124
-  classDef person fill:#4A3FE0,stroke:#4A3FE0,color:#FFFFFF
-  class L,B,R node
-  class F,I store
-  class P person
-```
+<!-- Every picture on this page is drawn by scripts/readme_assets.py, light and dark: make readme. -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/trust-dark.svg">
+  <img alt="Who may do what: the loop writes its files and reads the inbox in its own repository; Loopcaptain reads the files on every request and shows you pages; your answer or stop is appended to the inbox as a signed line; Start runs the one command the loop declared." src="assets/trust-light.svg">
+</picture>
 
-The coloured node is where a person decides. Nothing crosses from the
-board into a loop except through the inbox file and the one start command
-the loop declared for itself.
+The filled tile is where a person decides. Nothing crosses from the board
+into a loop except through the inbox file and the one start command the
+loop declared for itself.
 
 How one page comes about, file by file:
 
-```mermaid
-%%{init: {"theme":"base","themeVariables":{"primaryColor":"#FFFFFF","primaryTextColor":"#202124","primaryBorderColor":"#DADCE0","lineColor":"#5F6368","secondaryColor":"#F8F9FA","tertiaryColor":"#F8F9FA","clusterBkg":"#F8F9FA","clusterBorder":"#DADCE0","edgeLabelBackground":"#FFFFFF"},"flowchart":{"curve":"basis","nodeSpacing":40,"rankSpacing":64,"useMaxWidth":true}} }%%
-flowchart TB
-  REQ(["GET /loop/&lt;repo&gt;/&lt;loop&gt;"]) --> G("board/app.py<br/>host guard, then the route")
-  G --> D("board/discover.py<br/>find_loop: only configured repositories")
-  D --> S("protocol/store.py<br/>read_manifest · read_events · read_inbox<br/>bad lines become Problems")
-  S --> M("protocol/models.py<br/>validate each line")
-  S --> F("protocol/state.py fold()<br/>rounds · runs · findings · items · status")
-  RUN("board/steer.py Runner.process()<br/>is the started process alive?") --> F
-  F --> GR("board/graph.py layout()<br/>columns, rows, curves")
-  GR --> T("board/templates/loop.html<br/>+ static/style.css, board.js")
-  T --> RES(["HTML, with a content policy<br/>that forbids inline script"])
-  classDef node fill:#FFFFFF,stroke:#DADCE0,stroke-width:1px,color:#202124
-  classDef key fill:#FFFFFF,stroke:#4A3FE0,stroke-width:2px,color:#202124
-  class G,D,S,M,RUN,GR,T node
-  class F key
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/request-dark.svg">
+  <img alt="How one page comes about: the request passes the host guard, the loop is found among the watched repositories, its three files are read and validated, folded into a state, laid out, rendered, and answered as HTML under a content policy." src="assets/request-light.svg">
+</picture>
 
 ## The parts, file by file
 
@@ -62,7 +26,6 @@ Every tile is a file or a process you can open. A loop writes two files
 and reads the third; the board reads all three on every request and
 writes only the inbox.
 
-<!-- Drawn by scripts/readme_assets.py, light and dark: make readme. -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/parts-dark.svg">
   <img alt="The parts of Loopcaptain, file by file: a loop writes its folder itself or through the MCP server or the command line; the board reads the folder through protocol/store.py, folds it into a state and renders pages; your answer or stop is appended to inbox.jsonl, and Start runs the command the loop declared." src="assets/parts-light.svg">
