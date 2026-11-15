@@ -19,7 +19,9 @@ protocol names no tool, vendor or model.
 ```
 
 `<loop-id>` is lowercase letters, digits, `.`, `-`, `_`. A repository may
-hold several loops, one folder each. Whether `.loops/` is committed or
+hold several loops, one folder each. A run that counts its rounds from 1
+again (a new branch, a fresh start) is a loop of its own, with its own id
+such as `review-run-3`, so the rounds of two runs never mix. Whether `.loops/` is committed or
 ignored is the repository's choice.
 
 ## 1. `loop.json`: what the loop is
@@ -394,7 +396,7 @@ the models refuse, a step before its round, a path that does not exist,
 a time earlier than the line before, a round finished twice with two
 outcomes) and warnings (a round whose steps share one time, so it was
 written after the fact; rounds that never read the inbox; an output not
-there yet). It exits 1 on problems only, or on warnings too with
+there yet; a round count that starts over, a second run in one folder). It exits 1 on problems only, or on warnings too with
 `--strict`. `loopcaptain doctor <repository> <loop-id>` checks what files
 cannot show: it sends a running loop a signed `stop` and passes once the
 loop has taken it and ended.
