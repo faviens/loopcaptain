@@ -195,6 +195,17 @@ def test_an_empty_reply_is_not_sent(client: TestClient, scan: Path) -> None:
     assert store.read_inbox(scan, "scan") == ([], [])
 
 
+def test_a_message_shows_only_when_this_server_wrote_it(client: TestClient, scan: Path) -> None:
+    crafted = client.get("/loop/some-repo/scan?note=Stop%20sent.&error=Your%20key%20leaked&seal=%C3%BC")
+    sent = client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+    followed = client.get(sent.headers["location"])
+    tampered = client.get(sent.headers["location"].replace("Stop%20sent", "Nothing%20sent"))
+
+    assert "Stop sent." not in crafted.text and "Your key leaked" not in crafted.text
+    assert "Stop sent. The loop ends after its current round." in followed.text
+    assert 'class="flash' not in tampered.text
+
+
 def test_files_render_inside_the_repository_only(client: TestClient, scan: Path) -> None:
     (scan / "notes.md").write_text("# Plan\n\n<script>alert(1)</script>\n\n| a | b |\n|---|---|\n| 1 | 2 |\n")
     (scan.parent / "outside.md").write_text("secret")
