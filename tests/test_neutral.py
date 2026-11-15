@@ -26,10 +26,22 @@ def refused_words(path: Path) -> list[str]:
     return [line for line in lines if line and not line.startswith("#")]
 
 
-def own_address() -> str:
-    """Where the repository lives, without the scheme: an address, not a name the project gives out."""
+def addresses_of(repository: str) -> list[str]:
+    """Where the repository lives: its path as badges name it, and its documentation site.
+
+    An address, not a name the project gives out. `https://github.com/owner/repo` gives
+    `owner.github.io/repo` and `owner/repo`, which also covers the address itself.
+    """
+    parts = repository.split("://")[-1].strip("/").lower().split("/")
+    if len(parts) < 3:
+        return []
+    owner, repo = parts[1], parts[2]
+    return [f"{owner}.github.io/{repo}", f"{owner}/{repo}"]
+
+
+def own_addresses() -> list[str]:
     urls = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"].get("urls", {})
-    return str(urls.get("Repository", "")).split("://")[-1].lower()
+    return addresses_of(str(urls.get("Repository", "")))
 
 
 def committed_or_new_files() -> list[Path]:
@@ -53,15 +65,36 @@ def test_the_list_skips_comments_and_blank_lines(tmp_path: Path) -> None:
     assert refused_words(tmp_path / "missing") == []
 
 
+def test_own_addresses_are_the_path_and_the_site() -> None:
+    assert addresses_of("https://github.com/Owner/repo/") == ["owner.github.io/repo", "owner/repo"]
+    assert addresses_of("") == []
+
+
+def test_the_hook_lets_the_own_addresses_pass_and_refuses_the_name(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text('Repository = "https://github.com/acme/thing"\n')
+    (tmp_path / ".forbidden-words.local").write_text("acme\n")
+    (tmp_path / "badges.md").write_text(
+        "shields.io/x/acme/thing acme.github.io/thing/ github.com/acme/thing\n"
+    )
+    (tmp_path / "named.md").write_text("Made by Acme.\n")
+
+    def hook(name: str) -> int:
+        script = ROOT / "scripts" / "forbidden_words.sh"
+        return subprocess.run(["sh", str(script), name], cwd=tmp_path, capture_output=True).returncode
+
+    assert (hook("badges.md"), hook("named.md")) == (0, 1)
+
+
 def test_no_refused_name_is_in_the_repository() -> None:
     refused = refused_words(WORD_LIST)
     if not refused:
         pytest.skip(f"{WORD_LIST.name} is missing or empty: the names to refuse are kept only on a laptop")
     found = []
-    address = own_address()
+    addresses = own_addresses()
     for path in committed_or_new_files():
         text = path.read_text(encoding="utf-8", errors="ignore").lower()
-        text = text.replace(address, "") if address else text
+        for address in addresses:
+            text = text.replace(address, "")
         found += [
             f"{path.relative_to(ROOT)}: word {refused.index(word) + 1}" for word in refused if word in text
         ]
@@ -84,9 +117,9 @@ def test_no_study_of_other_products_is_committed() -> None:
 
 
 def test_the_repository_names_its_own_address_and_nothing_else_needs_a_placeholder() -> None:
-    address = own_address()
+    site, path = own_addresses()
 
-    assert address.startswith("github.com/") and address.endswith("/loopcaptain")
+    assert site.endswith(".github.io/loopcaptain") and path.endswith("/loopcaptain")
     left = [
         path.relative_to(ROOT).as_posix()
         for path in committed_or_new_files()

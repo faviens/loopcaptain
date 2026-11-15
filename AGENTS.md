@@ -178,9 +178,10 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 8. **Neutral and invented.** An agent product may be named as an example
    ("Claude Code's `/loop`"); nothing may need one to run or to be
    understood. No company, client or real loop is named anywhere, the
-   repository's own address excepted (`[project.urls]` in
-   `pyproject.toml`): not in code, pages, the standard, fixtures, the demo or the
-   screenshots. The refused names live only in `.forbidden-words.local`
+   repository's own addresses excepted (`[project.urls]` in
+   `pyproject.toml`, its `owner/repo` path in a badge, its
+   `owner.github.io/repo` site): not in code, pages, the standard,
+   fixtures, the demo or the screenshots. The refused names live only in `.forbidden-words.local`
    (one per line, never committed); the pre-commit hook and
    `tests/test_neutral.py` both read it, and the test is skipped without it.
 9. **Python:** 3.12, `uv`, `ruff` at 110, `mypy` strict, `pytest`. No
