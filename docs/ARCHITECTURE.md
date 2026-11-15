@@ -410,3 +410,21 @@ merge per release. A tag pushed by hand after a version bump: two manual
 steps. A version read from the git tag at build time: an install from a
 source archive or a shallow clone has no tag to read. Committing the
 version back to `main`: a push to a protected branch by a workflow.
+
+## 20. A step reports the model it really ran on
+
+**Decision.** `step_finished` takes an optional `model`
+(`protocol/models.py`, `standard/LOOPS.md` section 2); the round page shows
+it beside the session. A round's mode (research or write) gets no field:
+the loop says it in the first words of `plan`.
+
+**Why.** The real loops retry a step on a second model when the first
+refuses to start, so the `model` a step names in `loop.json` can be wrong
+for a given run, and a person reading a weak review needs to know which
+model wrote it. The mode only decides which steps run, and the board
+already shows the steps that ran.
+
+**Rejected.** Rewriting `loop.json` with the fallback model: it is the
+loop's declaration, and the next run would start on the wrong one. A
+`mode` field on `round_started`: vocabulary every loop author learns for
+one loop's sake.

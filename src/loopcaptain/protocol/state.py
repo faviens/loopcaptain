@@ -85,6 +85,7 @@ class StepRun:
     attempt: int | None = None
     error: StepError | None = None
     session: str | None = None
+    model: str | None = None
 
     @property
     def open_findings(self) -> tuple[FindingState, ...]:
@@ -459,6 +460,7 @@ def apply_to_round(
         attempt=event.attempt,
         error=event.error,
         session=event.session,
+        model=event.model,
     )
     runs = (*round_.runs, finished) if index is None else replace_at(round_.runs, index, finished)
     return replace(round_, runs=runs)
