@@ -2,7 +2,7 @@
 
 One source for the command line (`loopcaptain mcp-config <agent>`), the board's Connect page and the
 "Works with every agent" page (`docs/agents.md`, written by `make agents`). Each entry was taken from
-that agent's own documentation on the date in CHECKED; an entry marked `unconfirmed` was not.
+that agent's own documentation on the date in CHECKED.
 """
 
 from __future__ import annotations
@@ -30,7 +30,6 @@ class Agent:
     reads: str  # the instruction files it loads by itself
     add: str  # how to add the server: a command, or the file and block
     headless: str  # the command to put in commands.start for an unattended loop
-    confirmed: bool = True
 
 
 def server_argv(checkout: str) -> list[str]:
@@ -76,7 +75,6 @@ def agents(checkout: str) -> list[Agent]:
             f"gemini mcp add loopcaptain {command}\n\n"
             f"# or in .gemini/settings.json:\n{mcp_servers_json(checkout)}",
             'gemini -p "Run one round of the loop as AGENTS.md says" --output-format json',
-            confirmed=False,
         ),
         Agent(
             "cursor",
@@ -84,7 +82,6 @@ def agents(checkout: str) -> list[Agent]:
             "`AGENTS.md`, `.cursor/rules/`",
             f"# .cursor/mcp.json\n{mcp_servers_json(checkout)}",
             'cursor-agent -p "Run one round of the loop as AGENTS.md says" --output-format json',
-            confirmed=False,
         ),
         Agent(
             "vscode",
@@ -99,7 +96,6 @@ def agents(checkout: str) -> list[Agent]:
             "`AGENTS.md`",
             f"# opencode.json\n{opencode}",
             'opencode run "Run one round of the loop as AGENTS.md says"',
-            confirmed=False,
         ),
         Agent(
             "amp",
@@ -107,7 +103,6 @@ def agents(checkout: str) -> list[Agent]:
             "`AGENTS.md`",
             f"amp mcp add loopcaptain -- {command}",
             'amp -x "Run one round of the loop as AGENTS.md says"',
-            confirmed=False,
         ),
         Agent(
             "other",
@@ -143,8 +138,8 @@ def markdown(checkout: str = "<checkout>") -> str:
         "agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio; from a",
         f"checkout it is `{' '.join(server_argv(checkout))}`.",
         "",
-        f"Taken from each agent's documentation as of {CHECKED}. An entry marked *unconfirmed* was not",
-        "checked against a live run; please report what works.",
+        f"Taken from each agent's documentation as of {CHECKED}. Agents change their commands: where a",
+        "line fails, the agent's own documentation wins, and a report of what works is welcome.",
         "",
         "This page is written by `make agents` from `src/loopcaptain/agents.py`; edit that, not this.",
         "`loopcaptain mcp-config <agent>` prints one block.",
@@ -152,7 +147,7 @@ def markdown(checkout: str = "<checkout>") -> str:
     for item in agents(checkout):
         parts += [
             "",
-            f"## {item.name}{' (unconfirmed)' if not item.confirmed else ''}",
+            f"## {item.name}",
             "",
             f"Reads by itself: {item.reads}.",
             "",

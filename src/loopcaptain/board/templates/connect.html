@@ -24,7 +24,7 @@
     <p>Add the MCP server, <code>loopcaptain mcp</code> over stdio, to your agent. Its tools write the same files. Pick yours:</p>
     <nav class="agents" aria-label="Coding agents">{% for item in agents %}<a href="{{ url_for('connect') }}?agent={{ item.key }}#mcp"{% if item.key == picked.key %} aria-current="true"{% endif %}>{{ item.name }}</a>{% endfor %}</nav>
     <pre id="mcp">{{ picked.add }}</pre>
-    <p class="grey">Unattended, as <code>commands.start</code>: <code>{{ picked.headless }}</code>{% if not picked.confirmed %}. Taken from its documentation, not yet tried.{% endif %}</p></div>
+    <p class="grey">Unattended, as <code>commands.start</code>: <code>{{ picked.headless }}</code></p></div>
   <div class="card"><h3><b class="n">3</b>Show it here</h3>
     <p>The board lists every repository it watches that has a <code>.loops/</code> folder. Add one with <code>loopcaptain watch &lt;folder&gt;</code>, and check it with:</p>
     <pre>loopcaptain validate &lt;repository&gt;</pre></div>
