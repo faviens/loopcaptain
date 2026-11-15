@@ -260,7 +260,7 @@ def take_inbox(repo: Path, loop_id: str) -> list[InboxEntry]:
 
 
 def fingerprint(repo: Path, loop_id: str) -> str:
-    """Changes whenever any of the loop's three files does; the page polls it to know when to reload."""
+    """Changes whenever any of the loop's files does; the page polls it to know when to reload."""
     parts = []
     for name in (MANIFEST_FILE, EVENTS_FILE, INBOX_FILE):
         try:

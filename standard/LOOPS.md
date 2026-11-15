@@ -97,7 +97,7 @@ times.
 |---|---|---|
 | `round_started` | `round`, `plan`, `artifact` | A round begins. `plan` is a few lines. |
 | `step_started` | `round`, `step`, `label` | Optional: shows the step as running. |
-| `step_finished` | `round`, `step`, `label`, `status`, `summary`, `artifact`, `findings`, `cost`, `metrics`, `attempt`, `error`, `session` | A step ends. |
+| `step_finished` | `round`, `step`, `label`, `status`, `summary`, `artifact`, `findings`, `cost`, `metrics`, `attempt`, `error`, `session`, `model` | A step ends. |
 | `finding_closed` | `round`, `step`, `id`, `label`, `resolution`, `reason` | A finding of this round is settled. |
 | `round_finished` | `round`, `verdict`, `stop_reason`, `summary`, `next`, `commit`, `artifact`, `cost`, `metrics`, `outcome`, `next_at` | A round ends. |
 | `question` | `text`, `round`, `blocks`, `timeout_s`, `id`, `options` | The loop needs the person. |
@@ -166,7 +166,9 @@ times.
     `{"kind": "transient" | "needs_person", "text": "..."}`, says why it
     did not succeed. `needs_person` waits for the person like a blocking
     question, until they reply. `session` is the agent session the step
-    ran in, shown as text so a person can resume it by hand.
+    ran in, shown as text so a person can resume it by hand. `model` is
+    the model the step really ran on, where it is not the one `loop.json`
+    names for the step: a fallback after the first one refused.
 12. `loop_stopped`: the loop ended between rounds, say after a stop that
     came when no round was open. The last round's verdict stays as it was.
 13. `heartbeat`: a loop that works quietly or sleeps says it is alive and,
@@ -334,8 +336,7 @@ for n in range(first_round, last_round + 1):
 ## 5. The same through MCP
 
 A loop that an agent session drives, with no script of its own, uses the
-`loopcaptain` MCP server instead of the helper. Its tools write the same
-three files, so both ways look the same on the board:
+`loopcaptain` MCP server instead of the helper. Its tools write the same files, so both ways look the same on the board:
 
 | Tool | Does | Helper |
 |---|---|---|

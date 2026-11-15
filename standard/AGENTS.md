@@ -13,7 +13,7 @@ happens, in one small folder.
 
 | File | What it is |
 |---|---|
-| [LOOPS.md](LOOPS.md) | The protocol: three files, eleven events, the rules for a loop and a board. Read it first. |
+| [LOOPS.md](LOOPS.md) | The protocol: the files, the events, the rules for a loop and a board. Read it first. |
 | [loops.py](loops.py) | The helper to copy into a Python loop: `register`, `emit`, `inbox`. Standard library only. |
 | [templates/](templates) | Three `loop.json` to start from: a research loop, a review loop, an editor-maker-lens loop. |
 | [schema/](schema) | The same contract as JSON Schema, for loops in other languages. |

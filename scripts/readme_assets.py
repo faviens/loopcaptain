@@ -236,7 +236,7 @@ def hero(theme: str) -> str:
     label = (
         "How it works. On the left, a loop in any repository: a script that pastes the helper from "
         "LOOPS.md, or an agent session that uses the loopcaptain MCP server. Both write the loop's "
-        "folder, .loops/loop-id, with three files: loop.json, events.jsonl and inbox.jsonl. On the "
+        "folder, .loops/loop-id, with loop.json, events.jsonl and inbox.jsonl. On the "
         "right, the board on this machine reads the folder and shows every loop, one loop in detail, "
         "and the protocol to copy. Your answer, a stop or a start goes back through inbox.jsonl, which "
         "the loop reads at its next round."
@@ -268,7 +268,7 @@ def group(
     """A lifted background tile with its flat tiles: each is (name, what it does, look).
 
     The look is `mono` for a file of this repository, `plain` for anything else, `key` for a tile
-    that carries the logic and `file` for one of the loop's three files.
+    that carries the logic and `file` for one of the loop's files.
     """
     h = group_height(len(tiles))
     parts = [
@@ -342,7 +342,7 @@ def parts_picture(theme: str) -> str:
         f'<g font-family="{FONT}">',
         group(left, top, "A LOOP, IN ITS OWN REPOSITORY", loops, t),
         group(middle, ways_top, "WAYS IN WITHOUT A SCRIPT", ways, t),
-        group(right, top, "THE LOOP'S FOLDER: THREE FILES", folder, t),
+        group(right, top, "THE LOOP'S FOLDER", folder, t),
         group(right, low, "PROTOCOL/: THE STANDARD AS CODE", protocol, t),
         group(middle, low, "BOARD/: THIS MACHINE ONLY", board, t),
         # you: the one filled tile, where a person decides
@@ -406,7 +406,7 @@ def parts_picture(theme: str) -> str:
         text(
             40,
             height - 26,
-            "The board keeps no state of its own: every page is the three files, read again.",
+            "The board keeps no state of its own: every page is the loop's files, read again.",
             14,
             grey,
         ),
@@ -532,7 +532,7 @@ def request_picture(theme: str) -> str:
         ("GET /loop/...", ("a request for", "one loop's page"), "plain"),
         ("board/app.py", ("the host guard,", "then the route"), "mono"),
         ("board/discover.py", ("find_loop: only", "watched repositories"), "mono"),
-        ("protocol/store.py", ("reads the three files;", "a bad line is a Problem"), "mono"),
+        ("protocol/store.py", ("reads the loop's files;", "a bad line is a Problem"), "mono"),
         ("protocol/models.py", ("validates", "each line"), "mono"),
     ]
     second = [
@@ -593,7 +593,7 @@ def request_picture(theme: str) -> str:
     label = (
         "How one page comes about. A request for a loop's page passes the host guard in board/app.py, "
         "board/discover.py finds the loop among the watched repositories, protocol/store.py reads the "
-        "three files and protocol/models.py validates each line. protocol/state.py folds the lines "
+        "loop's files and protocol/models.py validates each line. protocol/state.py folds the lines "
         "into rounds, runs, findings and a status, with board/steer.py saying whether a started "
         "process is alive; board/graph.py lays out the round, the template renders it, and the answer "
         "is HTML under a content policy without inline script."

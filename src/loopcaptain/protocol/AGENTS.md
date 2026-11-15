@@ -6,7 +6,7 @@ the text and this folder disagree, both are wrong until a test says which.
 
 | File | Holds |
 |---|---|
-| `models.py` | The Pydantic models of the three files: `Manifest` (`loop.json`), the eight events (`events.jsonl`), `InboxEntry` (`inbox.jsonl`). Frozen; unknown fields ignored |
+| `models.py` | The Pydantic models of the loop's files: `Manifest` (`loop.json`), the events (`events.jsonl`), `InboxEntry` (`inbox.jsonl`). Frozen; unknown fields ignored |
 | `store.py` | Reading and writing a loop's folder: atomic `loop.json`, append-only lines, bad lines reported as `Problem`, never fatal |
 | `state.py` | `fold`: manifest + events + inbox + a clock -> `LoopState` (rounds, runs, findings, items, status). Pure |
 | `validate.py` | `loopcaptain validate`: what a folder gets wrong, one line each |

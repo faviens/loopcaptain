@@ -5,7 +5,7 @@ is for using the board and connecting a loop, §B for changing this
 repository.
 
 One board for every agent loop on a laptop. A loop, in its own repository,
-writes three small files into `.loops/<loop-id>/`; the board reads them,
+writes a few small files into `.loops/<loop-id>/`; the board reads them,
 shows where the loop stands, and writes the person's answers back. A loop
 never imports this repository.
 

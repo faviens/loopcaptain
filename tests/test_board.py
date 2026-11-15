@@ -687,6 +687,18 @@ def test_the_round_shows_what_its_steps_and_verdict_report(
     assert "$9.00 for the round" in page and ">discarded<" in page
 
 
+def test_a_step_shows_the_model_it_really_ran_on(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit(
+        "scan", "step_finished", {"round": 2, "step": "research", "attempt": 2, "model": "small"}, scan
+    )
+
+    page = client.get("/loop/some-repo/scan?tab=rounds&round=2").text
+
+    assert "model <code>small</code>" in page
+
+
 def test_a_trend_is_called_better_only_where_the_loop_says_which_way_is_better() -> None:
     rising = trend.chart(trend.Series("cost", ((1, 1.0), (2, 3.0)), unit="$"))
     falling = trend.chart(trend.Series("open", ((1, 4.0), (2, 1.0)), better="lower"))

@@ -2,7 +2,7 @@
 
 Loopcaptain is one Python package with one command, `loopcaptain`. It runs
 on macOS and Linux and needs Python 3.12 or later. A loop that reports to
-the board installs nothing: it writes three files, see
+the board installs nothing: it writes its files, see
 [Connect or build a loop](connect.md).
 
 ## Requirements
