@@ -6,8 +6,12 @@ says, for people and agents alike:
 1. One branch, one logical change, a test that fails without it.
 2. `make setup` once, then `make check` green: format, lint, types, tests,
    coverage. It is exactly what CI runs.
-3. Commit subjects are `type(scope): subject`, the body says why. No AI
-   attribution lines: the person who opens the pull request is the author.
+3. Commit subjects and pull request titles are Conventional Commits,
+   `type(scope): subject`; the type decides the next version number. The
+   text says what changes, why, and how it was checked, and nothing about
+   the conversation that led to it. No AI attribution lines: the person
+   who opens the pull request is the author. The rules are in
+   [AGENTS.md](AGENTS.md#commits-and-pull-requests).
 4. A change to what a loop writes changes `standard/LOOPS.md`, the models
    and the schema together (`make schema`), and protocol 1 only grows.
 5. Nothing names a company, a client or a real loop.

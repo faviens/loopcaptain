@@ -172,8 +172,45 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 9. **Python:** 3.12, `uv`, `ruff` at 110, `mypy` strict, `pytest`. No
    module-level helper with a `_` prefix, no `**kwargs` catch-all,
    `logging` instead of `print` outside the command line.
-10. **Commits:** `type(scope): subject`, imperative, under 72 characters,
-    bullets that say why. No AI attribution, no absolute paths.
+10. **Commits and pull requests** follow the section below: Conventional
+    Commits, and text about the change, never about the conversation that
+    led to it.
+
+### Commits and pull requests
+
+A commit message and a pull request description are read by a stranger,
+years later, who has the repository and nothing else.
+
+1. **Conventional Commits.** The subject is `type(scope): subject`:
+   imperative, under 72 characters, no full stop. The body is bullets that
+   say why. The type decides what a release does with the commit:
+
+   | Type | Use it for | Release |
+   |---|---|---|
+   | `fix` | a fault a user could meet | patch |
+   | `feat` | something a user can newly do or see | minor |
+   | `feat!`, `fix!`, or a `BREAKING CHANGE:` footer | a loop or a command of today stops working | major |
+   | `docs`, `test`, `refactor`, `perf`, `ci`, `build`, `chore`, `style`, `revert` | everything else | none |
+
+2. **A pull request title is a commit subject** of the same form. It names
+   the change that matters most to a user.
+3. **Say what changes, why, and how it was checked.** "Why" is the problem
+   as the repository shows it: what a reader saw, what failed, what was
+   missing. Every sentence must make sense without the conversation.
+4. **Never the conversation.** Not who asked for the change, what anyone
+   said, wanted, liked or disliked, what was discussed or agreed, or what
+   a session did on the way. Not "as requested", "per the review", "the
+   user wants", "we discussed". Write "the heading read as a fault", not
+   "the maintainer does not want readers to think it is broken".
+5. **Length follows the change.** Everything a reader needs to judge it,
+   and nothing that is background: no history of attempts, no options
+   that were not taken unless a later reader would retry them.
+6. **No AI attribution, no agent, model, tool or session named, no
+   absolute paths.**
+
+The commit-msg hooks check the subject's form, attribution, and the
+commonest phrases of rule 4 (`.pre-commit-config.yaml`). They catch the
+phrase, not the habit: the rule is the text above.
 
 ### Checks
 

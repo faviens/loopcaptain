@@ -113,6 +113,15 @@ repos:
         args: [--ignore-case, --multiline]
         entry: 'co-authored-by:.*\b(claude|anthropic|copilot|cursor|gemini|codex|chatgpt|openai|amp|opencode|aider|windsurf|devin|jules)\b|generated with \[?(claude|copilot|cursor|gemini|codex|chatgpt|amp|opencode|aider|windsurf|devin|jules)\b'
 
+      # A message describes the change, not the conversation that led to it: AGENTS.md,
+      # "Commits and pull requests", rule 4. This catches the commonest phrases only.
+      - id: no-conversation
+        name: no conversation in commit messages
+        language: pygrep
+        stages: [commit-msg]
+        args: [--ignore-case, --multiline]
+        entry: '\b(the user|the maintainer|the owner|the reviewer|the author) (asked|asks|wants|wanted|said|says|requested|prefers|complained|noted|pointed out|does not want|doesn.t want|did not like|didn.t like)\b|\bas (requested|discussed|asked|agreed|mentioned|instructed)\b|\bper (the |your |our )?(request|feedback|review|discussion|conversation|instructions?)\b|\b(we|you) (discussed|talked about|agreed)\b|\bin (this|our|the) (session|conversation|chat)\b|\byou (asked|said|wanted|mentioned)\b'
+
       - id: conventional-commit
         name: "commit subject is type(scope): subject"
         language: pygrep
