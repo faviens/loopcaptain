@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from loopcaptain.board import steer, trend
-from loopcaptain.board.app import STATUS_ORDER, create_app
+from loopcaptain.board.app import STATUS_ORDER, board_hosts, create_app
 from loopcaptain.board.discover import Config, find_repos, load_config, parse_config
 from loopcaptain.board.graph import columns, layout
 from loopcaptain.board.steer import Runner
@@ -893,3 +893,39 @@ def test_a_trail_keeps_the_latest_rounds_and_caps_the_shade() -> None:
     assert [cell.number for cell in cells] == list(range(3, 15))
     assert cells[0].look == "h4" and cells[0].label == "round 3: 6 open findings"
     assert cells[5].look == "h1" and cells[-1].look == "clear"
+
+
+def test_the_board_also_answers_to_a_host_name_the_person_names() -> None:
+    hosts = board_hosts(8484, ["box.tail1234.ts.net", "Laptop.Local"])
+
+    assert hosts == frozenset({"127.0.0.1:8484", "localhost:8484", "box.tail1234.ts.net", "laptop.local"})
+
+
+@pytest.mark.parametrize("name", ["http://box.ts.net", "*.ts.net", "box.ts.net/x", "", "a b", "box:443"])
+def test_a_host_name_that_is_not_a_plain_name_is_refused(name: str) -> None:
+    with pytest.raises(StoreError, match="host name"):
+        board_hosts(8484, [name])
+
+
+def test_a_named_host_reaches_the_pages_and_its_forms(scan: Path, tmp_path: Path) -> None:
+    named = "box.tail1234.ts.net"
+    app = create_app(
+        config=lambda: Config(repos=(scan,)),
+        runner=Runner(tmp_path / "s"),
+        allowed_hosts=board_hosts(8484, [named]),
+    )
+    phone = TestClient(app, base_url=f"https://{named}", follow_redirects=False)
+
+    page = phone.get("/")
+    sent = phone.post("/loop/some-repo/scan/stop", data={"token": str(app.state.token)})
+
+    assert page.status_code == 200
+    assert sent.status_code == 303
+    assert [entry.kind for entry in store.read_inbox(scan, "scan")[0]] == ["stop"]
+
+
+def test_serve_refuses_a_host_name_that_is_not_plain(capsys: pytest.CaptureFixture[str]) -> None:
+    from loopcaptain.cli import main
+
+    assert main(["serve", "--host-name", "https://box.ts.net"]) == 1
+    assert "not a plain host name" in capsys.readouterr().err

@@ -9,12 +9,13 @@
 The board on 127.0.0.1.
 
 ```text
-loopcaptain serve [-h] [--port PORT]
+loopcaptain serve [-h] [--port PORT] [--host-name NAME]
 ```
 
 | Argument | Meaning |
 |---|---|
 | `--port` | the port on 127.0.0.1, default 8484 |
+| `--host-name` | also answer to this host name, as a proxy such as `tailscale serve` forwards it; repeatable |
 
 ## `validate`
 

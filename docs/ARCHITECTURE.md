@@ -446,3 +446,23 @@ runs side by side.
 learns, and a fold that has to key rounds by two numbers. Numbering rounds
 on across runs: the loop's own files count from 1, so the board and the
 loop would disagree.
+
+## 22. The phone reaches the board through a private proxy, not a port of its own
+
+**Decision.** `loopcaptain serve --host-name <name>` adds plain host
+names to the ones the board answers to (`board_hosts` in
+`src/loopcaptain/board/app.py`). The board still binds `127.0.0.1`; a
+proxy on the same machine, such as `tailscale serve`, carries the
+phone's request to it. Pages, forms and the token work unchanged.
+
+**Why.** Checking and steering a loop from a phone is the most asked-for
+use away from the desk. The pages already fit a 390-pixel screen. A
+private network gives HTTPS and reaches only the person's devices,
+so the board needs no login of its own.
+
+**Rejected.** Binding `0.0.0.0`: the local network, a café's included,
+could steer. A public tunnel: the steering pages on the internet, which
+then need a real login. A native app: a second codebase that excludes
+one of the two phone platforms and still needs a way to the laptop.
+Accepting any host: a web page that points its own name at this
+machine could then reach the board.

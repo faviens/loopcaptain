@@ -68,7 +68,28 @@ loopcaptain serve --port 9000
    or a terminal multiplexer.
 4. Restart it after an upgrade.
 
-## 5. The key your answers are signed with
+## 5. On your phone
+
+The board never listens beyond 127.0.0.1. To open it on a phone, let a
+private network on this machine forward to it, such as
+[Tailscale](https://tailscale.com) with Serve and HTTPS certificates
+turned on for your tailnet, and Tailscale on the phone:
+
+```bash
+tailscale serve --bg http://127.0.0.1:8484
+loopcaptain serve --host-name <machine>.<tailnet>.ts.net
+```
+
+1. Open `https://<machine>.<tailnet>.ts.net` on the phone. Only your
+   tailnet's devices reach it; answers, notes and stops work as on the
+   laptop. "Add to Home Screen" keeps it one tap away.
+2. `--host-name` takes a plain name, no scheme, port or wildcard, and
+   may be given more than once. Without it the board refuses the name.
+3. Whoever can reach the name can steer your loops: share the machine
+   with nobody on the tailnet you would not hand the laptop.
+4. A sleeping laptop has no board, on any device.
+
+## 6. The key your answers are signed with
 
 The board signs every line it writes into a loop's `inbox.jsonl` with
 `~/.config/loopcaptain/inbox.key`, made on first use. A loop that reads
