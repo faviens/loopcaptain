@@ -33,8 +33,8 @@ docs: ## Build the documentation site into site/
 docs-serve: ## Preview the documentation site while editing
 	uv run --group docs zensical serve
 
-shots: ## Retake the screenshots from an invented set of loops, light and dark (needs Chrome)
-	uv run --with pillow python scripts/shots.py
+shots: ## Retake the screenshots from invented loops, light and dark (needs Chrome); ONLY=<word> for some
+	uv run --with pillow python scripts/shots.py $(ONLY)
 
 readme: ## Free: redraw the banner, the how-it-works picture and the architecture picture into docs/assets/
 	uv run python scripts/readme_assets.py

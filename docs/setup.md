@@ -16,6 +16,11 @@ The commands edit `~/.config/loopcaptain/config.yaml`; you can edit it by
 hand too, see [Configuration](reference/configuration.md). Worktrees of
 one repository show once.
 
+Every watched repository with a `.loops/` folder then appears on the
+board's front page, grouped by repository:
+
+![The board's front page with eight invented loops in four projects, each with its status, rounds, open findings, time and cost.](assets/screenshot-overview.webp)
+
 !!! warning "Watch only repositories you have read"
 
     The board's Start button runs the command a loop declares in its own
@@ -42,6 +47,11 @@ loopcaptain mcp-config <agent>      # prints the line that adds the server to yo
 ```
 
 [Works with every agent](agents.md) lists each agent.
+
+The board shows the same on its **Connect a loop** page: the two prompts
+with a Copy button, and the line for the agent you pick.
+
+![The board's Connect a loop page: two prompts to copy, and a row of agents to pick the MCP line for.](assets/screenshot-connect.webp)
 
 ## 4. Run the board
 

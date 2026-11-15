@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import tomllib
 import types
 from pathlib import Path
@@ -74,3 +75,16 @@ def test_the_first_screen_says_what_it_is_in_the_words_people_search() -> None:
     for word in ("open protocol", "agent loop", "dashboard", "monitor", "steer", "human in the loop"):
         assert word in opening, word
     assert description == site and len(description) <= 120
+
+
+def test_every_picture_a_page_shows_exists() -> None:
+    missing = []
+    for page in [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]:
+        base = ROOT if page.name == "README.md" else ROOT / "docs"
+        prefix = "docs/assets/" if page.name == "README.md" else "assets/"
+        for name in re.findall(rf"{prefix}([\w.-]+\.(?:webp|svg))", page.read_text(encoding="utf-8")):
+            if not (base / prefix / name).is_file():
+                missing.append(f"{page.name}: {name}")
+
+    assert missing == []
+    assert "assets/screenshot-connect.webp" in (ROOT / "docs" / "setup.md").read_text(encoding="utf-8")
