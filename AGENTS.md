@@ -93,7 +93,8 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
    typed in a browser.
 2. **What it reads.** Only files inside a watched repository, never `.git`,
    `.env*`, key or credential files, and the content of text files only.
-   It copies nothing and sends nothing anywhere. See
+   It copies nothing and sends nothing anywhere, unless the person turns on
+   `loopcaptain telegram`. See
    [SECURITY.md](SECURITY.md).
 
 ---
