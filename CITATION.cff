@@ -6,7 +6,6 @@ authors:
   - family-names: Vogler
     given-names: Daniel
 license: Apache-2.0
-version: 0.1.0
 keywords:
   - agent loop
   - agentic loop

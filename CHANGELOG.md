@@ -1,8 +1,13 @@
 # Changelog
 
-What changed for someone who uses Loopcaptain. Newest first.
+What changed for someone who uses Loopcaptain. This file holds the first
+version; every later version has its notes on the
+[releases page](https://github.com/faviens/loopcaptain/releases), written
+from the commits.
 
-## Unreleased
+## 0.1.0 (2026-11-15)
+
+The first public version.
 
 ### Security
 

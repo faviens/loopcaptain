@@ -690,7 +690,7 @@ wheels = [
 
 [[package]]
 name = "loopcaptain"
-version = "0.1.0"
+version = "0.0.0"
 source = { editable = "." }
 default-groups = ["dev", "docs"]
 dependencies = [
