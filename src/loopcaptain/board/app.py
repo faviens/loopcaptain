@@ -152,12 +152,23 @@ def create_app(
             for loop_id in store.loop_ids(repo.path)
         )
 
+    def seal(note: str, error: str) -> str:
+        """A mark only this server process can make, so a crafted link cannot put words on a page."""
+        return hmac.new(token.encode(), f"{note}\0{error}".encode(), "sha256").hexdigest()
+
     def back(repo_key: str, loop_id: str, note: str = "", error: str = "") -> RedirectResponse:
         url = str(app.url_path_for("loop_page", repo_key=repo_key, loop_id=loop_id))
-        query = "&".join(
-            f"{key}={quote(value)}" for key, value in (("note", note), ("error", error)) if value
-        )
-        return RedirectResponse(f"{url}?{query}" if query else url, status_code=303)
+        if not (note or error):
+            return RedirectResponse(url, status_code=303)
+        pairs = (("note", note), ("error", error), ("seal", seal(note, error)))
+        query = "&".join(f"{key}={quote(value)}" for key, value in pairs if value)
+        return RedirectResponse(f"{url}?{query}", status_code=303)
+
+    def message_of(request: Request) -> tuple[str, str]:
+        note = request.query_params.get("note", "")
+        error = request.query_params.get("error", "")
+        given = request.query_params.get("seal", "")
+        return (note, error) if hmac.compare_digest(given.encode(), seal(note, error).encode()) else ("", "")
 
     @app.get("/", response_class=HTMLResponse, name="overview")
     def overview(
@@ -218,6 +229,7 @@ def create_app(
             context = {"repo": broken, "loop_id": loop_id, "problems": problems}
             return templates.TemplateResponse(request, "unreadable.html", context)
         repo, manifest, view = view_of(repo_key, loop_id)
+        note, error = message_of(request)
         state = view.state
         if state is None:
             context = {"repo": repo, "loop_id": loop_id, "problems": [view.error]}
@@ -243,8 +255,8 @@ def create_app(
             "caps": caps_of(state),
             "token": token,
             "pulse": pulse_of(repo, loop_id, steer),
-            "note": request.query_params.get("note", ""),
-            "error": request.query_params.get("error", ""),
+            "note": note,
+            "error": error,
         }
         return templates.TemplateResponse(request, "loop.html", context)
 
