@@ -1,0 +1,35 @@
+name: scorecard
+
+# The OpenSSF Scorecard, weekly: how the repository's own practices look to a stranger who has
+# to decide whether to trust it. Results go to the code scanning tab, never block a change.
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  analysis:
+    # The Scorecard reads a repository as a stranger would, so it runs only once it is public.
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write  # publishes the result to the OpenSSF API
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: results.sarif

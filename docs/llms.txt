@@ -1,0 +1,27 @@
+# Loopcaptain
+
+> An open protocol for agent loops and a local dashboard to monitor and steer them. A loop
+> (a script, a Ralph loop, a long-running agent session) writes three small files into
+> .loops/<loop-id>/ in its own repository: loop.json, events.jsonl, inbox.jsonl. The board
+> shows where each loop stands, what it cost and what waits for a person, and writes the
+> person's answer, note or stop back. No dependency, no cloud, nothing leaves the machine.
+
+## Start
+
+- [Build a loop](standard/prompts/build-a-loop.md): Help me build an agent loop that reports to Loopcaptain.
+- [Watch the loops on this machine](standard/prompts/watch-my-loops.md): Help me see and steer the agent loops on this machine with Loopcaptain.
+- [Installation](docs/installation.md): one command, from the repository; Python 3.12 or later
+- [Get started](docs/get-started.md): the example loop, free, in five minutes
+- [Setup](docs/setup.md): what the board watches, checking a loop, when a loop does not show
+
+## The standard
+
+- [LOOPS.md](standard/LOOPS.md): the protocol, the helper to paste, conformance
+- [AGENTS.md for a loop](standard/AGENTS.md): connect a loop, or build one from nothing
+- [Works with every agent](docs/agents.md): how each coding agent adds the MCP server
+
+## Optional
+
+- [The command line](docs/reference/cli.md)
+- [The MCP tools](docs/reference/mcp.md)
+- [Security](SECURITY.md)

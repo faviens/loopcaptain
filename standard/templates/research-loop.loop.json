@@ -1,0 +1,27 @@
+{
+  "protocol": 1,
+  "id": "research-loop",
+  "title": "A research loop: plan, research, analyse, build, review, decide",
+  "brief": {
+    "goal": "The question the loop answers from public evidence",
+    "audience": "Who reads the result",
+    "bar": "What must hold before a person would sign it",
+    "path": "brief/brief.md"
+  },
+  "steps": [
+    {"id": "plan", "kind": "plan", "name": "Partner plans", "purpose": "Keeps the issue tree and picks the round's work"},
+    {"id": "research", "kind": "research", "name": "Researchers", "purpose": "One angle each, in parallel; send one step_finished per angle with a label"},
+    {"id": "analyse", "kind": "analyse", "name": "Analysts", "purpose": "Derive numbers from the evidence with scripts"},
+    {"id": "build", "kind": "build", "name": "Builder", "purpose": "Writes the deliverable when the planner says so"},
+    {"id": "review-facts", "kind": "review", "name": "facts", "after": ["build"], "purpose": "Every number has a source"},
+    {"id": "review-storyline", "kind": "review", "name": "storyline", "after": ["build"], "purpose": "The argument holds"},
+    {"id": "review-client", "kind": "review", "name": "client", "after": ["build"], "purpose": "Reads as the audience"},
+    {"id": "gate", "kind": "gate", "name": "Gate", "after": ["review-facts", "review-storyline", "review-client"], "purpose": "Checks what code can check"},
+    {"id": "verdict", "kind": "verdict", "name": "Partner decides", "purpose": "Stop, or the brief for the next round"}
+  ],
+  "round_cap": 15,
+  "cost_cap_usd": 100,
+  "pace": "stops after round 1 until the storyline is approved",
+  "commands": {"start": "make loop ROUNDS=3"},
+  "outputs": [{"name": "deck", "path": "build/deck.md"}]
+}

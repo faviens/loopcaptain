@@ -1,0 +1,1084 @@
+{
+  "$defs": {
+    "Check": {
+      "description": "One check of one item the loop evaluates or builds: a use case, a skill, a feature.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "check",
+          "default": "check",
+          "title": "Event",
+          "type": "string"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence"
+        },
+        "finding": {
+          "default": "",
+          "title": "Finding",
+          "type": "string"
+        },
+        "item": {
+          "title": "Item",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "partly",
+            "fail",
+            "blocked"
+          ],
+          "title": "Result",
+          "type": "string"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Round"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "who": {
+          "default": "",
+          "title": "Who",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "item",
+        "kind",
+        "result"
+      ],
+      "title": "Check",
+      "type": "object"
+    },
+    "Cost": {
+      "description": "What a step or round cost. `usd` is optional: an agent on a subscription reports none.",
+      "properties": {
+        "estimated": {
+          "default": false,
+          "title": "Estimated",
+          "type": "boolean"
+        },
+        "tokens_cache_read": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tokens Cache Read",
+          "type": "integer"
+        },
+        "tokens_cache_write": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tokens Cache Write",
+          "type": "integer"
+        },
+        "tokens_in": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tokens In",
+          "type": "integer"
+        },
+        "tokens_out": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tokens Out",
+          "type": "integer"
+        },
+        "turns": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Turns",
+          "type": "integer"
+        },
+        "usd": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Usd",
+          "type": "number"
+        }
+      },
+      "title": "Cost",
+      "type": "object"
+    },
+    "Finding": {
+      "description": "Something a step found wrong. `id` is unique within its step and round.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "severity": {
+          "default": "material",
+          "enum": [
+            "material",
+            "minor"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "FindingClosed": {
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "finding_closed",
+          "default": "finding_closed",
+          "title": "Event",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "enum": [
+                "fixed",
+                "accepted",
+                "wontfix",
+                "false_positive",
+                "duplicate"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolution"
+        },
+        "round": {
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "step": {
+          "title": "Step",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "round",
+        "step",
+        "id"
+      ],
+      "title": "FindingClosed",
+      "type": "object"
+    },
+    "Heartbeat": {
+      "description": "Alive and between signs: a loop that sleeps or works quietly says when to expect it next.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "heartbeat",
+          "default": "heartbeat",
+          "title": "Event",
+          "type": "string"
+        },
+        "next_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next At"
+        },
+        "text": {
+          "default": "",
+          "title": "Text",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts"
+      ],
+      "title": "Heartbeat",
+      "type": "object"
+    },
+    "InboxRead": {
+      "description": "The loop has taken these inbox entries, so the board can show them as read.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "inbox_read",
+          "default": "inbox_read",
+          "title": "Event",
+          "type": "string"
+        },
+        "ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ids",
+          "type": "array"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "ids"
+      ],
+      "title": "InboxRead",
+      "type": "object"
+    },
+    "LoopStopped": {
+      "description": "The loop ended between rounds: a stop that came after the last round finished, a cap.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "loop_stopped",
+          "default": "loop_stopped",
+          "title": "Event",
+          "type": "string"
+        },
+        "stop_reason": {
+          "default": "person",
+          "enum": [
+            "goal_met",
+            "round_cap",
+            "cost_cap",
+            "runtime_cap",
+            "person",
+            "no_progress",
+            "error",
+            "impossible"
+          ],
+          "title": "Stop Reason",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts"
+      ],
+      "title": "LoopStopped",
+      "type": "object"
+    },
+    "Metric": {
+      "description": "A number a loop optimises, per step or round: a score, a test pass rate, a word count.",
+      "properties": {
+        "better": {
+          "anyOf": [
+            {
+              "enum": [
+                "higher",
+                "lower"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Better"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "Option": {
+      "description": "One answer a question offers; the board draws a button for it.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "Option",
+      "type": "object"
+    },
+    "Question": {
+      "description": "The loop needs the person. Open until the person replies through the inbox.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "blocks": {
+          "default": false,
+          "title": "Blocks",
+          "type": "boolean"
+        },
+        "event": {
+          "const": "question",
+          "default": "question",
+          "title": "Event",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Round"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "timeout_s": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout S"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "text"
+      ],
+      "title": "Question",
+      "type": "object"
+    },
+    "QuestionClosed": {
+      "description": "The loop ends its own question: answered elsewhere, overtaken by a default, or withdrawn.",
+      "properties": {
+        "answer": {
+          "default": "",
+          "title": "Answer",
+          "type": "string"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "question_closed",
+          "default": "question_closed",
+          "title": "Event",
+          "type": "string"
+        },
+        "question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question"
+        },
+        "reason": {
+          "default": "answered",
+          "enum": [
+            "answered",
+            "superseded",
+            "withdrawn"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts"
+      ],
+      "title": "QuestionClosed",
+      "type": "object"
+    },
+    "RoundFinished": {
+      "properties": {
+        "artifact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cost"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "event": {
+          "const": "round_finished",
+          "default": "round_finished",
+          "title": "Event",
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metric"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "next": {
+          "default": "",
+          "title": "Next",
+          "type": "string"
+        },
+        "next_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next At"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "enum": [
+                "kept",
+                "discarded"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome"
+        },
+        "round": {
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "stop_reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "goal_met",
+                "round_cap",
+                "cost_cap",
+                "runtime_cap",
+                "person",
+                "no_progress",
+                "error",
+                "impossible"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stop Reason"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "continue",
+            "done",
+            "wait",
+            "stopped",
+            "failed"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "round",
+        "verdict"
+      ],
+      "title": "RoundFinished",
+      "type": "object"
+    },
+    "RoundStarted": {
+      "properties": {
+        "artifact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "round_started",
+          "default": "round_started",
+          "title": "Event",
+          "type": "string"
+        },
+        "plan": {
+          "default": "",
+          "title": "Plan",
+          "type": "string"
+        },
+        "round": {
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "round"
+      ],
+      "title": "RoundStarted",
+      "type": "object"
+    },
+    "StepError": {
+      "properties": {
+        "kind": {
+          "default": "transient",
+          "enum": [
+            "transient",
+            "needs_person"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "title": "StepError",
+      "type": "object"
+    },
+    "StepFinished": {
+      "properties": {
+        "artifact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "attempt": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attempt"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cost"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "event": {
+          "const": "step_finished",
+          "default": "step_finished",
+          "title": "Event",
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metric"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "round": {
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "session": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session"
+        },
+        "status": {
+          "default": "ok",
+          "enum": [
+            "ok",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "step": {
+          "title": "Step",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "round",
+        "step"
+      ],
+      "title": "StepFinished",
+      "type": "object"
+    },
+    "StepStarted": {
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "step_started",
+          "default": "step_started",
+          "title": "Event",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "round": {
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "step": {
+          "title": "Step",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "round",
+        "step"
+      ],
+      "title": "StepStarted",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "check": "#/$defs/Check",
+      "finding_closed": "#/$defs/FindingClosed",
+      "heartbeat": "#/$defs/Heartbeat",
+      "inbox_read": "#/$defs/InboxRead",
+      "loop_stopped": "#/$defs/LoopStopped",
+      "question": "#/$defs/Question",
+      "question_closed": "#/$defs/QuestionClosed",
+      "round_finished": "#/$defs/RoundFinished",
+      "round_started": "#/$defs/RoundStarted",
+      "step_finished": "#/$defs/StepFinished",
+      "step_started": "#/$defs/StepStarted"
+    },
+    "propertyName": "event"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/RoundStarted"
+    },
+    {
+      "$ref": "#/$defs/StepStarted"
+    },
+    {
+      "$ref": "#/$defs/StepFinished"
+    },
+    {
+      "$ref": "#/$defs/FindingClosed"
+    },
+    {
+      "$ref": "#/$defs/RoundFinished"
+    },
+    {
+      "$ref": "#/$defs/Question"
+    },
+    {
+      "$ref": "#/$defs/QuestionClosed"
+    },
+    {
+      "$ref": "#/$defs/Check"
+    },
+    {
+      "$ref": "#/$defs/InboxRead"
+    },
+    {
+      "$ref": "#/$defs/LoopStopped"
+    },
+    {
+      "$ref": "#/$defs/Heartbeat"
+    }
+  ]
+}

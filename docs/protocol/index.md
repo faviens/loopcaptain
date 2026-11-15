@@ -1,0 +1,1 @@
+--8<-- "standard/LOOPS.md"

@@ -1,0 +1,11 @@
+Loopcaptain
+Copyright 2026 Daniel Vogler
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The files of the standard (standard/) may be copied into any repository:
+that is what they are for.
+
+This product includes the Inter and Inter Tight typefaces, served from
+src/loopcaptain/board/static/fonts/ under the SIL Open Font License 1.1 (see
+OFL.txt in that folder).

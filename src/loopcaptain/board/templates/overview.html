@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% set page = 'overview' %}
+{% block title %}{% if waiting %}({{ waiting|length }}) {% endif %}Loops · Loopcaptain{% endblock %}
+{% block body_attrs %} data-pulse-url="{{ url_for('overview_pulse') }}" data-pulse="{{ pulse }}"{% endblock %}
+{% block main %}
+<p class="eyebrow">Where every loop stands</p>
+<h1>Loops</h1>
+{% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
+
+{% if views %}
+{% set running = views|selectattr('state')|selectattr('state.status', 'equalto', 'running')|list %}
+{% set here = url_for('overview') %}
+<section class="kpis" aria-label="Totals">
+  <div class="kpi"><b>{{ views|length }}</b><span>loop{{ 's' if views|length != 1 }} in {{ project_count }} project{{ 's' if project_count != 1 }}</span></div>
+  <div class="kpi{{ ' hot' if waiting }}"><b>{{ waiting|length }}</b><span>wait{{ 's' if waiting|length == 1 }} for your answer</span></div>
+  <div class="kpi"><b>{{ running|length }}</b><span>running now</span></div>
+  <div class="kpi"><b>{{ views|selectattr('state')|map(attribute='state.rounds')|map('length')|sum }}</b><span>rounds in total</span></div>
+  <div class="kpi"><b>{{ total_usd|usd or '$0' }}</b><span>reported cost of all rounds</span></div>
+</section>
+
+<nav class="tabs" aria-label="Parts of this page">
+  <a href="{{ here }}"{% if tab == 'loops' %} aria-current="page"{% endif %}>All loops<span class="n">{{ views|length }}</span></a>
+  <a href="{{ here }}?tab=waiting"{% if tab == 'waiting' %} aria-current="page"{% endif %}>Waiting for you<span class="n{{ ' hot' if waiting }}">{{ waiting|length }}</span></a>
+</nav>
+
+{% if tab == 'waiting' %}
+{% if not waiting %}<p class="empty tabbed">Nothing waits for you. A loop that needs you shows here with its question.</p>{% endif %}
+{% for view in waiting %}
+<section class="ask" aria-label="Question from {{ view.title }}">
+  <dl class="from">
+    <div><dt>Project</dt><dd>{{ view.repo.key }}</dd></div>
+    <div><dt>Loop</dt><dd><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a></dd></div>
+    <div><dt>Asked</dt><dd>{% if view.state.question.round %}round {{ view.state.question.round }} · {% endif %}{{ view.state.question.asked|ago }}{% if view.state.question.blocks %} · it stands still until you answer{% endif %}</dd></div>
+  </dl>
+  <p class="q">{% if view.state.question.needs_person %}<b>A step needs you.</b> {% endif %}{{ view.state.question.text }}</p>
+  {% if view.state.question.options %}
+  <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    {% for option in view.state.question.options %}<button type="submit" name="choice" value="{{ option.id }}">{{ option.label }}</button>{% endfor %}
+  </form>
+  {% endif %}
+  <form class="say" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    <textarea name="text" required aria-label="Your answer to {{ view.title }}" placeholder="Your answer. The loop reads it at its next round."></textarea>
+    <button type="submit">Send answer</button>
+  </form>
+</section>
+{% endfor %}
+{% else %}
+<form class="filters" method="get" action="{{ here }}" role="search" aria-label="Filter the loops">
+  <label><span class="sr">Find</span><input type="search" name="q" value="{{ filters.q }}" placeholder="Find a loop, a project, a goal"></label>
+  <label><span class="sr">Status</span><select name="status">
+    <option value="">every status</option>
+    {% for name in statuses %}<option value="{{ name }}"{% if filters.status == name %} selected{% endif %}>{{ name }}</option>{% endfor %}
+  </select></label>
+  <label class="tick"><input type="checkbox" name="finished" value="1"{% if filters.finished %} checked{% endif %}> show finished loops</label>
+  <button type="submit" class="quiet">Filter</button>
+  {% if filters.q or filters.status or filters.finished %}<a href="{{ here }}">clear</a>{% endif %}
+</form>
+{% if not projects %}<p class="empty tabbed">No loop matches{% if hidden %}; {{ hidden }} finished loop{{ 's' if hidden != 1 }} folded away{% endif %}.</p>{% else %}
+<div class="card flush tabbed">
+<table class="loops">
+  <thead><tr>
+    <th scope="col">Loop</th><th scope="col">Status</th><th scope="col">What it is for</th><th scope="col" class="r" title="A square per round, darker for more findings left open; a green dot for none; a ring while it runs">Rounds</th><th scope="col" class="r">Open findings</th><th scope="col" class="r">Time</th><th scope="col" class="r">Cost</th><th scope="col">Last sign of life</th><th scope="col"><span class="sr">Open</span></th>
+  </tr></thead>
+  {% for project in projects %}
+  <tbody>
+  <tr class="project">
+    <th scope="rowgroup" colspan="9"><span class="eyebrow">Project</span><b>{{ project.repo.key }}</b><span class="where">{{ project.place }}{% if project.branch %} · branch {{ project.branch }}{% endif %} · {{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}</th>
+  </tr>
+  {% for view in project.views %}
+  <tr>
+    <td class="name"><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a><span class="id">{{ view.loop_id }}</span></td>
+    {% if view.state %}
+    {% set s = view.state %}
+    <td><span class="pill {{ s.status }}" title="{{ status_text[s.status] }}">{{ s.status }}</span>{% if s.question and s.status != 'waiting' %}<span class="asks" title="it has a question for you">asks</span>{% endif %}{% set signs = no_progress(s) %}{% if signs %}<span class="stuck" title="{{ signs|join('; ') }}">no progress?</span>{% endif %}</td>
+    <td class="goal">{{ s.manifest.brief.goal|truncate(150) }}</td>
+    <td class="r num">{{ s.rounds|length }}{% if s.manifest.round_cap %}<span class="grey"> / {{ s.manifest.round_cap }}</span>{% endif %}{% set trail = trail_of(s) %}{% if trail %}<span class="trail" role="img" aria-label="{{ trail|map(attribute='label')|join('; ') }}">{% for cell in trail %}<i class="{{ cell.look }}" title="{{ cell.label }}"></i>{% endfor %}</span>{% endif %}</td>
+    <td class="r num">{{ s.open_findings|length or '' }}</td>
+    <td class="r num">{{ s.minutes|minutes }}</td>
+    <td class="r num">{{ s.cost_usd|usd }}</td>
+    <td class="grey">{{ s.last_event|ago }}{% if view.problems %} · {{ view.problems|length }} unreadable line{{ 's' if view.problems|length != 1 }}{% endif %}</td>
+    {% else %}
+    <td><span class="pill failed">unreadable</span></td>
+    <td class="goal" colspan="6">{{ view.error }}</td>
+    {% endif %}
+    <td class="go" aria-hidden="true">Open<i></i></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  {% endfor %}
+</table>
+</div>
+{% if hidden %}<p class="note">{{ hidden }} finished loop{{ 's' if hidden != 1 }} folded away. <a href="{{ here }}?finished=1{% if filters.q %}&amp;q={{ filters.q|urlencode }}{% endif %}">Show {{ 'them' if hidden != 1 else 'it' }}</a>.</p>{% endif %}
+{% endif %}
+{% endif %}
+{% else %}
+<section class="start-here" aria-label="Get started">
+  <p class="lead">{% if not config.source %}No loop to show yet, and no list of repositories to watch.{% else %}None of the repositories in <code>{{ config.source.name }}</code> has a <code>.loops/</code> folder yet.{% endif %} Copy one of these into your coding agent:</p>
+  <div class="prompts">
+    <div class="card"><p class="eyebrow">Build a loop</p><pre class="prompt" tabindex="0">{{ prompts['build-a-loop'] }}</pre></div>
+    <div class="card"><p class="eyebrow">Watch the loops on this machine</p><pre class="prompt" tabindex="0">{{ prompts['watch-my-loops'] }}</pre></div>
+  </div>
+  <p class="note">Or see it first with an invented loop that costs nothing: <code>loopcaptain demo</code>, then reload. To watch your own repositories, list them under <code>roots:</code> or <code>repos:</code> in <code>~/.config/loopcaptain/config.yaml</code>, or run <code>loopcaptain watch &lt;folder&gt;</code>. <a href="{{ url_for('connect') }}">How a loop connects</a>.</p>
+</section>
+{% endif %}
+{% endblock %}

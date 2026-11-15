@@ -1,0 +1,296 @@
+{
+  "$defs": {
+    "Brief": {
+      "description": "What the loop is for, in the person's words. `path` points to the full brief.",
+      "properties": {
+        "audience": {
+          "default": "",
+          "title": "Audience",
+          "type": "string"
+        },
+        "bar": {
+          "default": "",
+          "title": "Bar",
+          "type": "string"
+        },
+        "goal": {
+          "default": "",
+          "title": "Goal",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        }
+      },
+      "title": "Brief",
+      "type": "object"
+    },
+    "Output": {
+      "description": "Something the loop makes: a deck, a dashboard, a memo.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "Output",
+      "type": "object"
+    },
+    "StateFile": {
+      "description": "A file one round hands to the next: a progress note, a feature list.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "StateFile",
+      "type": "object"
+    },
+    "Step": {
+      "description": "One role of a round: a planner, a researcher, a reviewer, a gate.\n\n`after` names the steps this one waits for. Left out, the step follows the one listed before\nit, so a plain sequence needs no `after` at all.",
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After"
+        },
+        "backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Backend"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "default": "other",
+          "enum": [
+            "plan",
+            "research",
+            "analyse",
+            "build",
+            "review",
+            "gate",
+            "verdict",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt"
+        },
+        "purpose": {
+          "default": "",
+          "title": "Purpose",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "Workspace": {
+      "description": "Where the loop runs, so a person can pick it up: shown as text to copy, never run.",
+      "properties": {
+        "branch": {
+          "default": "",
+          "title": "Branch",
+          "type": "string"
+        },
+        "worktree": {
+          "default": "",
+          "title": "Worktree",
+          "type": "string"
+        }
+      },
+      "title": "Workspace",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "brief": {
+      "$ref": "#/$defs/Brief",
+      "default": {
+        "audience": "",
+        "bar": "",
+        "goal": "",
+        "path": null
+      }
+    },
+    "commands": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Commands",
+      "type": "object"
+    },
+    "cost_cap_usd": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Cap Usd"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "outputs": {
+      "items": {
+        "$ref": "#/$defs/Output"
+      },
+      "title": "Outputs",
+      "type": "array"
+    },
+    "pace": {
+      "default": "",
+      "title": "Pace",
+      "type": "string"
+    },
+    "protocol": {
+      "default": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "round_cap": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Round Cap"
+    },
+    "runtime_cap_minutes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runtime Cap Minutes"
+    },
+    "state": {
+      "items": {
+        "$ref": "#/$defs/StateFile"
+      },
+      "title": "State",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+    },
+    "workspace": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Workspace"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

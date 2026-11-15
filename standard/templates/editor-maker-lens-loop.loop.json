@@ -1,0 +1,25 @@
+{
+  "protocol": 1,
+  "id": "editor-maker-lens-loop",
+  "title": "A brief-and-lenses loop: an editor, makers, the lenses the brief picks",
+  "brief": {
+    "goal": "What the outputs must let the reader do",
+    "audience": "The reader",
+    "bar": "What the reader can say or decide afterwards",
+    "path": "topics/<topic>/BRIEF.md"
+  },
+  "steps": [
+    {"id": "plan", "kind": "plan", "name": "Editor plans", "prompt": "editor/plan.md"},
+    {"id": "maker-dashboard", "kind": "build", "name": "Dashboard maker", "after": ["plan"]},
+    {"id": "maker-memo", "kind": "build", "name": "Memo maker", "after": ["plan"]},
+    {"id": "lens-fact-checker", "kind": "review", "name": "fact-checker", "after": ["maker-dashboard", "maker-memo"], "prompt": "lenses/fact-checker.md"},
+    {"id": "lens-newcomer", "kind": "review", "name": "newcomer", "after": ["maker-dashboard", "maker-memo"], "prompt": "lenses/newcomer.md"},
+    {"id": "lens-slop", "kind": "review", "name": "slop", "after": ["maker-dashboard", "maker-memo"], "prompt": "lenses/slop.md"},
+    {"id": "gate", "kind": "gate", "name": "Gate", "after": ["lens-fact-checker", "lens-newcomer", "lens-slop"]},
+    {"id": "verdict", "kind": "verdict", "name": "Editor decides", "prompt": "editor/verdict.md"}
+  ],
+  "round_cap": 12,
+  "pace": "when asked: rounds run until the editor needs the person",
+  "commands": {"start": "make go TOPIC=<topic> ROUNDS=3"},
+  "outputs": [{"name": "dashboard", "path": "topics/<topic>/out/dashboard/index.html"}]
+}

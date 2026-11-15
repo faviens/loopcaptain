@@ -1,0 +1,23 @@
+name: A loop does not show up
+description: A loop writes .loops/ but the board does not show it, or shows it wrong.
+labels: [connect]
+body:
+  - type: textarea
+    id: validate
+    attributes:
+      label: What `loopcaptain validate <repository>` prints
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: How the board watches the repository
+      description: The roots and repos entries, with your own folder names replaced.
+      render: yaml
+  - type: textarea
+    id: what
+    attributes:
+      label: What you expected to see
+    validations:
+      required: true

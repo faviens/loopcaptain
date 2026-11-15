@@ -1,0 +1,872 @@
+"""The pages, the forms and the guards of the board, over a temporary repository."""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+import time
+import types
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import get_args
+
+import pytest
+from fastapi.testclient import TestClient
+
+from loopcaptain.board import steer, trend
+from loopcaptain.board.app import STATUS_ORDER, create_app
+from loopcaptain.board.discover import Config, find_repos, load_config, parse_config
+from loopcaptain.board.graph import columns, layout
+from loopcaptain.board.steer import Runner
+from loopcaptain.cli import main as cli_main
+from loopcaptain.protocol import signing, store
+from loopcaptain.protocol.models import Manifest
+from loopcaptain.protocol.state import STATUS_TEXT, FindingState, LoopState, RoundState, Status, StepRun
+from loopcaptain.protocol.store import StoreError
+from tests.conftest import STEPS
+
+HOST = "board.test"
+
+
+@pytest.fixture
+def client(scan: Path, tmp_path: Path) -> TestClient:
+    app = create_app(
+        config=lambda: Config(repos=(scan,)),
+        runner=Runner(tmp_path / "state"),
+        allowed_hosts=frozenset({HOST}),
+    )
+    return TestClient(app, base_url=f"http://{HOST}", follow_redirects=False)
+
+
+def token_of(client: TestClient) -> str:
+    return str(client.app.state.token)  # type: ignore[attr-defined]
+
+
+def test_overview_lists_the_loop_with_its_status_and_cost(client: TestClient) -> None:
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "Market scan" in page.text and "$0.75" in page.text and 'class="pill running"' in page.text
+
+
+def test_overview_groups_the_loops_under_the_project_they_live_in(client: TestClient, scan: Path) -> None:
+    page = client.get("/").text
+
+    project = page[
+        page.index('<tr class="project">') : page.index("</tr>", page.index('<tr class="project">'))
+    ]
+    assert "Project" in project and "some-repo" in project and "1 loop" in project
+    assert str(scan.parent.name) in project  # where the repository is, not only its name
+    assert '<span class="id">scan</span>' in page
+
+
+def test_overview_has_a_tab_for_what_waits_marked_only_when_something_does(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    quiet = client.get("/").text
+    assert 'href="http://board.test/?tab=waiting"' in quiet and 'class="n hot"' not in quiet
+
+    helper.emit("scan", "question", {"round": 2, "text": "Per seat or per site?"}, scan)
+    loops, waiting = client.get("/").text, client.get("/?tab=waiting").text
+
+    assert 'class="n hot"' in loops and 'class="waits"' in loops
+    assert "Per seat or per site?" not in loops and "<table" in loops
+    assert "Per seat or per site?" in waiting and "<table" not in waiting
+    assert client.get("/?tab=nonsense").text.count("<table") == 1
+
+
+def test_a_question_on_the_overview_names_its_project_and_its_loop(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "question", {"round": 2, "text": "Per seat or per site?"}, scan)
+
+    page = client.get("/?tab=waiting").text
+
+    card = page[
+        page.index('<section class="ask"') : page.index("</section>", page.index('<section class="ask"'))
+    ]
+    assert "<dt>Project</dt><dd>some-repo</dd>" in card
+    assert "<dt>Loop</dt>" in card and "Market scan" in card and "round 2" in card
+
+
+def test_the_overview_pulse_reads_no_loop_and_matches_the_page(
+    client: TestClient, scan: Path, helper: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = client.get("/").text
+    drawn = re.search(r'data-pulse="([^"]*)"', page)
+    assert drawn is not None
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("the pulse parsed a loop")
+
+    monkeypatch.setattr("loopcaptain.board.app.load_loop", refuse)
+    assert client.get("/pulse").json()["pulse"] == drawn.group(1)
+    helper.emit("scan", "check", {"item": "x", "kind": "y", "result": "pass"}, scan)
+    assert client.get("/pulse").json()["pulse"] != drawn.group(1)
+
+
+def test_the_waiting_tab_says_so_when_nothing_waits(client: TestClient) -> None:
+    assert "Nothing waits for you" in client.get("/?tab=waiting").text
+
+
+def test_the_overview_tab_shows_the_graph_and_the_brief_but_no_round_table(client: TestClient) -> None:
+    page = client.get("/loop/some-repo/scan")
+
+    assert page.status_code == 200
+    assert page.text.count('<g class="node') == 7
+    assert 'aria-current="page">Overview' in page.text
+    assert "<h2>Round" not in page.text and 'class="grid"' not in page.text
+
+
+def test_a_link_to_a_round_opens_the_rounds_tab_on_that_round(client: TestClient) -> None:
+    page = client.get("/loop/some-repo/scan?round=1")
+
+    assert 'aria-current="page">Rounds' in page.text and 'class="grid"' in page.text
+    assert "<h2>Round 1</h2>" in page.text and "abc1234" in page.text
+    assert "No source for 40 percent." in page.text and "closed: Fixed." in page.text
+    assert '<g class="node' not in page.text
+
+
+def test_the_findings_tab_lists_what_is_open_now(client: TestClient) -> None:
+    page = client.get("/loop/some-repo/scan?tab=findings")
+
+    assert 'aria-current="page">Open findings<span class="n">1</span>' in page.text
+    assert "No source for 40 percent." in page.text and "Typo." not in page.text
+
+
+def test_the_items_tab_shows_checks_and_an_unknown_tab_is_the_overview(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    assert "?tab=items" not in client.get("/loop/some-repo/scan").text
+    helper.emit("scan", "check", {"item": "Tool A", "kind": "own trial", "result": "pass"}, scan)
+
+    items = client.get("/loop/some-repo/scan?tab=items")
+    unknown = client.get("/loop/some-repo/scan?tab=nonsense")
+
+    assert "Tool A" in items.text and 'class="res pass"' in items.text and 'class="void"' not in items.text
+    assert 'aria-current="page">Overview' in unknown.text
+
+
+def test_a_question_shows_on_both_pages_and_the_answer_lands_in_the_inbox(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "question", {"round": 2, "text": "Per seat or per site?"}, scan)
+    assert "Per seat or per site?" in client.get("/?tab=waiting").text
+    assert "Per seat or per site?" in client.get("/loop/some-repo/scan").text
+
+    sent = client.post("/loop/some-repo/scan/reply", data={"token": token_of(client), "text": " Per seat. "})
+
+    assert sent.status_code == 303 and "note=Sent" in sent.headers["location"]
+    entries, _ = store.read_inbox(scan, "scan")
+    assert [(entry.kind, entry.text, entry.round) for entry in entries] == [("reply", "Per seat.", 2)]
+    assert "Per seat or per site?" not in client.get("/?tab=waiting").text
+
+
+def test_stop_is_written_once(client: TestClient, scan: Path) -> None:
+    for _ in range(2):
+        client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+
+    entries, _ = store.read_inbox(scan, "scan")
+    assert [entry.kind for entry in entries] == ["stop"]
+    assert "Stop is waiting" in client.get("/loop/some-repo/scan").text
+
+
+@pytest.mark.parametrize("action", ["reply", "stop", "start", "kill"])
+def test_a_form_without_this_servers_token_changes_nothing(
+    client: TestClient, scan: Path, action: str
+) -> None:
+    wrong = client.post(f"/loop/some-repo/scan/{action}", data={"token": "guess", "text": "hello"})
+    missing = client.post(f"/loop/some-repo/scan/{action}", data={"text": "hello"})
+
+    assert (wrong.status_code, missing.status_code) == (403, 422)
+    assert store.read_inbox(scan, "scan") == ([], [])
+
+
+def test_a_request_for_another_host_is_refused(client: TestClient) -> None:
+    assert client.get("/", headers={"host": "evil.example"}).status_code == 400
+
+
+def test_an_empty_reply_is_not_sent(client: TestClient, scan: Path) -> None:
+    sent = client.post("/loop/some-repo/scan/reply", data={"token": token_of(client), "text": "   "})
+
+    assert "error=Nothing" in sent.headers["location"]
+    assert store.read_inbox(scan, "scan") == ([], [])
+
+
+def test_files_render_inside_the_repository_only(client: TestClient, scan: Path) -> None:
+    (scan / "notes.md").write_text("# Plan\n\n<script>alert(1)</script>\n\n| a | b |\n|---|---|\n| 1 | 2 |\n")
+    (scan.parent / "outside.md").write_text("secret")
+
+    inside = client.get("/loop/some-repo/scan/file", params={"path": "notes.md"})
+
+    assert inside.status_code == 200 and "<h1>Plan</h1>" in inside.text and "<table>" in inside.text
+    assert "<script>alert" not in inside.text
+    for path in ("../outside.md", "/etc/passwd", "missing.md", ""):
+        assert client.get("/loop/some-repo/scan/file", params={"path": path}).status_code == 404
+
+
+def test_pages_send_a_policy_that_forbids_inline_script_and_carry_none(client: TestClient) -> None:
+    page = client.get("/loop/some-repo/scan")
+
+    assert "default-src 'self'" in page.headers["content-security-policy"]
+    assert not re.search(r"<script(?![^>]*\bsrc=)", page.text)
+    assert " style=" not in page.text and " onclick=" not in page.text
+
+
+def test_unknown_loops_and_repositories_are_404(client: TestClient) -> None:
+    assert client.get("/loop/some-repo/ghost").status_code == 404
+    assert client.get("/loop/other-repo/scan").status_code == 404
+
+
+def test_the_pulse_changes_when_the_loop_writes(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    before = client.get("/loop/some-repo/scan/pulse").json()["pulse"]
+    helper.emit("scan", "step_finished", {"round": 2, "step": "plan"}, scan)
+
+    assert client.get("/loop/some-repo/scan/pulse").json()["pulse"] != before
+
+
+def test_connect_page_serves_the_spec_for_copying(client: TestClient) -> None:
+    assert "Loops protocol, version 1" in client.get("/connect").text
+    assert client.get("/connect/LOOPS.md").text.startswith("# Loops protocol")
+
+
+def test_a_loop_with_a_broken_manifest_is_listed_as_unreadable(client: TestClient, scan: Path) -> None:
+    (scan / ".loops" / "scan" / "loop.json").write_text('{"id": "scan", "protocol": 9}')
+
+    page = client.get("/")
+
+    assert (
+        page.status_code == 200 and "unreadable" in page.text and "protocol 9 is not supported" in page.text
+    )
+
+
+# ---- starting a loop ----
+
+
+def start_command(repo: Path, helper: types.ModuleType, command: str | None) -> None:
+    commands = {"start": command} if command else {}
+    helper.register("scan", {"title": "Market scan", "commands": commands}, repo)
+
+
+def start_form(client: TestClient, repo: Path, *, confirm: bool = True) -> dict[str, str]:
+    """What the Start button sends: the token, the command the page showed and, the first time, the tick."""
+    form = {"token": token_of(client), "command": store.read_manifest(repo, "scan").commands.get("start", "")}
+    return form | ({"confirm": "yes"} if confirm else {})
+
+
+def wait_until_ended(client: TestClient) -> None:
+    for _ in range(100):
+        if "Running since" not in client.get("/loop/some-repo/scan").text:
+            return
+        time.sleep(0.05)
+    raise AssertionError("the started process did not end")
+
+
+def test_start_runs_the_declared_command_in_the_repository_and_shows_its_output(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    script = "import pathlib; pathlib.Path('started.txt').write_text('yes'); print('hello from the loop')"
+    start_command(scan, helper, f'{sys.executable} -c "{script}"')
+
+    started = client.post("/loop/some-repo/scan/start", data=start_form(client, scan))
+    wait_until_ended(client)
+
+    assert "note=Started" in started.headers["location"]
+    assert (scan / "started.txt").read_text() == "yes"
+    assert "hello from the loop" in client.get("/loop/some-repo/scan").text
+
+
+def test_start_is_refused_without_a_declared_command_and_while_one_runs(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, None)
+    none = client.post("/loop/some-repo/scan/start", data=start_form(client, scan))
+    assert "no%20start%20command" in none.headers["location"]
+
+    start_command(scan, helper, f'{sys.executable} -c "import time; time.sleep(30)"')
+    client.post("/loop/some-repo/scan/start", data=start_form(client, scan))
+    again = client.post("/loop/some-repo/scan/start", data=start_form(client, scan))
+    assert "already%20running" in again.headers["location"]
+    assert 'class="pill running"' in client.get("/loop/some-repo/scan").text
+
+    ended = client.post("/loop/some-repo/scan/kill", data={"token": token_of(client)})
+    wait_until_ended(client)
+    assert "told%20to%20end" in ended.headers["location"]
+
+
+def test_the_first_start_of_a_command_needs_a_tick_and_later_ones_do_not(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c \"open('ran.txt', 'a').write('x')\"")
+    page = client.get("/loop/some-repo/scan").text
+    assert 'name="confirm"' in page and "comes from this repository" in page
+
+    refused = client.post("/loop/some-repo/scan/start", data=start_form(client, scan, confirm=False))
+    assert "first%20start" in refused.headers["location"] and not (scan / "ran.txt").exists()
+
+    client.post("/loop/some-repo/scan/start", data=start_form(client, scan))
+    wait_until_ended(client)
+    assert 'name="confirm"' not in client.get("/loop/some-repo/scan").text
+    client.post("/loop/some-repo/scan/start", data=start_form(client, scan, confirm=False))
+    wait_until_ended(client)
+    assert (scan / "ran.txt").read_text() == "xx"
+
+
+def test_a_started_loop_gets_a_minimal_environment(
+    client: TestClient, scan: Path, helper: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("BOARD_SECRET", "do-not-pass")
+    script = "import os, json; open('env.json', 'w').write(json.dumps(sorted(os.environ)))"
+    start_command(scan, helper, f'{sys.executable} -c "{script}"')
+
+    client.post("/loop/some-repo/scan/start", data=start_form(client, scan))
+    wait_until_ended(client)
+
+    names = set(json.loads((scan / "env.json").read_text()))
+    assert "BOARD_SECRET" not in names and "PATH" in names and "HOME" in names
+    assert names <= {
+        "PATH",
+        "HOME",
+        "LANG",
+        "TERM",
+        "LOOPCAPTAIN_INBOX_KEY",
+        "LC_CTYPE",
+        "__CF_USER_TEXT_ENCODING",
+    }
+    assert "LOOPCAPTAIN_INBOX_KEY" in names  # a loop must find the key the board signs with
+
+
+def test_the_start_command_runs_without_a_shell(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass ; touch injected.txt")
+
+    client.post("/loop/some-repo/scan/start", data=start_form(client, scan))
+    wait_until_ended(client)
+
+    assert not (scan / "injected.txt").exists()
+
+
+# ---- which repositories are shown ----
+
+
+def test_roots_show_every_sub_folder_with_a_loopcaptain_folder(tmp_path: Path, scan: Path) -> None:
+    (tmp_path / "plain-repo").mkdir()
+    config_file = tmp_path / "loopcaptain.local.yaml"
+    config_file.write_text(f"roots:\n  - {tmp_path}\nrepos:\n  - {scan}\n")
+
+    repos = find_repos(parse_config(config_file))
+
+    assert [(repo.key, repo.path) for repo in repos] == [("some-repo", scan)]
+
+
+def test_a_config_that_is_not_lists_of_paths_is_refused(tmp_path: Path) -> None:
+    config_file = tmp_path / "loopcaptain.local.yaml"
+    config_file.write_text("roots: ~/projects\n")
+
+    with pytest.raises(StoreError, match="must be a list of paths"):
+        parse_config(config_file)
+
+
+def test_without_a_config_the_demo_folder_is_shown_if_it_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("LOOPCAPTAIN_CONFIG", raising=False)
+    monkeypatch.setattr("loopcaptain.board.discover.USER_CONFIG", tmp_path / "none.yaml")
+    assert load_config(tmp_path) == Config()
+
+    (tmp_path / "demo").mkdir()
+
+    assert load_config(tmp_path).repos == ((tmp_path / "demo").resolve(),)
+
+
+# ---- the picture of a round ----
+
+
+def test_reviewers_share_a_column_and_the_gate_follows_them(scan: Path) -> None:
+    manifest = store.read_manifest(scan, "scan")
+
+    column = columns(manifest)
+    graph = layout(manifest)
+
+    assert column == {"plan": 0, "research": 1, "build": 2, "facts": 3, "reader": 3, "gate": 4, "verdict": 5}
+    assert len(graph.edges) == 7 and graph.back
+    facts, reader = (node for node in graph.nodes if node.id in ("facts", "reader"))
+    assert facts.x == reader.x and facts.y < reader.y
+
+
+# ---- a repository the board must not trust ----
+
+
+def test_start_is_refused_when_the_command_changed_after_the_page_was_drawn(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    seen = start_form(client, scan)
+    start_command(scan, helper, f"{sys.executable} -c \"open('swapped.txt', 'w')\"")
+
+    refused = client.post("/loop/some-repo/scan/start", data=seen)
+
+    assert "command%20changed" in refused.headers["location"]
+    assert not (scan / "swapped.txt").exists()
+
+
+def test_an_inbox_that_is_a_link_to_another_file_is_not_written(client: TestClient, scan: Path) -> None:
+    target = scan.parent / "elsewhere.txt"
+    target.write_text("mine\n")
+    (scan / ".loops" / "scan" / "inbox.jsonl").symlink_to(target)
+
+    sent = client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+
+    assert "cannot%20be%20written" in sent.headers["location"]
+    assert target.read_text() == "mine\n"
+
+
+def test_a_loop_folder_that_is_a_link_is_not_listed(scan: Path) -> None:
+    outside = scan.parent / "outside-loop"
+    outside.mkdir()
+    (outside / "loop.json").write_text('{"id": "linked"}')
+    (scan / ".loops" / "linked").symlink_to(outside)
+
+    assert store.loop_ids(scan) == ["scan"]
+
+
+def test_a_log_that_is_not_a_plain_file_or_is_huge_is_refused_not_read(
+    client: TestClient, scan: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    events = scan / ".loops" / "scan" / "events.jsonl"
+    monkeypatch.setattr(store, "MAX_LOG_BYTES", 10)
+    assert "over the" in client.get("/").text
+
+    events.unlink()
+    os.mkfifo(events)
+
+    page = client.get("/")
+    assert page.status_code == 200 and "not a regular file" in page.text
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".git/config",
+        ".env",
+        ".env.local",
+        "sub/.git/HEAD",
+        ".netrc",
+        ".npmrc",
+        ".pypirc",
+        ".git-credentials",
+        ".docker/config.json",
+        ".kube/config",
+        "certs/server.pem",
+        "deploy.key",
+        "id_rsa",
+        "keys/id_ed25519.pub",
+        "credentials-prod.json",
+        "secrets.yaml",
+        "certs/client.p12",
+        "infra/terraform.tfstate",
+        "infra/terraform.tfstate.backup",
+        ".htpasswd",
+        "service-account-prod.json",
+    ],
+)
+def test_git_and_secret_files_are_never_shown(client: TestClient, scan: Path, path: str) -> None:
+    (scan / path).parent.mkdir(parents=True, exist_ok=True)
+    (scan / path).write_text("secret")
+
+    assert client.get("/loop/some-repo/scan/file", params={"path": path}).status_code == 404
+
+
+def test_a_file_that_is_not_known_text_is_named_not_shown(client: TestClient, scan: Path) -> None:
+    (scan / "dump.bin").write_text("looks like text but is not offered")
+
+    page = client.get("/loop/some-repo/scan/file", params={"path": "dump.bin"})
+
+    assert page.status_code == 200 and "dump.bin" in page.text
+    assert "looks like text" not in page.text and "only text files" in page.text
+
+
+def test_a_path_with_a_null_byte_is_404_not_an_error(client: TestClient) -> None:
+    assert client.get("/loop/some-repo/scan/file", params={"path": "a\x00b"}).status_code == 404
+
+
+@pytest.mark.parametrize("pid", [0, -1, 1, 99999999999])
+def test_a_process_record_with_an_impossible_pid_is_ignored(
+    client: TestClient, scan: Path, tmp_path: Path, pid: int
+) -> None:
+    state = tmp_path / "state"
+    state.mkdir(exist_ok=True)
+    record = f'{{"pid": {pid}, "command": "x", "started": "2026-11-14T21:00:00+00:00"}}'
+    (state / "some-repo~scan.json").write_text(record)
+
+    page = client.get("/loop/some-repo/scan")
+    ended = client.post("/loop/some-repo/scan/kill", data={"token": token_of(client)})
+
+    assert page.status_code == 200 and "Running since" not in page.text
+    assert "nothing%20the%20board%20started" in ended.headers["location"].lower()
+
+
+def test_the_board_signs_what_it_sends_and_a_forged_line_reads_as_not_from_it(
+    client: TestClient, scan: Path, helper: types.ModuleType, inbox_key: Path
+) -> None:
+    client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+    forged = (
+        '{"id": "20261115T000000-dead", "ts": "2026-11-15T00:00:00Z", "kind": "reply", "text": "Ship it."}'
+    )
+    with (scan / ".loops" / "scan" / "inbox.jsonl").open("a") as inbox:
+        inbox.write(forged + "\n")
+
+    taken = helper.inbox("scan", scan)
+
+    assert inbox_key.is_file() and oct(inbox_key.stat().st_mode & 0o777) == "0o600"
+    written = scan.parent / "fresh"
+    helper.register("fresh", {"title": "Fresh"}, written)
+    store.append_inbox(written, "fresh", "stop")
+    assert oct((written / ".loops" / "fresh" / "inbox.jsonl").stat().st_mode & 0o777) == "0o600"
+    assert [(entry["kind"], entry["signed"]) for entry in taken] == [("stop", True), ("reply", False)]
+
+
+def test_without_a_key_the_helper_cannot_tell_and_says_so(
+    client: TestClient, scan: Path, helper: types.ModuleType, inbox_key: Path
+) -> None:
+    client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+    inbox_key.unlink()
+
+    assert [entry["signed"] for entry in helper.inbox("scan", scan)] == [None]
+
+
+def test_a_very_long_chain_of_steps_gets_its_columns_without_recursion() -> None:
+    steps = [{"id": f"s{n}", "kind": "other"} for n in range(3000)]
+    manifest = Manifest.model_validate({"protocol": 1, "id": "long", "title": "Long", "steps": steps})
+
+    assert columns(manifest)["s2999"] == 2999
+
+
+def test_a_pid_recorded_before_a_reboot_is_not_taken_for_alive(scan: Path, tmp_path: Path) -> None:
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    record = {"pid": os.getpid(), "command": "x", "started": "2026-11-14T10:00:00+00:00"}
+    runner.state_dir.mkdir(parents=True)
+    path = runner.record_path(repo, "scan")
+
+    path.write_text(json.dumps(record | {"boot": steer.boot_time()}))
+    alive_now = runner.process(repo, "scan")
+    path.write_text(json.dumps(record | {"boot": steer.boot_time() - 86_400}))
+    before_reboot = runner.process(repo, "scan")
+
+    assert alive_now is not None and alive_now.alive
+    assert before_reboot is not None and not before_reboot.alive
+
+
+def test_worktrees_of_one_repository_show_once_from_the_last_written(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    root = tmp_path / "work"
+    main_checkout, worktree = root / "tool", root / "tool-loop"
+    (main_checkout / ".git" / "worktrees" / "tool-loop").mkdir(parents=True)
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {main_checkout}/.git/worktrees/tool-loop\n")
+    helper.register("scan", {"title": "Old copy"}, worktree)
+    time.sleep(0.01)
+    helper.register("scan", {"title": "Fresh copy"}, main_checkout)
+
+    repos = find_repos(Config(roots=(root,)))
+
+    assert [(repo.path, repo.others) for repo in repos] == [(main_checkout, (worktree,))]
+
+
+def test_the_loop_page_says_which_worktree_it_reads(tmp_path: Path, helper: types.ModuleType) -> None:
+    root = tmp_path / "work"
+    main_checkout, worktree = root / "tool", root / "tool-loop"
+    (main_checkout / ".git" / "worktrees" / "tool-loop").mkdir(parents=True)
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {main_checkout}/.git/worktrees/tool-loop\n")
+    helper.register("scan", {"title": "Old copy"}, worktree)
+    time.sleep(0.01)
+    helper.register("scan", {"title": "Fresh copy"}, main_checkout)
+    app = create_app(
+        config=lambda: Config(roots=(root,)), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST})
+    )
+
+    page = TestClient(app, base_url=f"http://{HOST}").get("/loop/tool/scan").text
+
+    assert "Fresh copy" in page and "the latest of 2 worktrees" in page and "tool-loop" in page
+
+
+def test_every_status_has_a_place_on_the_overview_and_a_meaning() -> None:
+    assert set(get_args(Status)) == set(STATUS_ORDER) == set(STATUS_TEXT)
+
+
+def test_a_question_with_options_offers_buttons_and_a_pick_lands_in_the_inbox(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    options = [{"id": "forty", "label": "Forty people"}, {"id": "both", "label": "Size both"}]
+    helper.emit(
+        "scan", "question", {"id": "size", "text": "Which size?", "options": options, "blocks": True}, scan
+    )
+
+    page = client.get("/loop/some-repo/scan").text
+    sent = client.post("/loop/some-repo/scan/reply", data={"token": token_of(client), "choice": "both"})
+    stale = client.post("/loop/some-repo/scan/reply", data={"token": token_of(client), "choice": "gone"})
+
+    assert 'name="choice" value="forty"' in page and "Forty people" in page
+    assert "note=Sent" in sent.headers["location"] and "no%20longer%20offered" in stale.headers["location"]
+    entries, _ = store.read_inbox(scan, "scan")
+    assert [(e.text, e.question, e.choice) for e in entries] == [("Size both", "size", "both")]
+
+
+def test_the_inbox_tab_lists_what_was_sent_and_marks_a_forged_line(client: TestClient, scan: Path) -> None:
+    client.post("/loop/some-repo/scan/reply", data={"token": token_of(client), "text": "Look at pricing."})
+    forged = '{"id": "x1", "ts": "2026-11-15T00:00:00Z", "kind": "stop"}'
+    with (scan / ".loops" / "scan" / "inbox.jsonl").open("a") as inbox:
+        inbox.write(forged + "\n")
+
+    page = client.get("/loop/some-repo/scan?tab=inbox").text
+
+    assert "Look at pricing." in page and "this board" in page
+    assert 'class="forged"' in page and "not from the board" in page
+
+
+def test_a_step_that_needs_the_person_asks_like_a_question(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    error = {"kind": "needs_person", "text": "Log in to the data portal again."}
+    helper.emit(
+        "scan", "step_finished", {"round": 2, "step": "research", "status": "failed", "error": error}, scan
+    )
+
+    page = client.get("/loop/some-repo/scan").text
+
+    assert "A step needs you" in page and "Log in to the data portal again." in page
+    assert "Log in to the data portal again." in client.get("/?tab=waiting").text
+
+
+def test_the_overview_tab_draws_a_trend_and_bars_against_the_caps(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    metric = {"name": "pass rate", "value": 0.6, "target": 0.9, "better": "higher"}
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "continue", "metrics": [metric]}, scan)
+    helper.register("scan", {"title": "Market scan", "round_cap": 2, "steps": STEPS}, scan)
+
+    page = client.get("/loop/some-repo/scan").text
+
+    assert "Is it converging" in page and "open material findings" in page and "pass rate" in page
+    assert 'class="target"' in page and 'class="cap warn"' in page and "2 of 2" in page
+
+
+def test_the_round_shows_what_its_steps_and_verdict_report(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    error = {"kind": "transient", "text": "Rate limited."}
+    run = {
+        "round": 2,
+        "step": "research",
+        "status": "failed",
+        "attempt": 3,
+        "error": error,
+        "session": "s-42",
+    }
+    helper.emit("scan", "step_finished", run, scan)
+    helper.emit(
+        "scan",
+        "round_finished",
+        {"round": 2, "verdict": "continue", "outcome": "discarded", "cost": {"usd": 9}},
+        scan,
+    )
+
+    page = client.get("/loop/some-repo/scan?tab=rounds&round=2").text
+
+    assert "try 3" in page and "Error: Rate limited." in page and "<code>s-42</code>" in page
+    assert "$9.00 for the round" in page and ">discarded<" in page
+
+
+def test_a_trend_is_called_better_only_where_the_loop_says_which_way_is_better() -> None:
+    rising = trend.chart(trend.Series("cost", ((1, 1.0), (2, 3.0)), unit="$"))
+    falling = trend.chart(trend.Series("open", ((1, 4.0), (2, 1.0)), better="lower"))
+
+    assert rising.improving is None and falling.improving is True
+
+
+def test_stop_is_offered_only_where_a_loop_may_still_start_a_round(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    assert "Stop after this round" in client.get("/loop/some-repo/scan").text
+
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "done"}, scan)
+    page = client.get("/loop/some-repo/scan").text
+
+    assert "Stop after this round" not in page and "Stop before the next round" not in page
+    assert "names no command the board could start" in page
+
+
+def test_a_stalled_loop_says_what_it_last_did_and_what_to_do(
+    scan: Path, helper: types.ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    later = datetime.now(UTC) + timedelta(hours=5)
+    monkeypatch.setattr("loopcaptain.board.discover.now", lambda: later)
+    app = create_app(
+        config=lambda: Config(repos=(scan,)), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST})
+    )
+
+    page = TestClient(app, base_url=f"http://{HOST}").get("/loop/some-repo/scan").text
+
+    assert 'class="pill stalled"' in page and "Why this loop looks stalled" in page
+    assert "The last line was <b>" in page and "If it died, start it again" in page
+
+
+def test_a_loop_that_cannot_be_read_gets_a_page_with_the_fix(client: TestClient, scan: Path) -> None:
+    manifest = scan / ".loops" / "scan" / "loop.json"
+    manifest.write_text('{"protocol": 1, "id": "scan", "round_cap": "many"}')
+
+    page = client.get("/loop/some-repo/scan")
+
+    assert page.status_code == 200 and "cannot be read" in page.text
+    assert "round_cap" in page.text and "loopcaptain validate" in page.text
+
+
+def test_the_loop_page_shows_what_validate_finds(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "step_finished", {"round": 2, "step": "facts", "artifact": "gone.md"}, scan)
+
+    page = client.get("/loop/some-repo/scan").text
+
+    assert "What the protocol check finds" in page and "gone.md does not exist" in page
+
+
+def test_the_overview_filters_by_text_and_status_and_folds_finished_loops(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.register("done-one", {"title": "Finished survey"}, scan)
+    helper.emit("done-one", "round_started", {"round": 1}, scan)
+    helper.emit("done-one", "round_finished", {"round": 1, "verdict": "done"}, scan)
+
+    default = client.get("/").text
+    shown = client.get("/?finished=1").text
+    found = client.get("/?q=market").text
+    by_status = client.get("/?status=done").text
+
+    assert (
+        "Market scan" in default
+        and "Finished survey" not in default
+        and "1 finished loop folded away" in default
+    )
+    assert "loops in 1 project<" in default
+    assert "Finished survey" in shown
+    assert "Market scan" in found and "Finished survey" not in found
+    assert "Finished survey" in by_status and "Market scan" not in by_status
+
+
+def test_a_fresh_board_offers_the_two_prompts_and_the_demo(tmp_path: Path) -> None:
+    app = create_app(config=lambda: Config(), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST}))
+
+    page = TestClient(app, base_url=f"http://{HOST}").get("/").text
+
+    assert "Help me build an agent loop" in page and "Help me see and steer" in page
+    assert "loopcaptain demo" in page
+
+
+def test_the_title_counts_what_waits(client: TestClient, scan: Path, helper: types.ModuleType) -> None:
+    helper.emit("scan", "question", {"text": "Per seat?"}, scan)
+
+    assert "<title>(1) Loops" in client.get("/").text
+
+
+def test_watch_and_unwatch_edit_the_config_the_board_reads(
+    tmp_path: Path, scan: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_file = tmp_path / "config.yaml"
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config_file))
+
+    assert cli_main(["watch", str(scan)]) == 0
+    assert cli_main(["watch", "--root", str(scan.parent)]) == 0
+    assert [repo.path for repo in find_repos(load_config(tmp_path))] == [scan]
+
+    assert cli_main(["unwatch", str(scan.parent)]) == 0
+    assert parse_config(config_file).roots == () and parse_config(config_file).repos == (scan.resolve(),)
+
+
+def test_a_loop_without_progress_is_flagged_on_both_pages(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    for number in (2, 3):
+        helper.emit("scan", "round_started", {"round": number}, scan)
+        found = [{"id": "1", "text": "The 40 percent figure has no source."}]
+        helper.emit("scan", "step_finished", {"round": number, "step": "facts", "findings": found}, scan)
+        helper.emit("scan", "round_finished", {"round": number, "verdict": "continue"}, scan)
+
+    assert "No progress?" in client.get("/loop/some-repo/scan").text
+    assert "no progress?" in client.get("/").text
+
+
+def test_the_project_count_includes_repositories_whose_loops_are_folded_away(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "done"}, scan)
+
+    assert "loop in 1 project<" in client.get("/").text
+
+
+def test_a_forged_reply_answers_no_question_and_a_forged_stop_requests_nothing(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    signing.board_key()  # a board has run here, so forged lines can be told apart
+    helper.emit("scan", "question", {"text": "Per seat or per site?", "blocks": True}, scan)
+    later = '{"id": "f1", "ts": "2099-01-01T00:00:00Z", "kind": "%s", "text": "Ship it.", "loop": "scan"}'
+    with (scan / ".loops" / "scan" / "inbox.jsonl").open("a") as inbox:
+        inbox.write(later % "reply" + "\n")
+        inbox.write((later % "stop").replace('"f1"', '"f2"') + "\n")
+
+    page = client.get("/loop/some-repo/scan").text
+
+    assert "Per seat or per site?" in page and "Stop is waiting" not in page
+
+
+def test_a_signed_line_copied_into_another_loop_is_not_signed_there(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.register("other", {"title": "Other"}, scan)
+    client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+    copied = (scan / ".loops" / "scan" / "inbox.jsonl").read_text()
+    (scan / ".loops" / "other" / "inbox.jsonl").write_text(copied)
+
+    assert [entry["signed"] for entry in helper.inbox("other", scan)] == [False]
+    assert [entry["signed"] for entry in helper.inbox("scan", scan)] == [True]
+
+
+def test_an_empty_or_short_key_is_not_used(inbox_key: Path) -> None:
+    inbox_key.write_text("\n")
+    assert signing.read_key() is None
+    inbox_key.write_text("ab\n")
+    assert signing.read_key() is None
+
+
+def test_the_overview_draws_each_round_shaded_by_what_it_left_open(client: TestClient) -> None:
+    page = client.get("/").text
+
+    trail = page[page.index('<span class="trail"') : page.index("</span>", page.index('<span class="trail"'))]
+    assert trail.count("<i ") == 2
+    assert 'class="h1" title="round 1: 1 open finding"' in trail
+    assert 'class="live" title="round 2: under way"' in trail
+
+
+def test_a_trail_keeps_the_latest_rounds_and_caps_the_shade() -> None:
+    def finished(number: int, left_open: int) -> RoundState:
+        findings = tuple(FindingState(f"F{n}", "a gap", "material") for n in range(left_open))
+        return RoundState(number, runs=(StepRun("review", findings=findings),), verdict="continue")
+
+    rounds = tuple(finished(number, left_open=max(0, 9 - number)) for number in range(1, 15))
+    state = LoopState(Manifest(id="scan", title="Scan"), rounds=rounds)
+
+    cells = trend.trail_of(state)
+
+    assert [cell.number for cell in cells] == list(range(3, 15))
+    assert cells[0].look == "h4" and cells[0].label == "round 3: 6 open findings"
+    assert cells[5].look == "h1" and cells[-1].look == "clear"

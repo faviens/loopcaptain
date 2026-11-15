@@ -1,0 +1,118 @@
+"""Write the documentation pages that come from the code: `make docs-pages`.
+
+The command line from its argument parser, the MCP tools from the server, the agents from
+`loopcaptain.agents`, and `llms.txt`. A test fails when a committed page differs from what this
+writes, so the reference cannot drift from the code.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import inspect
+import sys
+from pathlib import Path
+
+from loopcaptain import agents
+from loopcaptain.cli import build_parser
+from loopcaptain.mcp_server import server
+
+ROOT = Path(__file__).resolve().parents[1]
+DOCS = ROOT / "docs"
+GENERATED = "<!-- Written by scripts/docs_pages.py from the code: `make docs-pages`. Do not edit. -->"
+
+
+def cli_page() -> str:
+    parser = build_parser()
+    lines = [
+        GENERATED,
+        "",
+        "# The command line",
+        "",
+        "`loopcaptain <command>`; from a checkout, `uv run loopcaptain <command>`.",
+        "",
+    ]
+    subparsers = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    helps = {choice.dest: choice.help for choice in subparsers._choices_actions}
+    for name, sub in subparsers.choices.items():
+        lines += [f"## `{name}`", "", f"{(helps.get(name) or '').capitalize()}.", ""]
+        usage = sub.format_usage().replace("usage: ", "").strip()
+        lines += ["```text", usage, "```", ""]
+        options = [action for action in sub._actions if not isinstance(action, argparse._HelpAction)]
+        if options:
+            lines += ["| Argument | Meaning |", "|---|---|"]
+            for action in options:
+                flag = ", ".join(action.option_strings) or action.dest
+                lines.append(f"| `{flag}` | {action.help or ''} |")
+            lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def mcp_page() -> str:
+    tools = asyncio.run(server.server.list_tools())
+    lines = [GENERATED, "", "# The MCP tools", "", server.__doc__.strip() if server.__doc__ else "", ""]
+    for tool in tools:
+        function = getattr(server, tool.name)
+        doc = inspect.cleandoc(function.__doc__ or "")
+        signature = str(inspect.signature(function)).replace("'", "")
+        lines += [f"## `{tool.name}`", "", "```text", f"{tool.name}{signature}", "```", "", doc, ""]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def llms_txt() -> str:
+    prompts = ROOT / "standard" / "prompts"
+    return "\n".join(
+        [
+            "# Loopcaptain",
+            "",
+            "> An open protocol for agent loops and a local dashboard to monitor and steer them. A loop",
+            "> (a script, a Ralph loop, a long-running agent session) writes three small files into",
+            "> .loops/<loop-id>/ in its own repository: loop.json, events.jsonl, inbox.jsonl. The board",
+            "> shows where each loop stands, what it cost and what waits for a person, and writes the",
+            "> person's answer, note or stop back. No dependency, no cloud, nothing leaves the machine.",
+            "",
+            "## Start",
+            "",
+            "- [Build a loop](standard/prompts/build-a-loop.md): "
+            + (prompts / "build-a-loop.md").read_text().splitlines()[0],
+            "- [Watch the loops on this machine](standard/prompts/watch-my-loops.md): "
+            + (prompts / "watch-my-loops.md").read_text().splitlines()[0],
+            "- [Installation](docs/installation.md): one command, from the repository; Python 3.12 or later",
+            "- [Get started](docs/get-started.md): the example loop, free, in five minutes",
+            "- [Setup](docs/setup.md): what the board watches, checking a loop, when a loop does not show",
+            "",
+            "## The standard",
+            "",
+            "- [LOOPS.md](standard/LOOPS.md): the protocol, the helper to paste, conformance",
+            "- [AGENTS.md for a loop](standard/AGENTS.md): connect a loop, or build one from nothing",
+            "- [Works with every agent](docs/agents.md): how each coding agent adds the MCP server",
+            "",
+            "## Optional",
+            "",
+            "- [The command line](docs/reference/cli.md)",
+            "- [The MCP tools](docs/reference/mcp.md)",
+            "- [Security](SECURITY.md)",
+            "",
+        ]
+    )
+
+
+def pages() -> dict[Path, str]:
+    return {
+        DOCS / "reference" / "cli.md": cli_page(),
+        DOCS / "reference" / "mcp.md": mcp_page(),
+        DOCS / "agents.md": agents.markdown(),
+        DOCS / "llms.txt": llms_txt(),
+    }
+
+
+def main() -> int:
+    for path, text in pages().items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        sys.stdout.write(f"{path.relative_to(ROOT)}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

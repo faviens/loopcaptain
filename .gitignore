@@ -1,0 +1,23 @@
+# Finder and editor clutter
+.DS_Store
+/.serena/
+
+# Environments, caches, coverage
+/.venv/
+__pycache__/
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+/.coverage
+/site/
+
+# Secrets
+/.env
+
+# Which repositories this laptop's board watches, the demo loop's working
+# folder, and the logs of processes the board started
+*.local
+*.local.md
+*.local.yaml
+/demo/
+/.state/

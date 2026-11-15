@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use Loopcaptain or the Loops protocol in your work, please cite it as below."
+title: "Loopcaptain: one board for every agent loop, and the Loops protocol"
+type: software
+authors:
+  - family-names: Vogler
+    given-names: Daniel
+license: Apache-2.0
+version: 0.1.0
+keywords:
+  - agent loop
+  - agentic loop
+  - agent dashboard
+  - agent monitoring
+  - agent protocol
+  - loop engineering
+  - human in the loop
+  - mcp server

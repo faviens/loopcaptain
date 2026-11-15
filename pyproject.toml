@@ -1,0 +1,103 @@
+[project]
+name = "loopcaptain"
+version = "0.1.0"
+description = "An open protocol for agent loops and a local dashboard to monitor and steer them: three files, any agent, no dependency."
+authors = [{ name = "Daniel Vogler" }]
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "src/loopcaptain/board/static/fonts/OFL.txt"]
+keywords = [
+    "agent loop", "agentic loop", "ai agents", "coding agents", "autonomous agents", "long-running agent",
+    "ralph loop", "loop engineering", "agent dashboard", "agent monitoring", "agent protocol",
+    "human in the loop", "mcp", "mcp server", "jsonl", "llm",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+dependencies = [
+    "fastapi>=0.115",
+    "jinja2>=3.1",
+    "markdown-it-py>=3.0",
+    "mcp>=2.0",
+    "pydantic>=2.7",
+    "python-multipart>=0.0.9",
+    "pyyaml>=6.0",
+    "uvicorn>=0.30",
+]
+
+[project.urls]
+Repository = "https://github.com/faviens/loopcaptain"
+Issues = "https://github.com/faviens/loopcaptain/issues"
+Changelog = "https://github.com/faviens/loopcaptain/blob/main/CHANGELOG.md"
+
+[project.scripts]
+loopcaptain = "loopcaptain.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27",
+    "mypy>=1.11",
+    "pre-commit>=4.0",
+    "pytest>=8",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.6",
+    "types-pyyaml",
+]
+docs = [
+    "zensical>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/loopcaptain"]
+
+# The spec lives in standard/ for readers; the package carries a copy for `loopcaptain spec` and the MCP tool.
+[tool.hatch.build.targets.wheel.force-include]
+"standard/LOOPS.md" = "loopcaptain/protocol/LOOPS.md"
+"standard/prompts/build-a-loop.md" = "loopcaptain/prompt_texts/build-a-loop.md"
+"standard/prompts/watch-my-loops.md" = "loopcaptain/prompt_texts/watch-my-loops.md"
+"standard/loops.py" = "loopcaptain/demo/loops.py"
+
+[tool.uv]
+default-groups = ["dev", "docs"]
+# A release is taken only after a week, so a compromised version has time to be caught.
+exclude-newer = "7 days"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Fixtures and the demo's invented history read better on one line.
+"tests/*" = ["E501"]
+# SVG markup in long lines.
+"scripts/readme_assets.py" = ["E501"]
+"scripts/shots.py" = ["E501"]
+"scripts/docs_pages.py" = ["E501"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+# The example loop is a standalone script beside the helper LOOPS.md prints, untyped on purpose:
+# it imports `loops` from its own folder, as any loop does.
+exclude = ["src/loopcaptain/demo/loop\\.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-label="How it works. On the left, a loop in any repository: a script that pastes the helper from LOOPS.md, or an agent session that uses the loopcaptain MCP server. Both write the loop's folder, .loops/loop-id, with three files: loop.json, events.jsonl and inbox.jsonl. On the right, the board on this machine reads the folder and shows every loop, one loop in detail, and the protocol to copy. Your answer, a stop or a start goes back through inbox.jsonl, which the loop reads at its next round.">
+  <title>How Loopcaptain works</title>
+  <rect width="1200" height="470" fill="#F6F5F2"/>
+  <defs><marker id="tip" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#646469"/></marker><marker id="tip-red" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#4A3FE0"/></marker></defs>
+  <g font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <text x="40" y="44" font-size="11" font-weight="600" fill="#646469" letter-spacing="1.6">A LOOP, IN ANY REPOSITORY</text>
+  <text x="440" y="44" font-size="11" font-weight="600" fill="#646469" letter-spacing="1.6">ITS FOLDER: THE WHOLE INTERFACE</text>
+  <text x="840" y="44" font-size="11" font-weight="600" fill="#646469" letter-spacing="1.6">THE BOARD, ON THIS MACHINE</text>
+  <rect x="40" y="64" width="300" height="118" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <g transform="translate(58 82)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/><path d="M9 12l-2 2 2 2 M13 12l2 2-2 2"/></g>
+  <text x="94" y="100" font-size="16" font-weight="600" fill="#1D1D1F" >A loop with a script</text>
+  <text x="58" y="130" font-size="13" font-weight="400" fill="#646469" >Pastes the helper from LOOPS.md,</text>
+  <text x="58" y="149" font-size="13" font-weight="400" fill="#646469" >50 lines, standard library. One call</text>
+  <text x="58" y="168" font-size="13" font-weight="400" fill="#646469" >per step: emit(loop, event, fields).</text>
+  <rect x="40" y="204" width="300" height="118" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <g transform="translate(58 222)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H11l-4 4v-4H4z"/><path d="M12 8v5 M9.5 10.5h5"/></g>
+  <text x="94" y="240" font-size="16" font-weight="600" fill="#1D1D1F" >A loop an agent session drives</text>
+  <text x="58" y="270" font-size="13" font-weight="400" fill="#646469" >Uses the loopcaptain MCP server:</text>
+  <text x="58" y="289" font-size="13" font-weight="400" fill="#646469" >loop_register, emit,</text>
+  <text x="58" y="308" font-size="13" font-weight="400" fill="#646469" >inbox_read, loop_status.</text>
+  <g transform="translate(304 286)" fill="none" stroke="#646469" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5 M15 3v5 M7 8h10v3a5 5 0 0 1-10 0z M12 16v5"/></g>
+  <rect x="440" y="64" width="300" height="258" rx="8" fill="#EDECE8" stroke="#DAD9D5" stroke-width="1.2"/>
+  <g transform="translate(458 82)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6l2 2h10v11H3z"/></g>
+  <text x="494" y="100" font-size="14" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">.loops/&lt;loop-id&gt;/</text>
+  <rect x="458" y="126" width="264" height="52" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <g transform="translate(468 140)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/></g>
+  <text x="500" y="149" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">loop.json</text>
+  <text x="500" y="167" font-size="12.5" font-weight="400" fill="#646469" >what the loop is: brief, steps, caps</text>
+  <rect x="458" y="190" width="264" height="52" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <g transform="translate(468 204)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/></g>
+  <text x="500" y="213" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">events.jsonl</text>
+  <text x="500" y="231" font-size="12.5" font-weight="400" fill="#646469" >what happened, one line each</text>
+  <rect x="458" y="254" width="264" height="52" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <g transform="translate(468 268)" fill="none" stroke="#4A3FE0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/></g>
+  <text x="500" y="277" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">inbox.jsonl</text>
+  <text x="500" y="295" font-size="12.5" font-weight="400" fill="#646469" >what the person sends</text>
+  <rect x="840" y="64" width="320" height="258" rx="8" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <g transform="translate(858 82)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18 M6 6.5h.5 M8.5 6.5h.5"/></g>
+  <text x="894" y="100" font-size="16" font-weight="600" fill="#1D1D1F" >Loopcaptain</text>
+  <text x="1142" y="100" font-size="12" fill="#646469" text-anchor="end" font-family="ui-monospace, SF Mono, Menlo, monospace">127.0.0.1:8484</text>
+  <text x="858" y="132" font-size="13" font-weight="400" fill="#646469" >1  Every loop: status, rounds, cost,</text>
+  <text x="858" y="151" font-size="13" font-weight="400" fill="#646469" >    what waits for you</text>
+  <text x="858" y="176" font-size="13" font-weight="400" fill="#646469" >2  One loop: brief, the graph of a round,</text>
+  <text x="858" y="195" font-size="13" font-weight="400" fill="#646469" >    every round against every step,</text>
+  <text x="858" y="214" font-size="13" font-weight="400" fill="#646469" >    findings, files, items checked</text>
+  <text x="858" y="239" font-size="13" font-weight="400" fill="#646469" >3  Connect a loop: the protocol to copy</text>
+  <rect x="858" y="262" width="284" height="42" rx="6" fill="#1D1D1F"/>
+  <text x="874" y="288" font-size="13" font-weight="600" fill="#F6F5F2" >Answer · Stop after this round · Start</text>
+  <path d="M 340 123 C 390 123, 395 152, 452 152" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <path d="M 340 263 C 390 263, 395 216, 452 216" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <text x="352" y="196" font-size="12" font-weight="400" fill="#646469" >write</text>
+  <path d="M 722 152 C 780 152, 780 150, 834 150" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <path d="M 722 216 C 780 216, 780 190, 834 190" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <text x="752" y="140" font-size="12" font-weight="400" fill="#646469" >reads</text>
+  <path d="M 840 283 C 790 283, 780 280, 728 280" fill="none" stroke="#4A3FE0" stroke-width="1.6" marker-end="url(#tip-red)"/>
+  <text x="748" y="304" font-size="12" font-weight="600" fill="#4A3FE0" >writes</text>
+  <path d="M 458 300 C 400 345, 250 350, 190 328" fill="none" stroke="#4A3FE0" stroke-width="1.6" stroke-dasharray="5 5" marker-end="url(#tip-red)"/>
+  <text x="246" y="366" font-size="12" font-weight="600" fill="#4A3FE0" >the loop reads your answer at its next round</text>
+  <g transform="translate(988 356)" fill="none" stroke="#1D1D1F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-4 3-6 7-6s7 2 7 6"/></g>
+  <text x="1022" y="374" font-size="14" font-weight="600" fill="#1D1D1F" >you</text>
+  <path d="M 1000 352 V 328" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <rect x="40" y="410" width="1120" height="1" fill="#DAD9D5"/>
+  <text x="40" y="440" font-size="14" font-weight="400" fill="#646469" >The files are the truth: no server between loop and board, no database, nothing leaves the laptop.</text>
+  </g>
+</svg>

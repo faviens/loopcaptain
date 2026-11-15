@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% block title %}{{ view.title }} · Loopcaptain{% endblock %}
+{% block where %}{{ view.repo.key }} / {{ view.loop_id }}{% endblock %}
+{% block body_attrs %} data-pulse-url="{{ url_for('loop_pulse', repo_key=view.repo.key, loop_id=view.loop_id) }}" data-pulse="{{ pulse }}"{% endblock %}
+{% set here = url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) %}
+{% macro file_link(path, text) %}{% if path %}<a href="{{ url_for('loop_file', repo_key=view.repo.key, loop_id=view.loop_id) }}?path={{ path|urlencode }}">{{ text or path }}</a>{% endif %}{% endmacro %}
+{% block main %}
+<p class="crumb"><a href="{{ url_for('overview') }}">Loops</a> / {{ view.repo.key }} / {{ view.loop_id }}</p>
+<h1>{{ view.title }}</h1>
+<p class="meta"><span class="pill {{ state.status }}">{{ state.status }}</span><span>{{ status_text[state.status] }}</span>{% if state.last_event %}<span>last line {{ state.last_event|ago }}</span>{% endif %}{% if branch %}<span>branch <code>{{ branch }}</code></span>{% endif %}{% if view.repo.others %}<span title="{% for other in view.repo.others %}{{ other|place }}{% if not loop.last %}, {% endif %}{% endfor %}">written from <code>{{ view.repo.path|place }}</code>, the latest of {{ view.repo.others|length + 1 }} worktrees</span>{% endif %}{% if manifest.pace %}<span>{{ manifest.pace }}</span>{% endif %}{% if state.status == 'sleeping' and state.expected %}<span>back at {{ state.expected|stamp }}</span>{% endif %}{% if state.ended %}<span>ended between rounds: {{ state.ended.stop_reason|replace('_', ' ') }}{% if state.ended.summary %}, {{ state.ended.summary }}{% endif %}</span>{% endif %}</p>
+{% if note %}<p class="flash" role="status">{{ note }}</p>{% endif %}
+{% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
+
+{% if state.question %}
+{% set q = state.question %}
+<section class="ask" aria-label="{{ 'A step needs you' if q.needs_person else 'The loop' ~ "'s question" }}">
+  <p class="eyebrow">{{ 'A step needs you' if q.needs_person else 'The loop asks' }}{% if q.round %}, round {{ q.round }}{% endif %} · {{ q.asked|ago }}{% if q.blocks %} · it stands still until you answer{% if q.gives_up %}, at most until {{ q.gives_up|stamp }}{% endif %}{% endif %}</p>
+  <p class="q">{{ q.text }}</p>
+  {% if q.options %}
+  <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    {% for option in q.options %}<button type="submit" name="choice" value="{{ option.id }}">{{ option.label }}</button>{% endfor %}
+  </form>
+  {% endif %}
+  <form class="say" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    <textarea name="text" required aria-label="Your answer" placeholder="{{ 'Or answer in your own words.' if q.options else ('What you did, or what the loop should do instead.' if q.needs_person else 'Your answer. The loop reads it at its next round.') }}"></textarea>
+    <button type="submit">Send answer</button>
+  </form>
+</section>
+{% endif %}
+
+{% set open_count = state.open_findings|length %}
+<nav class="tabs" aria-label="Parts of this loop">
+  <a href="{{ here }}"{% if tab == 'overview' %} aria-current="page"{% endif %}>Overview</a>
+  <a href="{{ here }}?tab=rounds"{% if tab == 'rounds' %} aria-current="page"{% endif %}>Rounds<span class="n">{{ state.rounds|length }}</span></a>
+  <a href="{{ here }}?tab=findings"{% if tab == 'findings' %} aria-current="page"{% endif %}>Open findings<span class="n">{{ open_count }}</span></a>
+  {% if state.items %}<a href="{{ here }}?tab=items"{% if tab == 'items' %} aria-current="page"{% endif %}>Items<span class="n">{{ state.items|length }}</span></a>{% endif %}
+  <a href="{{ here }}?tab=inbox"{% if tab == 'inbox' %} aria-current="page"{% endif %}>What you sent<span class="n">{{ state.inbox|length }}</span></a>
+</nav>
+
+{% if tab == 'rounds' %}
+{% if not state.rounds %}<p class="empty tabbed">No round has run yet.</p>{% endif %}
+{% if state.rounds %}
+<h2>Every round<small>a number is that step's open material findings, darker for more; pick a round to read it</small></h2>
+<div class="split{{ ' stacked' if state.rounds|length > 8 }}">
+<div class="pick card flush fit">
+<table class="grid">
+  <thead><tr>
+    <th scope="col" class="step">Step</th>
+    {% for r in state.rounds %}<th scope="col" class="rnd"><a href="{{ here }}?tab=rounds&amp;round={{ r.number }}#round" aria-label="Round {{ r.number }}"{% if shown and r.number == shown.number %} aria-current="true"{% endif %}>{{ r.number }}</a></th>{% endfor %}
+  </tr></thead>
+  <tbody>
+  {% for step_id in state.step_ids %}
+  {% set step = manifest.step(step_id) %}
+  <tr>
+    <td class="step"><b>{{ (step.name if step else '') or step_id }}</b><span>{{ step.kind if step else 'not in loop.json' }}</span></td>
+    {% for r in state.rounds %}
+    {% set runs = r.runs_of(step_id) %}
+    {% set on = ' on' if shown and r.number == shown.number else '' %}
+    {% if not runs %}<td class="{{ on }}"><span class="cell" title="did not run"><i class="mark"></i><span class="sr">did not run</span></span></td>
+    {% else %}
+      {% set finds = runs|sum(attribute='material_open') %}
+      {% set st = 'running' if runs|selectattr('status', 'equalto', 'running')|list else ('failed' if runs|selectattr('status', 'equalto', 'failed')|list else ('ok' if runs|selectattr('status', 'equalto', 'ok')|list else 'skipped')) %}
+      <td class="{{ on }}">{% if finds %}<span class="cell h{{ 1 if finds == 1 else (2 if finds == 2 else (3 if finds <= 4 else 4)) }}" title="{{ finds }} open material finding{{ 's' if finds != 1 }}{% if st == 'failed' %}, failed{% endif %}">{{ finds }}</span>{% else %}<span class="cell" title="{{ st }}{% if runs|length > 1 %}, {{ runs|length }} runs{% endif %}"><i class="mark {{ st }}"></i><span class="sr">{{ st }}</span></span>{% endif %}</td>
+    {% endif %}
+    {% endfor %}
+  </tr>
+  {% endfor %}
+  <tr class="sum first"><td class="step">Verdict</td>{% for r in state.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}"><span class="v {{ r.verdict or 'live' }}">{{ (r.verdict or 'live')|replace('continue', 'go on') }}</span></td>{% endfor %}</tr>
+  <tr class="sum"><td class="step">Minutes</td>{% for r in state.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}">{{ r.minutes if r.minutes is not none else '' }}</td>{% endfor %}</tr>
+  <tr class="sum"><td class="step">Cost</td>{% for r in state.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}">{{ r.cost_usd|usd }}</td>{% endfor %}</tr>
+  </tbody>
+</table>
+</div>
+<div class="detail">
+{% if shown %}
+<div class="round-head" id="round">
+  <h2>Round {{ shown.number }}</h2>
+  <span class="facts">{{ shown.started|stamp }}{% if shown.minutes is not none %} · {{ shown.minutes }} min{% endif %}{% if shown.cost_usd %} · {{ shown.cost_usd|usd }}{% if shown.round_cost %} for the round{% endif %}{% elif shown.tokens %} · {{ shown.tokens|tokens }} tokens{% endif %}{% if shown.outcome == 'discarded' %} · <span class="v discarded">discarded</span>{% endif %} · {% if shown.verdict %}<span class="v {{ shown.verdict }}">{{ shown.verdict }}{% if shown.stop_reason %}: {{ shown.stop_reason|replace('_', ' ') }}{% endif %}</span>{% else %}<span class="v live">under way</span>{% endif %}{% if shown.commit %} · commit <code>{{ shown.commit[:10] }}</code>{% endif %} · {{ shown.findings_open }} open, {{ shown.findings_closed }} closed</span>
+</div>
+{% if shown.all_metrics %}
+<p class="metrics">{% for m in shown.all_metrics %}<span class="{{ 'met' if m.met is true else ('short' if m.met is false else '') }}"><b>{{ m.value|figure(m.unit) }}</b> {{ m.name }}{% if m.target is not none %} <span class="grey">target {{ m.target|figure(m.unit) }}</span>{% endif %}</span>{% endfor %}</p>
+{% endif %}
+{% if shown.plan or shown.plan_artifact %}
+<div class="plan"><p class="eyebrow">Plan{% if shown.plan_artifact %} · {{ file_link(shown.plan_artifact, 'the whole plan') }}{% endif %}</p>{% if shown.plan %}<p>{{ shown.plan }}</p>{% endif %}</div>
+{% endif %}
+{% if shown.runs %}
+<div class="card flush">
+<table class="runs">
+  <thead><tr><th scope="col">Step</th><th scope="col">State</th><th scope="col">What it did and found</th><th scope="col" class="r">Tokens</th><th scope="col" class="r">Cost</th><th scope="col">File</th></tr></thead>
+  <tbody>
+  {% for run in shown.runs %}
+  {% set step = manifest.step(run.step) %}
+  <tr>
+    <td class="what"><b>{{ (step.name if step else '') or run.step }}</b>{% if run.label %}<span>{{ run.label }}</span>{% endif %}<span>{{ step.kind if step else '' }}{% if step and step.backend %} · {{ step.backend }}{% endif %}{% if step and step.model %} · {{ step.model }}{% endif %}</span></td>
+    <td><span class="st {{ run.status }}"><i class="mark {{ run.status }}"></i>{{ run.status }}</span>{% if run.attempt and run.attempt > 1 %}<span class="grey"> · try {{ run.attempt }}</span>{% endif %}</td>
+    <td class="sum">{% if run.error %}<p class="err{{ ' person' if run.error.kind == 'needs_person' }}">{{ 'Needs you: ' if run.error.kind == 'needs_person' else 'Error: ' }}{{ run.error.text }}</p>{% endif %}{{ run.summary }}{% if run.metrics %}<span class="grey"> · {% for m in run.metrics %}{{ m.name }} {{ m.value|figure(m.unit) }}{{ ', ' if not loop.last }}{% endfor %}</span>{% endif %}{% if run.session %}<span class="grey"> · session <code>{{ run.session }}</code></span>{% endif %}{% if run.findings %}
+      <ol>{% for f in run.findings %}<li data-id="{{ f.id }}" class="{{ 'closed' if f.closed }} {{ 'minor' if f.severity == 'minor' }}">{% if f.closed %}<s>{{ f.text }}</s> <em>{{ (f.resolution or 'closed')|replace('_', ' ') }}{% if f.reason %}: {{ f.reason }}{% endif %}</em>{% else %}{{ f.text }}{% if f.severity == 'minor' %} <span class="grey">(minor)</span>{% endif %}{% endif %}</li>{% endfor %}</ol>
+    {% endif %}</td>
+    <td class="r num">{% if run.cost %}{{ run.cost.tokens|tokens }}{% if run.cost.estimated %}<span class="grey" title="estimated by the loop">~</span>{% endif %}{% endif %}</td>
+    <td class="r num">{% if run.cost %}{{ run.cost.usd|usd }}{% endif %}</td>
+    <td>{{ file_link(run.artifact, 'open') }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% elif shown.running %}<p class="note">No step has reported yet.</p>{% endif %}
+{% if shown.summary or shown.next or shown.questions %}
+<div class="outcome">
+  {% if shown.summary %}<div class="card"><p class="eyebrow">Verdict{% if shown.verdict_artifact %} · {{ file_link(shown.verdict_artifact, 'all of it') }}{% endif %}</p><p>{{ shown.summary }}</p></div>{% endif %}
+  {% if shown.next %}<div class="card"><p class="eyebrow">Next round</p><p>{{ shown.next }}</p></div>{% endif %}
+  {% if shown.questions %}<div class="card"><p class="eyebrow">Asked you</p>{% for q in shown.questions %}<p>{{ q }}</p>{% endfor %}</div>{% endif %}
+</div>
+{% endif %}
+{% endif %}
+</div>
+</div>
+{% endif %}
+{% elif tab == 'findings' %}
+{% set reviewed = state.open_findings[0][0] if state.open_findings else none %}
+<h2>Open now<small>what the last reviewed round found and nobody closed; reviews are fresh each round</small></h2>
+{% if state.open_findings %}
+<div class="card flush">
+<table class="runs">
+  <thead><tr><th scope="col">Found by</th><th scope="col">Finding</th><th scope="col">Weight</th><th scope="col">File</th></tr></thead>
+  <tbody>
+  {% for run, finding in state.open_findings %}
+  {% set step = manifest.step(run.step) %}
+  <tr>
+    <td class="what"><b>{{ (step.name if step else '') or run.step }}</b>{% if run.label %}<span>{{ run.label }}</span>{% endif %}<span>{{ step.kind if step else '' }} · no. {{ finding.id }}</span></td>
+    <td class="sum">{{ finding.text }}</td>
+    <td><span class="st {{ 'skipped' if finding.severity == 'minor' else '' }}">{{ finding.severity }}</span></td>
+    <td>{{ file_link(run.artifact, 'open') }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty">Nothing is open{% if not state.rounds %}: no round has run yet{% endif %}.</p>
+{% endif %}
+{% elif tab == 'inbox' %}
+<h2>What you sent<small>every line of the inbox, newest first, and whether the loop has taken it</small></h2>
+{% if state.inbox %}
+<div class="card flush">
+<table class="runs inbox">
+  <thead><tr><th scope="col">Sent</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Taken by the loop</th><th scope="col">From</th></tr></thead>
+  <tbody>
+  {% for item in state.inbox|reverse %}
+  {% set mark = signed[item.entry.id] %}
+  <tr{% if mark is false %} class="forged"{% endif %}>
+    <td class="num">{{ item.entry.ts|stamp }}<span class="grey"> · {{ item.entry.ts|ago }}</span></td>
+    <td><span class="st">{{ item.entry.kind }}</span></td>
+    <td class="sum">{{ item.entry.text or 'Stop after the current round.' }}{% if item.entry.choice %} <span class="grey">(picked option {{ item.entry.choice }})</span>{% endif %}{% if item.entry.round %} <span class="grey">· round {{ item.entry.round }}</span>{% endif %}</td>
+    <td>{% if item.read %}<span class="st ok"><i class="mark ok"></i>taken</span>{% else %}<span class="st"><i class="mark"></i>not yet</span>{% endif %}</td>
+    <td>{% if mark is true %}this board{% elif mark is false %}<b class="bad">not from the board</b>{% else %}<span class="grey">unknown</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="note">A line marked "not from the board" was written into <code>inbox.jsonl</code> by something else, an agent of the loop perhaps. A loop that checks <code>signed</code> ignores it.</p>
+{% else %}
+<p class="empty">Nothing sent yet. An answer, a note or a stop from this page shows here.</p>
+{% endif %}
+{% elif tab == 'items' %}
+{% if not state.items %}<p class="empty tabbed">This loop reports no items. A loop that evaluates a list of things sends a <code>check</code> event per check.</p>{% endif %}
+{% if state.items %}
+<h2>What the loop evaluates<small>each cell is the latest check of that kind; a hatched cell means none has run</small></h2>
+<div class="card flush">
+<table class="items">
+  <thead><tr><th scope="col" class="item">Item</th>{% for kind in state.check_kinds %}<th scope="col">{{ kind }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for item in state.items %}
+  <tr>
+    <td class="item">{{ item.name }}</td>
+    {% for kind in state.check_kinds %}
+    {% set latest = item.latest(kind) %}
+    {% if latest %}
+    <td><details><summary><span class="res {{ latest.result }}">{{ latest.result }}</span><span class="when">{{ latest.at|stamp }}{% if latest.who %} · {{ latest.who }}{% endif %}</span></summary>
+      <ul>{% for check in item.history(kind)|reverse %}<li>{{ check.at|stamp }} · {{ check.result }}{% if check.who %} · {{ check.who }}{% endif %}{% if check.finding %}: {{ check.finding }}{% endif %} {{ file_link(check.evidence, 'evidence') }}</li>{% endfor %}</ul>
+    </details></td>
+    {% else %}<td class="void" title="no {{ kind }} has run for this item"><span class="sr">not run</span></td>{% endif %}
+    {% endfor %}
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+{% else %}
+<section class="kpis" aria-label="Totals">
+  <div class="kpi"><b>{{ state.rounds|length }}{% if manifest.round_cap %}<sup>/ {{ manifest.round_cap }}</sup>{% endif %}</b><span>rounds{% if manifest.round_cap %}, of the cap{% endif %}</span></div>
+  <div class="kpi"><b>{{ state.open_findings|length }}</b><span>findings open now</span></div>
+  <div class="kpi"><b>{{ state.minutes|minutes or '0 min' }}</b><span>in finished rounds{% if manifest.runtime_cap_minutes %}, cap {{ manifest.runtime_cap_minutes|minutes }}{% endif %}</span></div>
+  <div class="kpi"><b>{{ state.cost_usd|usd or '$0' }}</b><span>reported cost{% if manifest.cost_cap_usd %}, cap {{ manifest.cost_cap_usd|usd }}{% endif %}{% if state.tokens %}, {{ state.tokens|tokens }} tokens{% endif %}</span></div>
+  <div class="kpi"><b>{{ manifest.steps|length }}</b><span>steps in a round, {{ manifest.steps|selectattr('kind', 'equalto', 'review')|list|length }} of them reviewers</span></div>
+</section>
+
+{% if caps %}
+<section class="caps card" aria-label="How far along its own caps">
+  {% for bar in caps %}
+  <div class="cap{{ ' warn' if bar.warns }}">
+    <p><span class="eyebrow">{{ bar.name }}</span><span class="num">{{ bar.used }} of {{ bar.cap }}</span></p>
+    <svg viewBox="0 0 100 6" preserveAspectRatio="none" role="img" aria-label="{{ bar.name }}: {{ bar.used }} of {{ bar.cap }}"><rect class="track" width="100" height="6" rx="3"/><rect class="fill" width="{{ (bar.share * 100)|round(1) }}" height="6" rx="3"/></svg>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if stuck %}
+<section class="card stalled" aria-label="Signs of no progress">
+  <p class="eyebrow">No progress?</p>
+  <ul class="plain">{% for sign in stuck %}<li><span class="body">{{ sign|capitalize }}.</span></li>{% endfor %}</ul>
+  <p class="grey">A loop that goes round without getting closer costs rounds and money. Read the last review, then send a note that changes the approach, or stop it.</p>
+</section>
+{% endif %}
+
+{% if charts %}
+<h2>Is it converging<small>one line per measure, a dot per finished round{% if charts|selectattr('target_y', 'ne', none)|list %}; the dashed line is the loop's target{% endif %}</small></h2>
+<section class="trends">
+  {% for c in charts %}
+  <figure class="card trend{{ ' better' if c.improving is true else (' worse' if c.improving is false else '') }}">
+    <figcaption><span class="eyebrow">{{ c.series.name }}</span><b>{{ c.last|figure(c.series.unit) }}</b>{% if c.series.values|length > 1 %}<span class="grey">from {{ c.first|figure(c.series.unit) }} in round {{ c.series.values[0][0] }}</span>{% endif %}</figcaption>
+    <svg viewBox="0 0 {{ c.width }} {{ c.height }}" role="img" aria-label="{{ c.series.name }} per round: {% for d in c.dots %}round {{ d.round }} {{ d.value|figure(c.series.unit) }}{{ ', ' if not loop.last }}{% endfor %}">
+      {% if c.target_y is not none %}<line class="target" x1="0" x2="{{ c.width }}" y1="{{ c.target_y }}" y2="{{ c.target_y }}"/>{% endif %}
+      <path class="line" d="{{ c.path }}"/>
+      {% for d in c.dots %}<circle cx="{{ d.x }}" cy="{{ d.y }}" r="{{ 3.5 if loop.last else 2.5 }}"><title>round {{ d.round }}: {{ d.value|figure(c.series.unit) }}</title></circle>{% endfor %}
+    </svg>
+  </figure>
+  {% endfor %}
+</section>
+{% endif %}
+
+
+{% if state.status == 'stalled' %}
+<section class="card stalled" aria-label="Why this loop looks stalled">
+  <p class="eyebrow">Silent since {{ state.last_event|stamp }}, {{ state.last_event|ago }}</p>
+  <p>The last line was <b>{{ state.last_line }}</b>.{% if state.expected %} The loop said it would be back by {{ state.expected|stamp }}.{% endif %} No line since, and {% if process %}the process the board started {{ 'still runs' if process.alive else 'has ended' }}{% else %}the board did not start it{% endif %}.</p>
+  <ol class="steps">
+    {% if process and not process.alive %}<li>Read the last lines it printed, below, for why it ended.</li>{% endif %}
+    <li>Look where the loop runs{% if manifest.workspace and manifest.workspace.worktree %} (<code>{{ manifest.workspace.worktree }}</code>){% endif %}: is its process alive, is it waiting on something outside?</li>
+    <li>If it died, start it again{% if manifest.commands.get('start') %} with Start below{% endif %}; a round that starts again starts clean.</li>
+    <li>If it should end, send a stop: the loop takes it at its next round.</li>
+  </ol>
+</section>
+{% endif %}
+
+<section class="steer" aria-label="Steer the loop">
+  {% if not state.question or state.inbox %}
+  <div class="card">
+    <p class="eyebrow">{{ 'What you sent' if state.question else 'Tell the loop' }}</p>
+    {% if not state.question %}
+    <form class="say" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
+      <input type="hidden" name="token" value="{{ token }}">
+      <textarea name="text" required aria-label="A note for the loop" placeholder="A note for the next round: what to change, drop or look at."></textarea>
+      <button type="submit">Send</button>
+    </form>
+    {% endif %}
+    {% if state.inbox %}
+    <ul class="plain">
+      {% for item in state.inbox|reverse %}{% if loop.index <= 4 %}
+      <li><span class="tag">{{ item.entry.kind }} · {{ 'read' if item.read else 'not read yet' }}</span><span class="body">{{ item.entry.text or 'Stop after the current round.' }} <span class="grey">{{ item.entry.ts|ago }}</span></span></li>
+      {% endif %}{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="card">
+    <p class="eyebrow">Run</p>
+    <div class="row">
+      {% if manifest.commands.get('start') %}
+        {% if process and process.alive %}
+        <span>Running since {{ process.started|stamp }}, pid {{ process.pid }}</span>
+        {% else %}
+        <form class="start" method="post" action="{{ url_for('loop_start', repo_key=view.repo.key, loop_id=view.loop_id) }}">
+          <input type="hidden" name="token" value="{{ token }}">
+          <input type="hidden" name="command" value="{{ manifest.commands.get('start') }}">
+          <button type="submit">Start</button>
+          <code>{{ manifest.commands.get('start') }}</code>
+          <p class="grey">This command comes from this repository's <code>loop.json</code>, not from the board. It runs here with your rights.</p>
+          {% if not confirmed %}<label class="tick"><input type="checkbox" name="confirm" value="yes" required> I have read the command and want it run</label>{% endif %}
+        </form>
+        {% endif %}
+      {% else %}
+      <span class="grey">This loop names no command the board could start. Start it where it lives, from its own repository.</span>
+      {% endif %}
+    </div>
+    <div class="row">
+      {% if state.status in stoppable or state.stop_requested %}
+      <form method="post" action="{{ url_for('loop_stop', repo_key=view.repo.key, loop_id=view.loop_id) }}">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button type="submit" class="quiet"{% if state.stop_requested %} disabled{% endif %}>{{ 'Stop is waiting for the loop' if state.stop_requested else ('Stop after this round' if state.status in ('running', 'stalled', 'waiting') else 'Stop before the next round') }}</button>
+      </form>
+      {% endif %}
+      {% if process and process.alive %}
+      <form method="post" action="{{ url_for('loop_kill', repo_key=view.repo.key, loop_id=view.loop_id) }}">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button type="submit" class="danger">End the process now</button>
+      </form>
+      {% endif %}
+    </div>
+    {% if log_tail %}<pre class="log" tabindex="0" aria-label="Last lines the process printed">{{ log_tail }}</pre>{% endif %}
+  </div>
+</section>
+
+{% set brief = manifest.brief %}
+{% if brief.goal or brief.audience or brief.bar or brief.path %}
+<h2>The brief{% if brief.path %}<small>{{ file_link(brief.path, 'read all of it') }}</small>{% endif %}</h2>
+<section class="brief card">
+  {% if brief.goal %}<div><p class="eyebrow">Goal</p><p>{{ brief.goal }}</p></div>{% endif %}
+  {% if brief.audience %}<div><p class="eyebrow">For</p><p>{{ brief.audience }}</p></div>{% endif %}
+  {% if brief.bar %}<div><p class="eyebrow">Done when</p><p>{{ brief.bar }}</p></div>{% endif %}
+</section>
+{% endif %}
+{% if manifest.outputs %}
+<p class="note">Makes: {% for output in manifest.outputs %}{{ file_link(output.path, output.name) }}{{ ', ' if not loop.last }}{% endfor %}</p>
+{% endif %}
+{% if manifest.workspace or manifest.state %}
+<p class="note">{% if manifest.workspace %}Runs on {% if manifest.workspace.branch %}branch <code>{{ manifest.workspace.branch }}</code>{% endif %}{% if manifest.workspace.worktree %} in <code>{{ manifest.workspace.worktree }}</code>{% endif %}. {% endif %}{% if manifest.state %}Hands from round to round: {% for item in manifest.state %}{{ file_link(item.path, item.name) }}{{ ', ' if not loop.last }}{% endfor %}.{% endif %}</p>
+{% endif %}
+
+{% if graph %}
+<h2>How a round runs<small>{% if shown %}coloured as round {{ shown.number }} stands{% else %}no round yet{% endif %}</small></h2>
+<div class="card">
+  <div class="scroll"><svg class="round" viewBox="0 0 {{ graph.width }} {{ graph.height }}" role="img" aria-label="The steps of one round, left to right: {{ graph.nodes|map(attribute='name')|join(', ') }}">
+    <defs><marker id="tip" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="tip" d="M0 0 L8 4 L0 8 z"/></marker></defs>
+    {% for edge in graph.edges %}<path class="edge" d="{{ edge }}" marker-end="url(#tip)"/>{% endfor %}
+    {% if graph.back %}<path class="back" d="{{ graph.back }}" marker-end="url(#tip)"/><text class="backlabel" x="{{ graph.width // 2 }}" y="{{ graph.height - 16 }}">next round, until the verdict says done</text>{% endif %}
+    {% for node in graph.nodes %}
+    <g class="node {{ node.state }}">
+      <title>{{ node.name }}: {{ node.state }}{% if node.runs > 1 %}, {{ node.runs }} runs{% endif %}{% if node.findings %}, {{ node.findings }} open finding(s){% endif %}</title>
+      <rect class="box" x="{{ node.x }}" y="{{ node.y }}" width="{{ graph.node_w }}" height="{{ graph.node_h }}" rx="10"/>
+      <rect class="bar" x="{{ node.x + 7 }}" y="{{ node.y + 9 }}" width="3" height="{{ graph.node_h - 18 }}" rx="1.5"/>
+      <text class="kind" x="{{ node.x + 18 }}" y="{{ node.y + 18 }}">{{ node.kind }}</text>
+      <text class="name" x="{{ node.x + 18 }}" y="{{ node.y + 35 }}">{{ node.name|truncate(18, True, '…', 0) }}</text>
+      {% if node.runs > 1 %}<text class="count" x="{{ node.x + graph.node_w - 12 }}" y="{{ node.y + 18 }}">×{{ node.runs }}</text>{% endif %}
+      {% if node.findings %}<g class="badge"><circle cx="{{ node.x + graph.node_w - 5 }}" cy="{{ node.y + 5 }}" r="11"/><text x="{{ node.x + graph.node_w - 5 }}" y="{{ node.y + 9 }}">{{ node.findings }}</text></g>{% endif %}
+    </g>
+    {% endfor %}
+  </svg></div>
+  <p class="legend"><span><i class="mark ok"></i>finished</span><span><i class="mark running"></i>running</span><span><i class="mark failed"></i>failed</span><span><i class="mark skipped"></i>skipped</span><span><i class="mark"></i>not run</span><span><i class="mark find">3</i>open material findings</span></p>
+</div>
+{% endif %}
+
+{% if report.problems or report.warnings %}
+<h2>What the protocol check finds<small>the same as <code>loopcaptain validate</code> in the loop's repository</small></h2>
+<div class="card"><ul class="plain">
+  {% for line in report.problems %}<li><span class="tag bad">problem</span><span class="body">{{ line }}</span></li>{% endfor %}
+  {% for line in report.warnings %}<li><span class="tag">warning</span><span class="body">{{ line }}</span></li>{% endfor %}
+</ul></div>
+{% endif %}
+{% endif %}
+{% endblock %}

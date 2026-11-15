@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ path }} · {{ view.title }}{% endblock %}
+{% block where %}{{ view.repo.key }} / {{ view.loop_id }}{% endblock %}
+{% block main %}
+<p class="crumb"><a href="{{ url_for('overview') }}">Loops</a> / <a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a> / {{ path }}</p>
+{% if reason %}<p class="empty"><code>{{ path }}</code>: {{ reason }}.</p>
+{% elif body is not none %}<article class="prose card">{{ body }}</article>
+{% else %}<pre class="raw">{{ text }}</pre>{% endif %}
+{% endblock %}

@@ -1,0 +1,25 @@
+name: A protocol proposal
+description: A field or an event the Loops protocol lacks.
+labels: [protocol]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What a real loop could not say
+      description: The loop, in invented words, and what it had to do instead.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The field or event, as a line of events.jsonl
+      render: json
+    validations:
+      required: true
+  - type: checkboxes
+    id: grows
+    attributes:
+      label: Protocol 1 only grows
+      options:
+        - label: The proposal is optional; a loop written against today's text still validates.
+          required: true

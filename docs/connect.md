@@ -1,0 +1,1 @@
+--8<-- "standard/AGENTS.md"

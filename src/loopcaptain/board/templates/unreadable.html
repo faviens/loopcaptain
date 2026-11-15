@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ loop_id }} cannot be read · Loopcaptain{% endblock %}
+{% block where %}{{ repo.key }} / {{ loop_id }}{% endblock %}
+{% block main %}
+<p class="crumb"><a href="{{ url_for('overview') }}">Loops</a> / {{ repo.key }} / {{ loop_id }}</p>
+<h1>{{ loop_id }} cannot be read</h1>
+<p class="meta"><span class="pill failed">unreadable</span><span>the board shows nothing it cannot read; this is what is wrong</span></p>
+<div class="card">
+  <ul class="plain">{% for problem in problems %}<li><span class="body">{{ problem }}</span></li>{% endfor %}</ul>
+</div>
+<h2>How to fix it</h2>
+<ol class="steps">
+  <li>Open <code>.loops/{{ loop_id }}/loop.json</code> in the loop's repository and correct the field named above. The loop writes this file: fix the code that writes it, not only the file.</li>
+  <li>Check the folder: <code>loopcaptain validate .</code> in that repository lists every problem and warning.</li>
+  <li>Reload this page. It reads the files again on every request.</li>
+</ol>
+{% endblock %}
