@@ -57,3 +57,10 @@ def test_the_readme_and_the_board_show_the_prompts_as_standard_prompts_holds_the
 def test_an_installed_package_names_the_plain_server_command(tmp_path: Path) -> None:
     assert server_argv(checkout_of(tmp_path)) == ["loopcaptain", "mcp"]
     assert server_argv(checkout_of(ROOT))[:3] == ["uv", "run", "--project"]
+
+
+def test_the_agents_page_gives_every_agent_the_same_standing() -> None:
+    page = markdown()
+
+    assert "unconfirmed" not in page.lower()
+    assert all(f"## {item.name}\n" in page for item in agents("/x"))

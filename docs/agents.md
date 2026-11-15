@@ -4,8 +4,8 @@ The protocol names no vendor: a loop writes three files, whatever runs it. Aroun
 agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio; from a
 checkout it is `uv run --project <checkout> loopcaptain mcp`.
 
-Taken from each agent's documentation as of 2026-11-15. An entry marked *unconfirmed* was not
-checked against a live run; please report what works.
+Taken from each agent's documentation as of 2026-11-15. Agents change their commands: where a
+line fails, the agent's own documentation wins, and a report of what works is welcome.
 
 This page is written by `make agents` from `src/loopcaptain/agents.py`; edit that, not this.
 `loopcaptain mcp-config <agent>` prints one block.
@@ -39,7 +39,7 @@ args = ["run", "--project", "<checkout>", "loopcaptain", "mcp"]
 
 Unattended, as `commands.start`: `codex exec --json "Run one round of the loop as AGENTS.md says"`
 
-## Gemini CLI (unconfirmed)
+## Gemini CLI
 
 Reads by itself: `GEMINI.md` (import `AGENTS.md` with a line `@AGENTS.md`).
 
@@ -67,7 +67,7 @@ gemini mcp add loopcaptain uv run --project <checkout> loopcaptain mcp
 
 Unattended, as `commands.start`: `gemini -p "Run one round of the loop as AGENTS.md says" --output-format json`
 
-## Cursor (unconfirmed)
+## Cursor
 
 Reads by itself: `AGENTS.md`, `.cursor/rules/`.
 
@@ -120,7 +120,7 @@ Add the server:
 
 Unattended, as `commands.start`: `none: start the loop another way`
 
-## opencode (unconfirmed)
+## opencode
 
 Reads by itself: `AGENTS.md`.
 
@@ -148,7 +148,7 @@ Add the server:
 
 Unattended, as `commands.start`: `opencode run "Run one round of the loop as AGENTS.md says"`
 
-## Amp (unconfirmed)
+## Amp
 
 Reads by itself: `AGENTS.md`.
 
