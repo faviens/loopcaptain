@@ -25,6 +25,7 @@ from markdown_it import MarkdownIt
 from markupsafe import Markup
 
 from loopcaptain.agents import agents, checkout_of
+from loopcaptain.board.answer import send_reply, send_stop
 from loopcaptain.board.discover import (
     Config,
     LoopView,
@@ -45,7 +46,7 @@ from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.models import Manifest
-from loopcaptain.protocol.signing import board_key, is_signed, read_key
+from loopcaptain.protocol.signing import is_signed, read_key
 from loopcaptain.protocol.state import STATUS_TEXT, LoopState, no_progress_signs
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import validate_loop
@@ -54,7 +55,6 @@ log = logging.getLogger("loopcaptain.web")
 
 HERE = Path(__file__).parent
 HOST = "127.0.0.1"
-MAX_REPLY_CHARS = 20_000
 #: A host name the person adds, such as the one `tailscale serve` gives: letters, digits, hyphens, dots.
 HOST_NAME = re.compile(
     r"(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*"
@@ -299,44 +299,21 @@ def create_app(
     ) -> Response:
         check_token(token)
         repo, _, view = view_of(repo_key, loop_id)
-        asked = view.state.question if view.state else None
-        picked = next((option for option in asked.options if option.id == choice), None) if asked else None
-        if choice and picked is None:
-            return back(repo_key, loop_id, error="Nothing was sent: that choice is no longer offered.")
-        message = text.strip() or (picked.label if picked else "")
-        if not message:
-            return back(repo_key, loop_id, error="Nothing was sent: the reply was empty.")
-        if len(message) > MAX_REPLY_CHARS:
-            return back(repo_key, loop_id, error=f"Nothing was sent: over {MAX_REPLY_CHARS} characters.")
-        question = view.state.question if view.state else None
-        last = view.state.last_round if view.state else None
-        round_ = question.round if question and question.round else (last.number if last else None)
         try:
-            store.append_inbox(
-                repo.path,
-                loop_id,
-                "reply",
-                message,
-                round_,
-                key=board_key(),
-                question=asked.id if asked else None,
-                choice=picked.id if picked else None,
-            )
+            note = send_reply(repo, loop_id, view.state, text, choice)
         except StoreError as problem:
             return back(repo_key, loop_id, error=str(problem))
-        return back(repo_key, loop_id, note="Sent. The loop reads it at its next round.")
+        return back(repo_key, loop_id, note=note)
 
     @app.post("/loop/{repo_key}/{loop_id}/stop", name="loop_stop")
     def loop_stop(repo_key: str, loop_id: str, token: Annotated[str, Form()]) -> Response:
         check_token(token)
         repo, _, view = view_of(repo_key, loop_id)
-        if view.state and view.state.stop_requested:
-            return back(repo_key, loop_id, note="A stop is already waiting for the loop.")
         try:
-            store.append_inbox(repo.path, loop_id, "stop", key=board_key())
+            note = send_stop(repo, loop_id, view.state)
         except StoreError as problem:
             return back(repo_key, loop_id, error=str(problem))
-        return back(repo_key, loop_id, note="Stop sent. The loop ends after its current round.")
+        return back(repo_key, loop_id, note=note)
 
     @app.post("/loop/{repo_key}/{loop_id}/start", name="loop_start")
     def loop_start(
