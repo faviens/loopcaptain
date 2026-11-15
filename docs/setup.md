@@ -85,11 +85,59 @@ loopcaptain serve --host-name <machine>.<tailnet>.ts.net
    laptop. "Add to Home Screen" keeps it one tap away.
 2. `--host-name` takes a plain name, no scheme, port or wildcard, and
    may be given more than once. Without it the board refuses the name.
-3. Whoever can reach the name can steer your loops: share the machine
-   with nobody on the tailnet you would not hand the laptop.
+3. Whoever can reach the name can steer your loops and press Start:
+   share the machine with nobody on the tailnet you would not hand the
+   laptop. Use `tailscale serve`, never `tailscale funnel`, which puts
+   the board on the internet.
 4. A sleeping laptop has no board, on any device.
 
-## 6. The key your answers are signed with
+## 6. Messages on your phone
+
+`loopcaptain telegram` tells you on Telegram when a loop asks you
+something, fails, goes silent or ends, and takes your answer back. It
+calls Telegram and waits for replies; nothing on this machine listens.
+
+1. Create a bot: message `@BotFather` in Telegram, send `/newbot`, keep
+   the token it gives. Keep it in your password manager or keychain, not
+   in a file in a repository.
+2. Pair your chat, once:
+
+   ```bash
+   export LOOPCAPTAIN_TELEGRAM_TOKEN=<token>
+   loopcaptain telegram --pair      # prints a code; send it to your bot
+   ```
+
+   The chat id goes into the config under `telegram.chats`. Only a
+   private chat can pair, and only listed private chats are heard.
+   Stop a running `loopcaptain telegram` before pairing (both would
+   read the bot's updates) and start it again after.
+3. Run it beside the board: `loopcaptain telegram`.
+
+```yaml
+telegram:
+  chats: [123456789]
+  text: minimal                          # or full
+  board_url: https://<machine>.<tailnet>.ts.net
+```
+
+1. `text: minimal`, the default, sends the loop's name, repository,
+   round and status, and a button to stop after this round. Telegram can
+   read what a bot sends, so the question itself goes only with
+   `text: full`, which adds its text and one button per choice; reply to
+   the message to answer in words.
+2. `board_url`, with the board on your phone (section 5), puts a link to
+   the loop's page in each message.
+3. A press or a reply goes through the same checks as the board's forms
+   and ends in the same signed inbox line. A loop can not be started from
+   a chat. Send `/status` for every loop's status.
+4. Each piece of news goes out once; it is tried again while no chat
+   could be reached, and a loop that stalls a second time in one round
+   is news again; what was sent is kept in
+   `telegram.json` in the board's state folder: `.state` in the folder
+   it is started from, or `LOOPCAPTAIN_STATE`. Start it from the same
+   folder each time, or it begins afresh.
+
+## 7. The key your answers are signed with
 
 The board signs every line it writes into a loop's `inbox.jsonl` with
 `~/.config/loopcaptain/inbox.key`, made on first use. A loop that reads

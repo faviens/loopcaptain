@@ -23,9 +23,20 @@
 5. **The network:** the board listens on `127.0.0.1` only, answers only to
    its own host name and the names given with `--host-name` (for a proxy
    on this machine such as `tailscale serve`, which makes the board
-   reachable for every device that reaches that name), and every form
+   reachable for every device that reaches that name, Start included;
+   never `tailscale funnel`, which puts it on the internet), and every form
    carries a per-process token. No page
-   loads anything from another origin. Nothing is sent off the machine.
+   loads anything from another origin. The board sends nothing off the
+   machine.
+6. **Telegram, only when turned on:** `loopcaptain telegram` sends a
+   message to the chats in `telegram.chats` when a loop needs the
+   person. Telegram can read those messages: by default they carry the
+   loop's name, repository, round and status only, the question and its choices only with
+   `text: full`. A press or a reply is taken only from an allowed private chat and
+   ends in the same checked, signed inbox line as the board's forms;
+   nothing from a chat can start a loop. The bot token comes from
+   `LOOPCAPTAIN_TELEGRAM_TOKEN`, is never written to a file or a log, and
+   is not passed to a started loop.
 
 ## Reporting a vulnerability
 

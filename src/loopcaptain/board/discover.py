@@ -7,6 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -224,12 +225,13 @@ def as_written(path: Path) -> str:
 def edit_config(path: Path, *, add: tuple[str, str] | None = None, remove: str | None = None) -> list[str]:
     """Add `(key, path)` to the config or remove a path from both lists; returns what changed, in words."""
     target = config_target()
-    data: dict[str, list[str]] = {"roots": [], "repos": []}
+    data: dict[str, Any] = {"roots": [], "repos": []}
     if target.is_file():
         loaded = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
         if not isinstance(loaded, dict):
             raise StoreError(f"{target}: expected `roots:` and `repos:` lists")
-        data.update({key: list(loaded.get(key) or []) for key in ("roots", "repos")})
+        # Other sections, such as `telegram:`, are kept as they are.
+        data = {**data, **loaded, **{key: list(loaded.get(key) or []) for key in ("roots", "repos")}}
     changes: list[str] = []
     if add is not None:
         key, entry = add
