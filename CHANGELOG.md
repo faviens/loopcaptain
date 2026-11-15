@@ -89,3 +89,10 @@ What changed for someone who uses Loopcaptain. Newest first.
    repository, with uv, pipx or pip), a five-minute Get started with the
    example loop, and a Setup page: what the board watches, how to check a
    loop, and what to look at when a loop does not show.
+17. The overview shows where to look first: the tiles for what runs and
+   for what stalled or failed take colour when their count is not zero,
+   every row carries a stripe in its status colour, and a row with a
+   question or a failure is tinted.
+18. The README and the documentation show the board with an invented set
+   of eight loops in every status: the front page large, four more views
+   in a grid. `make shots` retakes them.

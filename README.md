@@ -26,18 +26,15 @@ goal mode, for example), a loop built on an agent framework. None of
 them is needed: a loop has no dependency and never imports this
 repository.
 
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-overview-dark.webp"><img alt="The board's front page with eight invented loops in four projects: one waits for an answer, two run, one stalled and one failed are marked, each with its rounds, open findings, time and cost." src="docs/assets/screenshot-overview.webp"></picture>
+
+<sub>Invented loops, photographed from the board itself: `make shots`.</sub>
+
 ## Get started
 
-Copy one of these into your coding agent, any agent:
-
-```text
-Help me build an agent loop that reports to Loopcaptain.
-Read https://github.com/faviens/loopcaptain/blob/main/standard/AGENTS.md and LOOPS.md beside it.
-Ask me what the loop is for, who reads the result and when it is done.
-Then design the roles of one round, write the loop in this repository,
-make it write .loops/<loop-id>/ as the protocol says, and show me
-`loopcaptain validate .` printing ok after one real round.
-```
+**Want to monitor the loops you already run?** Paste this into your coding
+agent, whichever you use. It finds the loops on your machine, sets up the
+board and proposes the smallest change that connects each one:
 
 ```text
 Help me see and steer the agent loops on this machine with Loopcaptain.
@@ -48,8 +45,21 @@ start it, and for each loop that is not connected propose the smallest
 change that connects it. Change nothing in those repositories before I agree.
 ```
 
-Or install it and see it first with the example loop, which costs nothing
-(no model, no network):
+**Want to set up a new loop that speaks the protocol?** Paste this one. It
+asks what the loop is for, builds it in your repository and shows you one
+real round on the board:
+
+```text
+Help me build an agent loop that reports to Loopcaptain.
+Read https://github.com/faviens/loopcaptain/blob/main/standard/AGENTS.md and LOOPS.md beside it.
+Ask me what the loop is for, who reads the result and when it is done.
+Then design the roles of one round, write the loop in this repository,
+make it write .loops/<loop-id>/ as the protocol says, and show me
+`loopcaptain validate .` printing ok after one real round.
+```
+
+**Want to look first?** Install it and run the example loop, which costs
+nothing (no model, no network):
 
 ```bash
 uv tool install git+https://github.com/faviens/loopcaptain
@@ -60,11 +70,6 @@ It needs Python 3.12 or later and [uv](https://docs.astral.sh/uv/), on
 macOS or Linux. From a checkout: `make setup && make demo && make serve`.
 The documentation has [Installation](docs/installation.md),
 [Get started](docs/get-started.md) and [Setup](docs/setup.md).
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-overview-dark.webp">
-  <img alt="The board: one loop waits for an answer; its question offers two buttons and a box to answer in your own words." src="docs/assets/screenshot-overview.webp">
-</picture>
 
 ## The loop protocol: three files
 
@@ -95,25 +100,14 @@ way: [docs/agents.md](docs/agents.md).
    round without getting closer, a step that needs you, a line it wrote
    that the protocol check refuses.
 
-<details>
-<summary>One loop, the Overview tab</summary>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-loop-dark.webp">
-  <img alt="One loop: its question with option buttons, the key figures, bars against the caps, a line per measure converging, the run card and the brief." src="docs/assets/screenshot-loop.webp">
-</picture>
-
-</details>
-
-<details>
-<summary>One loop, the Rounds tab</summary>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-rounds-dark.webp">
-  <img alt="Every round against every step on the left; round 2 on the right with each step's summary, findings, tokens, cost and file." src="docs/assets/screenshot-rounds.webp">
-</picture>
-
-</details>
+<p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-waiting-dark.webp"><img alt="Waiting for you: a loop's question with two answer buttons and a box for your own words." src="docs/assets/screenshot-waiting.webp" width="49%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-loop-dark.webp"><img alt="One loop: key figures, rounds against the cap, and a line per measure showing whether it converges." src="docs/assets/screenshot-loop.webp" width="49%"></picture>
+</p>
+<p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-rounds-dark.webp"><img alt="The rounds of one loop: every round against every step, and one round with what each step did, found and cost." src="docs/assets/screenshot-rounds.webp" width="49%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-findings-dark.webp"><img alt="Open findings of one loop: what the last reviewed round left open, by reviewer." src="docs/assets/screenshot-findings.webp" width="49%"></picture>
+</p>
 
 ## Steer a loop: answer, note, stop, start
 
