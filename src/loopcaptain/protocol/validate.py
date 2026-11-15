@@ -82,6 +82,7 @@ def validate_loop(repo: Path, loop_id: str) -> Report:
     report.warnings += back_produced(events)
     report.warnings += missing_outputs(repo, manifest)
     report.warnings += unread_inbox(events, inbox)
+    report.warnings += restarted_count(events)
     return Report(list(dict.fromkeys(report.problems)), list(dict.fromkeys(report.warnings)))
 
 
@@ -180,3 +181,19 @@ def back_produced(events: list[AnyEvent]) -> list[str]:
         for number, stamps in sorted(times.items())
         if counts[number] > 1 and len(stamps) == 1
     ]
+
+
+def restarted_count(events: list[AnyEvent]) -> list[str]:
+    """A round started below one already started: a second run counting from the start in one folder."""
+    highest = 0
+    warnings = []
+    for event in events:
+        if not isinstance(event, RoundStarted):
+            continue
+        if event.round < highest:
+            warnings.append(
+                f"events.jsonl: round {event.round} started after round {highest}; "
+                "a new run? give each run its own loop id"
+            )
+        highest = max(highest, event.round)
+    return warnings

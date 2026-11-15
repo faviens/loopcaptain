@@ -216,3 +216,18 @@ def test_a_fast_honest_round_written_with_the_helper_is_not_called_back_produced
     helper.emit("scan", "round_finished", {"round": 1, "verdict": "done"}, repo)
 
     assert validate_report(repo).warnings == []
+
+
+def test_a_round_count_that_starts_over_is_called_a_new_run(repo: Path, helper: types.ModuleType) -> None:
+    fresh_loop(repo, helper)
+    for number in (1, 2, 2):
+        line(repo, "round_started", round=number)
+    assert not any("own loop id" in warning for warning in validate_report(repo).warnings)
+
+    line(repo, "round_started", round=1)
+
+    warnings = validate_report(repo).warnings
+    assert (
+        "scan/events.jsonl: round 1 started after round 2; a new run? give each run its own loop id"
+        in warnings
+    )

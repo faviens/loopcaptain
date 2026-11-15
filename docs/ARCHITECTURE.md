@@ -410,3 +410,21 @@ merge per release. A tag pushed by hand after a version bump: two manual
 steps. A version read from the git tag at build time: an install from a
 source archive or a shallow clone has no tag to read. Committing the
 version back to `main`: a push to a protected branch by a workflow.
+
+## 21. A run that starts its count over is a loop of its own
+
+**Decision.** `standard/LOOPS.md` says a run that counts its rounds from 1
+again gets its own loop id; `loopcaptain validate` warns when a round
+starts below one already started (`restarted_count` in
+`protocol/validate.py`). The protocol gets no `run` field.
+
+**Why.** A real loop runs a study several times, each run on its own
+branch with its own corpus and round count. In one folder, round 3 of the
+second run would replace round 3 of the first. A loop id per run keeps
+them apart with what the protocol already has, and the overview lists the
+runs side by side.
+
+**Rejected.** A `run` field on every event: vocabulary every loop author
+learns, and a fold that has to key rounds by two numbers. Numbering rounds
+on across runs: the loop's own files count from 1, so the board and the
+loop would disagree.
