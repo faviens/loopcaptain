@@ -66,6 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     serve = commands.add_parser("serve", help="the board on 127.0.0.1")
     serve.add_argument("--port", type=int, default=8484, help="the port on 127.0.0.1, default 8484")
+    serve.add_argument(
+        "--host-name",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="also answer to this host name, as a proxy such as `tailscale serve` forwards it; repeatable",
+    )
 
     validate = commands.add_parser("validate", help="check a repository's .loops folders")
     validate.add_argument("repo", type=Path)
@@ -196,7 +203,7 @@ def run(args: argparse.Namespace) -> int:
         return 0
     from loopcaptain.board.app import serve
 
-    serve(args.port)
+    serve(args.port, args.host_name)
     return 0
 
 

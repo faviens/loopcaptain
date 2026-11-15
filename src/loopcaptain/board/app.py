@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import re
 import secrets
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -54,6 +55,10 @@ log = logging.getLogger("loopcaptain.web")
 HERE = Path(__file__).parent
 HOST = "127.0.0.1"
 MAX_REPLY_CHARS = 20_000
+#: A host name the person adds, such as the one `tailscale serve` gives: letters, digits, hyphens, dots.
+HOST_NAME = re.compile(
+    r"(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*"
+)
 #: The parts of a loop's page, each with its own address: ?tab=<name>.
 TABS = ("overview", "rounds", "findings", "items", "inbox")
 #: The two parts of the first page: every loop under its project, and what waits for the person.
@@ -410,9 +415,24 @@ def pulse_of(repo: Repo, loop_id: str, steer: Runner) -> str:
     return f"{store.fingerprint(repo.path, loop_id)}.{alive}.{log_size}"
 
 
-def serve(port: int) -> None:
+def board_hosts(port: int, names: list[str] | tuple[str, ...] = ()) -> frozenset[str]:
+    """The host names the board answers to: its own address, and the plain names the person adds.
+
+    An added name reaches the board only through a proxy on this machine that forwards to
+    127.0.0.1, such as `tailscale serve`; the board itself never listens anywhere else.
+    """
+    added = set()
+    for name in names:
+        plain = name.strip().lower()
+        if not HOST_NAME.fullmatch(plain):
+            raise StoreError(f"not a plain host name: {name!r} (no scheme, port, path or wildcard)")
+        added.add(plain)
+    return frozenset({f"{HOST}:{port}", f"localhost:{port}", *added})
+
+
+def serve(port: int, host_names: list[str] | tuple[str, ...] = ()) -> None:
     import uvicorn
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    hosts = frozenset({f"{HOST}:{port}", f"localhost:{port}"})
+    hosts = board_hosts(port, host_names)
     uvicorn.run(create_app(allowed_hosts=hosts), host=HOST, port=port, log_level="warning")
