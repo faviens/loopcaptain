@@ -17,7 +17,7 @@ How one page comes about, file by file:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/request-dark.svg">
-  <img alt="How one page comes about: the request passes the host guard, the loop is found among the watched repositories, its three files are read and validated, folded into a state, laid out, rendered, and answered as HTML under a content policy." src="assets/request-light.svg">
+  <img alt="How one page comes about: the request passes the host guard, the loop is found among the watched repositories, its files are read and validated, folded into a state, laid out, rendered, and answered as HTML under a content policy." src="assets/request-light.svg">
 </picture>
 
 ## The parts, file by file
@@ -37,7 +37,7 @@ to a file. The coloured arrows are the only two ways back into a loop: the
 inbox file and the start command the loop declared for itself. The sections
 below give the reason for each choice and what was rejected.
 
-## 1. The interface is three files in the loop's repository
+## 1. The interface is a folder of files in the loop's repository
 
 **Decision.** A loop shows up by writing `.loops/<loop-id>/loop.json`
 and appending to `events.jsonl`; the board appends to `inbox.jsonl`. The

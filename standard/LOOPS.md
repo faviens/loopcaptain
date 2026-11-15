@@ -334,8 +334,7 @@ for n in range(first_round, last_round + 1):
 ## 5. The same through MCP
 
 A loop that an agent session drives, with no script of its own, uses the
-`loopcaptain` MCP server instead of the helper. Its tools write the same
-three files, so both ways look the same on the board:
+`loopcaptain` MCP server instead of the helper. Its tools write the same files, so both ways look the same on the board:
 
 | Tool | Does | Helper |
 |---|---|---|
