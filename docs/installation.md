@@ -10,30 +10,31 @@ the board installs nothing: it writes its files, see
 | What | Version | Why |
 |---|---|---|
 | Python | 3.12 or later | the board and the command line |
-| [uv](https://docs.astral.sh/uv/) | any recent | installs the tool into its own environment |
+| [uv](https://docs.astral.sh/uv/), pipx or pip | any recent | installs the command; uv and pipx give it its own environment |
 | A browser | any | the board is a local web page |
 
 ## Install the command
 
-Loopcaptain is not on PyPI yet; install it from the repository.
+Loopcaptain is on [PyPI](https://pypi.org/project/loopcaptain/) as
+`loopcaptain`.
 
 === "uv (recommended)"
 
     ```bash
-    uv tool install git+https://github.com/faviens/loopcaptain
+    uv tool install loopcaptain
     ```
 
 === "pipx"
 
     ```bash
-    pipx install git+https://github.com/faviens/loopcaptain
+    pipx install loopcaptain
     ```
 
 === "pip, in a virtual environment"
 
     ```bash
     python3 -m venv .venv && source .venv/bin/activate
-    pip install git+https://github.com/faviens/loopcaptain
+    pip install loopcaptain
     ```
 
 Check it:
@@ -42,9 +43,20 @@ Check it:
 loopcaptain --version
 ```
 
-An install from the repository's `main` branch reports `0.0.0`; a released
-wheel, from the [releases page](https://github.com/faviens/loopcaptain/releases),
-reports its version.
+To run it once without installing, `uvx loopcaptain demo` and
+`uvx loopcaptain serve` do the same from a temporary environment.
+
+## Install from the repository
+
+A release is also a tag in the repository. Name the tag, so the install
+is that release and not whatever the branch holds today:
+
+```bash
+uv tool install git+https://github.com/faviens/loopcaptain@v0.3.1
+```
+
+Without `@<tag>` the install is the `main` branch: the way to run a change
+that is not released yet. It reports version `0.0.0`.
 
 ## Install from a checkout
 

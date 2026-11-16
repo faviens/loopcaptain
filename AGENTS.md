@@ -26,8 +26,15 @@ never imports this repository.
 ## §A. Using it
 
 The runbook for an agent asked to set the board up for someone ("help me
-see and steer the agent loops on this machine"). Commands are written for
-a checkout; with the package installed, drop `uv run`.
+see and steer the agent loops on this machine").
+
+```bash
+uv tool install loopcaptain      # once; Python 3.12 or later, macOS or Linux
+```
+
+The commands below are the installed ones; `uvx loopcaptain <command>`
+runs one without installing. In a checkout of this repository, put
+`uv run` in front, or use the `make` targets (`make help`).
 
 ### 1. Ask first
 
@@ -41,9 +48,8 @@ a checkout; with the package installed, drop `uv run`.
 ### 2. Cheapest run first
 
 ```bash
-make setup                   # once: dependencies, git hooks
-make demo                    # the example loop in demo/; free, no model, no network
-make serve                   # the board on http://127.0.0.1:8484
+loopcaptain demo             # the example loop; free, no model, no network
+loopcaptain serve            # the board, this machine only, port 8484 unless --port
 ```
 
 Open the example loop, press Start, answer its question with a button,
@@ -57,16 +63,16 @@ loop looks like.
 2. One that runs a loop without reporting has a loop script, a rounds or
    reviews folder, or a loop described in its own `AGENTS.md`. List them
    for the person; change nothing in them before they agree.
-3. Check each reporting repository: `uv run loopcaptain validate <repo>`
-   (problems and warnings) and, with its loop running, `uv run loopcaptain
+3. Check each reporting repository: `loopcaptain validate <repo>`
+   (problems and warnings) and, with its loop running, `loopcaptain
    doctor <repo> <loop-id>` (does it take a stop?).
 
 ### 4. Watch them
 
 ```bash
-uv run loopcaptain watch <folder> --root     # every sub-folder with .loops/
-uv run loopcaptain watch <repository>        # one repository
-uv run loopcaptain unwatch <folder>
+loopcaptain watch <folder> --root     # every sub-folder with .loops/
+loopcaptain watch <repository>        # one repository
+loopcaptain unwatch <folder>
 ```
 
 This edits `~/.config/loopcaptain/config.yaml`, or the file
@@ -80,7 +86,7 @@ Work in the loop's repository, not here, and follow
 [standard/AGENTS.md](standard/AGENTS.md); propose the smallest change and
 wait for a yes. Do not add this repository as a dependency of a loop. A
 loop an agent session drives adds the MCP server, `loopcaptain mcp` over
-stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
+stdio: `loopcaptain mcp-config <agent>` prints the line for it,
 [docs/agents.md](docs/agents.md) lists every agent.
 
 ### What the board does and does not do
@@ -139,7 +145,9 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
    releases.
 6. The package version is not the protocol number: a release may add
    optional fields and events, never break a loop written today.
-7. Not on PyPI yet: the documentation installs from the repository.
+7. The documentation installs the released package from PyPI
+   (`uv tool install loopcaptain`); the repository at a tag is the
+   alternative, and `main` is for running what is not released.
 
 ### Where each fact lives
 

@@ -77,7 +77,7 @@ def llms_txt() -> str:
             + (prompts / "build-a-loop.md").read_text().splitlines()[0],
             "- [Watch the loops on this machine](standard/prompts/watch-my-loops.md): "
             + (prompts / "watch-my-loops.md").read_text().splitlines()[0],
-            "- [Installation](docs/installation.md): one command, from the repository; Python 3.12 or later",
+            "- [Installation](docs/installation.md): `uv tool install loopcaptain`, from PyPI; Python 3.12 or later",
             "- [Get started](docs/get-started.md): the example loop, free, in five minutes",
             "- [Setup](docs/setup.md): what the board watches, checking a loop, when a loop does not show",
             "",

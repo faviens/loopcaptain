@@ -88,3 +88,28 @@ def test_every_picture_a_page_shows_exists() -> None:
 
     assert missing == []
     assert "assets/screenshot-connect.webp" in (ROOT / "docs" / "setup.md").read_text(encoding="utf-8")
+
+
+INSTALL_PAGES = ("README.md", "AGENTS.md", "docs/installation.md", "standard/AGENTS.md")
+
+
+def test_every_page_an_agent_lands_on_installs_the_released_package() -> None:
+    for name in INSTALL_PAGES:
+        text = (ROOT / name).read_text(encoding="utf-8")
+        assert "not on pypi" not in text.lower(), name
+        untagged = re.findall(r"install git\+https://\S+?/loopcaptain(?!@v\d)", text)
+        assert untagged == [], name
+    for name in INSTALL_PAGES:
+        assert re.search(
+            r"uv tool install loopcaptain(?![\w@/-])", (ROOT / name).read_text(encoding="utf-8")
+        ), name
+
+
+def test_every_variable_the_code_reads_is_on_the_configuration_page() -> None:
+    read = set()
+    for path in (ROOT / "src").rglob("*.py"):
+        read |= set(re.findall(r'"(LOOPCAPTAIN_[A-Z_]+)"', path.read_text(encoding="utf-8")))
+    page = (ROOT / "docs" / "reference" / "configuration.md").read_text(encoding="utf-8")
+
+    assert read and [name for name in sorted(read) if f"`{name}`" not in page] == []
+    assert not (ROOT / ".env.example").exists(), "nothing reads a .env file: the page lists the variables"

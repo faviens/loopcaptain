@@ -66,7 +66,7 @@ make it write .loops/<loop-id>/ as the protocol says, and show me
 nothing (no model, no network):
 
 ```bash
-uv tool install git+https://github.com/faviens/loopcaptain
+uv tool install loopcaptain
 loopcaptain demo && loopcaptain serve      # http://127.0.0.1:8484
 ```
 

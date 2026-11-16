@@ -10,7 +10,7 @@
 
 - [Build a loop](standard/prompts/build-a-loop.md): Help me build an agent loop that reports to Loopcaptain.
 - [Watch the loops on this machine](standard/prompts/watch-my-loops.md): Help me see and steer the agent loops on this machine with Loopcaptain.
-- [Installation](docs/installation.md): one command, from the repository; Python 3.12 or later
+- [Installation](docs/installation.md): `uv tool install loopcaptain`, from PyPI; Python 3.12 or later
 - [Get started](docs/get-started.md): the example loop, free, in five minutes
 - [Setup](docs/setup.md): what the board watches, checking a loop, when a loop does not show
 

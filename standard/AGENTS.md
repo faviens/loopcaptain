@@ -58,9 +58,10 @@ nothing is the second, [Build a loop from nothing](#build-a-loop-from-nothing).
 
 ## When it is met
 
-1. `uv run --project <path to the loop board> loopcaptain validate <repository>`
-   prints `ok`. Without the board at hand, check each file against
-   [schema/](schema).
+1. `loopcaptain validate <repository>` prints `ok`. The command comes
+   with `uv tool install loopcaptain` (Python 3.12 or later), or runs
+   once without installing as `uvx loopcaptain validate <repository>`.
+   Where neither is possible, check each file against [schema/](schema).
 2. One real round has run and the folder shows it: a `round_started`, one
    `step_finished` per role that ran, a `round_finished` with its verdict.
 3. Every path in the folder is relative to the repository root and exists.
