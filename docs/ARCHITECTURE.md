@@ -17,7 +17,7 @@ How one page comes about, file by file:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/request-dark.svg">
-  <img alt="How one page comes about: the request passes the host guard, the loop is found among the watched repositories, its files are read and validated, folded into a state, laid out, rendered, and answered as HTML under a content policy." src="assets/request-light.svg">
+  <img alt="How one page comes about: the request passes the host guard and the session cookie, the loop is found among the watched repositories, its files are read and validated, folded into a state, laid out, rendered, and answered as HTML under a content policy." src="assets/request-light.svg">
 </picture>
 
 ## The parts, file by file

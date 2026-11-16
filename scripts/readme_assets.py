@@ -1,4 +1,4 @@
-"""Draw the README's banner, the how-it-works picture and the architecture's parts, light and dark: `make readme`.
+"""Draw the README's banner, the how-it-works picture and the architecture's pictures, light and dark: `make readme`.
 
 Plain SVG in the board's own palette (warm canvas, ink, one iris accent), written to docs/assets/.
 No dependency, so the pictures are redrawn the same on any machine.
@@ -524,79 +524,101 @@ def trust_picture(theme: str) -> str:
     return picture("Who may do what", label, height, body, t)
 
 
+#: A row of steps: (name, lines under it, look), read left to right. The look is `mono` for a file
+#: or a command, `plain` for anything else; `key` and `key-plain` mark the step that carries the logic.
+Step = tuple[str, tuple[str, ...], str]
+BAND_LEFT = 40
+BAND_GAP = 22
+
+
+def band(y: int, title: str, steps: list[Step], t: dict[str, str], tile_w: int = 196) -> list[str]:
+    """A lifted band with a row of tiles, an arrow from each to the next."""
+    tile_h = band_tile_height(max(len(under) for _, under, _ in steps))
+    out = [
+        plate(BAND_LEFT, y, band_width(len(steps), tile_w), band_height(steps), t),
+        text(BAND_LEFT + 18, y + 26, title, 11, t["grey"], 600, 'letter-spacing="1.4"'),
+    ]
+    for col, (name, under, look) in enumerate(steps):
+        x, ty = tile_x(col, tile_w), y + GROUP_HEAD
+        stroke, width = (t["accent"], 2) if look.startswith("key") else (t["hair"], 1.2)
+        out.append(
+            f'<rect x="{x}" y="{ty}" width="{tile_w}" height="{tile_h}" rx="12" fill="{t["card"]}" '
+            f'stroke="{stroke}" stroke-width="{width}"/>'
+        )
+        family = FONT if look.endswith("plain") else MONO
+        out.append(
+            f'<text x="{x + 14}" y="{ty + 25}" font-size="13.5" font-weight="600" fill="{t["ink"]}" '
+            f'font-family="{family}">{name}</text>'
+        )
+        out += [text(x + 14, ty + 47 + 17 * n, line, 12.5, t["grey"]) for n, line in enumerate(under)]
+        if col:
+            out.append(arrow(f"M {x - BAND_GAP + 2} {ty + tile_h // 2} H {x - 4}", t["grey"], "tip"))
+    return out
+
+
+def band_tile_height(lines: int) -> int:
+    return 50 + 17 * lines
+
+
+def band_height(steps: list[Step]) -> int:
+    return GROUP_HEAD + band_tile_height(max(len(lines) for _, lines, _ in steps)) + 14
+
+
+def band_width(tiles: int, tile_w: int) -> int:
+    return tiles * tile_w + (tiles - 1) * BAND_GAP + 44
+
+
+def tile_x(col: int, tile_w: int) -> int:
+    return BAND_LEFT + 22 + col * (tile_w + BAND_GAP)
+
+
+def turn(
+    from_col: int, to_col: int, top: int, low: int, label: str, t: dict[str, str], tile_w: int = 196
+) -> list[str]:
+    """The arrow from a tile of the upper band down onto the lower band, above a tile, with its words."""
+    start, end = tile_x(from_col, tile_w) + tile_w // 2, tile_x(to_col, tile_w) + tile_w // 2
+    bend = low - 38
+    return [
+        arrow(f"M {start} {top + LIFT} V {bend} H {end} V {low - 5}", t["grey"], "tip"),
+        text((start + end) // 2, bend - 9, label, 12.5, t["grey"], 400, 'text-anchor="middle"'),
+    ]
+
+
 def request_picture(theme: str) -> str:
     """How one page comes about: two rows of five steps, read left to right."""
     t = THEMES[theme]
-    grey = t["grey"]
-    first = [
+    first: list[Step] = [
         ("GET /loop/...", ("a request for", "one loop's page"), "plain"),
-        ("board/app.py", ("the host guard,", "then the route"), "mono"),
+        ("board/app.py", ("the host guard:", "else 400"), "mono"),
+        ("board/access.py", ("the session cookie:", "else the locked page, 401"), "mono"),
         ("board/discover.py", ("find_loop: only", "watched repositories"), "mono"),
         ("protocol/store.py", ("reads the loop's files;", "a bad line is a Problem"), "mono"),
-        ("protocol/models.py", ("validates", "each line"), "mono"),
     ]
-    second = [
+    second: list[Step] = [
+        ("protocol/models.py", ("validates", "each line"), "mono"),
         ("board/steer.py", ("is the process the", "board started alive?"), "mono"),
         ("protocol/state.py", ("fold(): rounds, runs,", "findings, status"), "key"),
         ("board/graph.py", ("layout(): columns,", "rows, curves"), "mono"),
-        ("templates/loop.html", ("with style.css", "and board.js"), "mono"),
-        ("HTML", ("under a content policy", "without inline script"), "plain"),
+        ("templates/loop.html", ("HTML under a content", "policy, no inline script"), "mono"),
     ]
-    left, tile_w, gap, tile_h = 40, 196, 22, 84
-    band_w = 5 * tile_w + 4 * gap + 44
-    band_h = GROUP_HEAD + tile_h + 14
-    top, low = 60, 60 + band_h + 70
-    height = low + band_h + LIFT + 92
-
-    def band(y: int, title: str, tiles: list[tuple[str, tuple[str, str], str]]) -> list[str]:
-        out = [
-            plate(left, y, band_w, band_h, t),
-            text(left + 18, y + 26, title, 11, grey, 600, 'letter-spacing="1.4"'),
-        ]
-        for col, (name, lines, look) in enumerate(tiles):
-            x, ty = left + 22 + col * (tile_w + gap), y + GROUP_HEAD
-            stroke, width = (t["accent"], 2) if look == "key" else (t["hair"], 1.2)
-            out.append(
-                f'<rect x="{x}" y="{ty}" width="{tile_w}" height="{tile_h}" rx="12" fill="{t["card"]}" '
-                f'stroke="{stroke}" stroke-width="{width}"/>'
-            )
-            family = FONT if look == "plain" else MONO
-            out.append(
-                f'<text x="{x + 14}" y="{ty + 25}" font-size="13.5" font-weight="600" fill="{t["ink"]}" '
-                f'font-family="{family}">{name}</text>'
-            )
-            out += [text(x + 14, ty + 47 + 17 * n, line, 12.5, grey) for n, line in enumerate(lines)]
-            if col:
-                out.append(arrow(f"M {x - gap + 2} {ty + tile_h // 2} H {x - 4}", grey, "tip"))
-        return out
-
-    fold_x = left + 22 + (tile_w + gap) + tile_w // 2
-    end_x = left + 22 + 4 * (tile_w + gap) + tile_w // 2
-    turn = top + band_h + LIFT + 32
+    top = 60
+    low = top + band_height(first) + 70
+    height = low + band_height(second) + LIFT + 92
     body = [
-        *band(top, "A REQUEST COMES IN: FIND THE LOOP AND READ ITS FILES", first),
-        *band(low, "FOLD, DRAW, ANSWER", second),
-        arrow(f"M {end_x} {top + band_h + LIFT} V {turn} H {fold_x} V {low + GROUP_HEAD - 5}", grey, "tip"),
-        text(
-            (fold_x + end_x) // 2,
-            turn - 9,
-            "the manifest, the events, the inbox",
-            12.5,
-            grey,
-            400,
-            'text-anchor="middle"',
-        ),
+        *band(top, "A REQUEST COMES IN: TWO GATES, THEN FIND AND READ THE LOOP", first, t),
+        *band(low, "VALIDATE, FOLD, DRAW, ANSWER", second, t),
+        *turn(4, 0, top + band_height(first), low, "the manifest, the events, the inbox", t),
         footer(
             height, "Nothing is stored between two requests: the page is the files, read and folded again.", t
         ),
     ]
     label = (
-        "How one page comes about. A request for a loop's page passes the host guard in board/app.py, "
-        "board/discover.py finds the loop among the watched repositories, protocol/store.py reads the "
-        "loop's files and protocol/models.py validates each line. protocol/state.py folds the lines "
-        "into rounds, runs, findings and a status, with board/steer.py saying whether a started "
-        "process is alive; board/graph.py lays out the round, the template renders it, and the answer "
-        "is HTML under a content policy without inline script."
+        "How one page comes about. A request for a loop's page passes the host guard in board/app.py "
+        "and the session cookie of board/access.py, board/discover.py finds the loop among the watched "
+        "repositories, protocol/store.py reads the loop's files and protocol/models.py validates each "
+        "line. protocol/state.py folds the lines into rounds, runs, findings and a status, with "
+        "board/steer.py saying whether a started process is alive; board/graph.py lays out the round, "
+        "and the template renders it as HTML under a content policy without inline script."
     )
     return picture("How one page comes about", label, height, body, t)
 
