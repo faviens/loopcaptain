@@ -11,7 +11,10 @@ Invented loops, photographed from the board itself.
 
 ## Get started
 
-**Want to monitor the loops you already run?** Paste this into your coding
+**Look first.** [Install it](installation.md) and [get started](get-started.md)
+with the example loop, which costs nothing: no model, no network.
+
+**Monitor the loops you already run.** Paste this into your coding
 agent, whichever you use. It finds the loops on your machine, sets up the
 board and proposes the smallest change that connects each one:
 
@@ -19,16 +22,13 @@ board and proposes the smallest change that connects each one:
 --8<-- "standard/prompts/watch-my-loops.md"
 ```
 
-**Want to set up a new loop that speaks the protocol?** Paste this one. It
+**Set up a new loop that speaks the protocol.** Paste this one. It
 asks what the loop is for, builds it in your repository and shows you one
 real round on the board:
 
 ```text
 --8<-- "standard/prompts/build-a-loop.md"
 ```
-
-**Want to look first?** [Install it](installation.md) and
-[get started](get-started.md) with the example loop, which costs nothing.
 
 ## What you see
 

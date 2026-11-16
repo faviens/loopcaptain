@@ -21,7 +21,8 @@ invented content and comes with two rounds of history.
 loopcaptain serve
 ```
 
-Open <http://127.0.0.1:8484>. The board answers on this machine only.
+Open the board in a browser, at <http://127.0.0.1:8484> unless you gave
+`serve` another port. The board answers on this machine only.
 
 ## 3. Steer the loop
 
@@ -33,7 +34,7 @@ Open <http://127.0.0.1:8484>. The board answers on this machine only.
 3. The loop asks a question. Answer it with one of its buttons, or in
    your own words.
 4. It reads your answer at its next round, converges and ends `done`
-   within seconds.
+   within a minute.
 
 A question looks like this, here from an invented loop:
 

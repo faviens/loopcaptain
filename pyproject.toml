@@ -37,6 +37,7 @@ dependencies = [
 ]
 
 [project.urls]
+Documentation = "https://faviens.github.io/loopcaptain/"
 Repository = "https://github.com/faviens/loopcaptain"
 Issues = "https://github.com/faviens/loopcaptain/issues"
 Changelog = "https://github.com/faviens/loopcaptain/blob/main/CHANGELOG.md"

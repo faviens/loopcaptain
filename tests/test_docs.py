@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import tomllib
 import types
 from pathlib import Path
 
 import pytest
+
+from loopcaptain.protocol.validate import validate_report
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -105,6 +108,44 @@ def test_every_page_an_agent_lands_on_installs_the_released_package() -> None:
         ), name
 
 
+def readme_excerpt() -> list[str]:
+    """The `events.jsonl` lines the README shows first."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    block = readme.split("```json\n", 1)[1].split("```", 1)[0]
+    return block.splitlines()
+
+
+def test_the_lines_the_readme_shows_validate_as_one_round(tmp_path: Path) -> None:
+    lines = readme_excerpt()
+    steps = [json.loads(line)["step"] for line in lines if '"step"' in line]
+    folder = tmp_path / ".loops" / "memo"
+    folder.mkdir(parents=True)
+    manifest = {"protocol": 1, "id": "memo", "steps": [{"id": step, "kind": "other"} for step in steps]}
+    (folder / "loop.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (folder / "events.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    report = validate_report(tmp_path)
+
+    assert len(lines) == 6
+    assert (report.problems, report.warnings) == ([], [])
+    assert json.loads(lines[-1])["verdict"] == "wait"
+
+
+def test_the_readme_offers_the_free_example_before_the_prompts() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    start = readme.index("## Get started")
+
+    assert start < readme.index("loopcaptain demo") < readme.index("Paste this into your coding agent")
+    assert readme.index("```json") < start
+
+
+def test_the_helper_is_as_short_as_the_pages_say() -> None:
+    helper = (ROOT / "standard" / "loops.py").read_text(encoding="utf-8").splitlines()
+
+    assert len(helper) < 110
+    assert "under 110 lines" in (ROOT / "README.md").read_text(encoding="utf-8")
+
+
 def test_every_variable_the_code_reads_is_on_the_configuration_page() -> None:
     read = set()
     for path in (ROOT / "src").rglob("*.py"):
@@ -113,3 +154,18 @@ def test_every_variable_the_code_reads_is_on_the_configuration_page() -> None:
 
     assert read and [name for name in sorted(read) if f"`{name}`" not in page] == []
     assert not (ROOT / ".env.example").exists(), "nothing reads a .env file: the page lists the variables"
+
+
+#: What only the documentation site renders: an included file, a tab, a boxed note.
+SITE_ONLY = re.compile(r'^(--8<--|=== "|!!! )', re.MULTILINE)
+
+
+def test_the_readme_sends_a_reader_to_the_site_for_pages_the_code_host_cannot_render() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    urls = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["urls"]
+    linked = re.findall(r"\]\((docs/[\w/.-]+\.md)\)", readme)
+
+    broken = [name for name in linked if SITE_ONLY.search((ROOT / name).read_text(encoding="utf-8"))]
+
+    assert linked and broken == []
+    assert urls["Documentation"] in readme

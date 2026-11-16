@@ -88,11 +88,9 @@ Put this in the loop repository's `AGENTS.md`, so any agent that works
 there keeps the standard met:
 
 > This loop reports to Loopcaptain. Keep it meeting the Loops protocol:
-> read `standard/AGENTS.md` in the Loopcaptain repository and check with
+> read `standard/AGENTS.md` in the Loopcaptain repository,
+> <https://github.com/faviens/loopcaptain>, and check with
 > `loopcaptain validate .`.
-
-Add the repository's address after "the Loopcaptain repository" so the agent
-can open it.
 
 ---
 
