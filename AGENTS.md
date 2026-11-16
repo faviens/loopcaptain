@@ -26,8 +26,15 @@ never imports this repository.
 ## §A. Using it
 
 The runbook for an agent asked to set the board up for someone ("help me
-see and steer the agent loops on this machine"). Commands are written for
-a checkout; with the package installed, drop `uv run`.
+see and steer the agent loops on this machine").
+
+```bash
+uv tool install loopcaptain      # once; Python 3.12 or later, macOS or Linux
+```
+
+The commands below are the installed ones; `uvx loopcaptain <command>`
+runs one without installing. In a checkout of this repository, put
+`uv run` in front, or use the `make` targets (`make help`).
 
 ### 1. Ask first
 
@@ -41,12 +48,11 @@ a checkout; with the package installed, drop `uv run`.
 ### 2. Cheapest run first
 
 ```bash
-make setup                   # once: dependencies, git hooks
-make demo                    # the example loop in demo/; free, no model, no network
-make serve                   # the board on http://127.0.0.1:8484
+loopcaptain demo             # the example loop; free, no model, no network
+loopcaptain serve            # the board, this machine only; prints the address to open
 ```
 
-Open the example loop, press Start, answer its question with a button,
+Open the address `serve` prints, then the example loop, press Start, answer its question with a button,
 watch it converge and end `done`. Then the person knows what a connected
 loop looks like.
 
@@ -57,16 +63,16 @@ loop looks like.
 2. One that runs a loop without reporting has a loop script, a rounds or
    reviews folder, or a loop described in its own `AGENTS.md`. List them
    for the person; change nothing in them before they agree.
-3. Check each reporting repository: `uv run loopcaptain validate <repo>`
-   (problems and warnings) and, with its loop running, `uv run loopcaptain
+3. Check each reporting repository: `loopcaptain validate <repo>`
+   (problems and warnings) and, with its loop running, `loopcaptain
    doctor <repo> <loop-id>` (does it take a stop?).
 
 ### 4. Watch them
 
 ```bash
-uv run loopcaptain watch <folder> --root     # every sub-folder with .loops/
-uv run loopcaptain watch <repository>        # one repository
-uv run loopcaptain unwatch <folder>
+loopcaptain watch <folder> --root     # every sub-folder with .loops/
+loopcaptain watch <repository>        # one repository
+loopcaptain unwatch <folder>
 ```
 
 This edits `~/.config/loopcaptain/config.yaml`, or the file
@@ -80,7 +86,7 @@ Work in the loop's repository, not here, and follow
 [standard/AGENTS.md](standard/AGENTS.md); propose the smallest change and
 wait for a yes. Do not add this repository as a dependency of a loop. A
 loop an agent session drives adds the MCP server, `loopcaptain mcp` over
-stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
+stdio: `loopcaptain mcp-config <agent>` prints the line for it,
 [docs/agents.md](docs/agents.md) lists every agent.
 
 ### What the board does and does not do
@@ -88,11 +94,14 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 1. **Steering.** An answer, a note or "Stop" append a signed line to the
    loop's `inbox.jsonl`. "Start" runs `commands.start` from the loop's own
    `loop.json` in its repository, without a shell and with only `PATH`,
-   `HOME`, `LANG`, `TERM` and `LOOPCAPTAIN_INBOX_KEY` from the board's environment; the first start
-   of a command asks for a tick. The board runs nothing else, and nothing
+   `HOME`, `LANG` and `TERM` from the board's environment, and
+   `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs with; the first
+   start of a command asks for a tick. The board runs nothing else, and nothing
    typed in a browser.
-2. **What it reads.** Only files inside a watched repository, never `.git`,
-   `.env*`, key or credential files, and the content of text files only.
+2. **What it reads.** Only files inside a watched repository, never `.git`
+   or `.env*`, never a file whose name is on a block-list of key and
+   credential names, and the content of text files only. The block-list
+   goes by names, not by what a file holds.
    It copies nothing and sends nothing anywhere. See
    [SECURITY.md](SECURITY.md).
 
@@ -104,7 +113,10 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 
 1. **Branch.** Off `main`, one branch and one worktree per writer. A
    running board (`make serve`) reads templates and static files from the
-   checkout it was started in; restart it after a Python change.
+   checkout it was started in; restart it after a Python change, then open
+   the new address it prints. Its records of started loops live in the
+   user's state folder, shared by every checkout; a second board for a
+   worktree takes its own `LOOPCAPTAIN_STATE`.
 2. **One milestone.** One logical change, a test that fails without it,
    `make check`, one commit.
 3. **Show it.** Run the change for real once: `make demo`, `make serve`,
@@ -139,7 +151,9 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
    releases.
 6. The package version is not the protocol number: a release may add
    optional fields and events, never break a loop written today.
-7. Not on PyPI yet: the documentation installs from the repository.
+7. The documentation installs the released package from PyPI
+   (`uv tool install loopcaptain`); the repository at a tag is the
+   alternative, and `main` is for running what is not released.
 
 ### Where each fact lives
 
@@ -173,8 +187,11 @@ stdio: `uv run loopcaptain mcp-config <agent>` prints the line for it,
 6. **No page loads anything from another origin,** and no template carries
    inline script or style: the content policy in `board/app.py` forbids it
    and a test checks it. The font is vendored.
-7. **Every form carries the server's token and every request names this
-   server as host.** A new route that changes anything takes the token.
+7. **Every request carries the session cookie, every form the server's
+   token, and every request names this server as host.** The cookie comes
+   from the address `serve` prints (`board/access.py`); only that entry
+   and the static files go without it. A new route that changes anything
+   takes the token.
 8. **Neutral and invented.** An agent product may be named as an example
    ("Claude Code's `/loop`"); nothing may need one to run or to be
    understood. No company, client or real loop is named anywhere, the
@@ -247,8 +264,11 @@ and no model.
    compare them byte for byte.
 4. **A running board does not reload Python.** Restart `make serve` after a
    change under `src/`.
-5. **`demo/` and `.state/` are local.** `make demo` rewrites `.loops/`,
-   `work/` and `out/` in `demo/` where it finds the example's `loop.py`.
+5. **`demo/` is local, and the board's state is not in the checkout.**
+   `make demo` rewrites `.loops/`, `work/` and `out/` in `demo/` where it
+   finds the example's `loop.py`. The board keeps its records in
+   `$XDG_STATE_HOME/loopcaptain`, else `~/.local/state/loopcaptain`, unless
+   `LOOPCAPTAIN_STATE` names a folder.
    Never point `--target` at a real repository. The example loop is the
    only loop in this repository; no real loop's folder is ever committed.
 6. **Status is derived, never stored.** "running" means a round is open

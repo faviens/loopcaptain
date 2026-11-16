@@ -30,15 +30,57 @@ goal mode, for example), a loop built on an agent framework. None of
 them is needed: a loop has no dependency and never imports this
 repository.
 
+An agent loop is a program that runs an agent on one task again and
+again, until a bar is met or a cap is reached. One pass is a round: a few
+steps in order, usually one that makes something and others that judge
+it. A reviewer is such a judging step, with its own prompt: it reads what
+the round made and lists what is wrong, as findings.
+
+A loop reports by appending one line per thing that happened to a file in
+its own repository, `.loops/<loop-id>/events.jsonl`. One round, in which a
+reviewer finds a fault and the loop asks you what to do:
+
+<!-- The lines below are checked by tests/test_docs.py: they validate as written. -->
+```json
+{"ts": "2026-11-14T21:03:00Z", "event": "round_started", "round": 1, "plan": "Draft the memo"}
+{"ts": "2026-11-14T21:09:40Z", "event": "step_finished", "round": 1, "step": "build", "cost": {"usd": 0.34}}
+{"ts": "2026-11-14T21:12:10Z", "event": "step_finished", "round": 1, "step": "facts", "findings": [{"id": "1", "text": "The 40 percent has no source", "severity": "material"}]}
+{"ts": "2026-11-14T21:12:30Z", "event": "step_finished", "round": 1, "step": "gate", "summary": "One material finding is open"}
+{"ts": "2026-11-14T21:12:31Z", "event": "question", "id": "q1", "text": "Drop the figure?", "options": [{"id": "yes", "label": "Drop it"}, {"id": "no", "label": "Find a source"}]}
+{"ts": "2026-11-14T21:12:32Z", "event": "round_finished", "round": 1, "verdict": "wait"}
+```
+
+The board shows these lines as a round with its steps, an open finding,
+the cost, and a question with two buttons:
+
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-overview-dark.webp"><img alt="The board's front page with eight invented loops in four projects: one waits for an answer, two run, one stalled and one failed are marked, each with its rounds, open findings, time and cost." src="docs/assets/screenshot-overview.webp"></picture>
 
 <sub>Invented loops, photographed from the board itself: `make shots`.</sub>
 
 ## Get started
 
-**Want to monitor the loops you already run?** Paste this into your coding
-agent, whichever you use. It finds the loops on your machine, sets up the
-board and proposes the smallest change that connects each one:
+**Look first.** The example loop costs nothing: no model, no network.
+
+```bash
+uv tool install loopcaptain    # or put uvx in front of the two lines below
+loopcaptain demo               # writes the example loop and puts it on the board
+loopcaptain serve              # the board, on this machine only
+```
+
+Open the address `serve` prints in a browser: it lets that browser in.
+Open the example loop, press Start, answer its
+question with a button and watch it end `done`. It needs Python 3.12 or
+later, on macOS or Linux, and [uv](https://docs.astral.sh/uv/), pipx or
+pip. From a checkout: `make setup && make demo && make serve`.
+
+The [documentation](https://faviens.github.io/loopcaptain/) has
+[Installation](https://faviens.github.io/loopcaptain/installation/),
+[Get started](https://faviens.github.io/loopcaptain/get-started/) and
+[Setup](https://faviens.github.io/loopcaptain/setup/).
+
+**Monitor the loops you already run.** Paste this into your coding agent,
+whichever you use. It finds the loops on your machine, sets up the board
+and proposes the smallest change that connects each one:
 
 ```text
 Help me see and steer the agent loops on this machine with Loopcaptain.
@@ -49,9 +91,9 @@ start it, and for each loop that is not connected propose the smallest
 change that connects it. Change nothing in those repositories before I agree.
 ```
 
-**Want to set up a new loop that speaks the protocol?** Paste this one. It
-asks what the loop is for, builds it in your repository and shows you one
-real round on the board:
+**Set up a new loop that speaks the protocol.** Paste this one. It asks
+what the loop is for, builds it in your repository and shows you one real
+round on the board:
 
 ```text
 Help me build an agent loop that reports to Loopcaptain.
@@ -61,19 +103,6 @@ Then design the roles of one round, write the loop in this repository,
 make it write .loops/<loop-id>/ as the protocol says, and show me
 `loopcaptain validate .` printing ok after one real round.
 ```
-
-**Want to look first?** Install it and run the example loop, which costs
-nothing (no model, no network):
-
-```bash
-uv tool install git+https://github.com/faviens/loopcaptain
-loopcaptain demo && loopcaptain serve      # http://127.0.0.1:8484
-```
-
-It needs Python 3.12 or later and [uv](https://docs.astral.sh/uv/), on
-macOS or Linux. From a checkout: `make setup && make demo && make serve`.
-The documentation has [Installation](docs/installation.md),
-[Get started](docs/get-started.md) and [Setup](docs/setup.md).
 
 ## The loop protocol
 
@@ -88,7 +117,7 @@ the person's answers back.
 | `inbox.jsonl` | the board, signed | what you sent: answers, notes, a stop |
 
 The whole protocol is one page, [standard/LOOPS.md](standard/LOOPS.md). A
-Python loop pastes a 60-line helper, [standard/loops.py](standard/loops.py);
+Python loop pastes a helper of under 110 lines, [standard/loops.py](standard/loops.py);
 an agent session uses the MCP server, which every coding agent adds its own
 way: [docs/agents.md](docs/agents.md).
 
@@ -172,7 +201,7 @@ From a checkout, put `uv run` in front, or use the `make` targets in
 No agent runtime: the board runs no model and schedules nothing; it starts
 only the one command a loop declares, after you tick it once. No database:
 the files are the truth. No cloud and no login: it answers on 127.0.0.1
-only. No transcripts: a loop reports summaries and paths. See
+only, and to a browser that opened the address `serve` prints. No transcripts: a loop reports summaries and paths. See
 [SECURITY.md](SECURITY.md) for what it trusts.
 
 ## More

@@ -1,14 +1,17 @@
 # Works with every agent
 
 The protocol names no vendor: a loop writes its files, whatever runs it. Around it, each
-agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio; from a
-checkout it is `uv run --project <checkout> loopcaptain mcp`.
+agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio.
+
+The lines below are for the installed command. From a checkout of the repository the server
+is `uv run --project <checkout> loopcaptain mcp`, and `loopcaptain mcp-config <agent>`, run
+there, prints the line with that.
 
 Taken from each agent's documentation as of 2026-11-15. Agents change their commands: where a
 line fails, the agent's own documentation wins, and a report of what works is welcome.
 
-This page is written by `make agents` from `src/loopcaptain/agents.py`; edit that, not this.
-`loopcaptain mcp-config <agent>` prints one block.
+This page is written by `make docs-pages` from `src/loopcaptain/agents.py`; edit that, not
+this. `loopcaptain mcp-config <agent>` prints one block.
 
 ## Claude Code
 
@@ -17,7 +20,7 @@ Reads by itself: `CLAUDE.md` (import `AGENTS.md` with a line `@AGENTS.md`).
 Add the server:
 
 ```text
-claude mcp add loopcaptain -- uv run --project <checkout> loopcaptain mcp
+claude mcp add loopcaptain -- loopcaptain mcp
 ```
 
 Unattended, as `commands.start`: `claude -p "Run one round of the loop as AGENTS.md says" --output-format json`
@@ -29,12 +32,12 @@ Reads by itself: `AGENTS.md`.
 Add the server:
 
 ```text
-codex mcp add loopcaptain -- uv run --project <checkout> loopcaptain mcp
+codex mcp add loopcaptain -- loopcaptain mcp
 
 # or in ~/.codex/config.toml:
 [mcp_servers.loopcaptain]
-command = "uv"
-args = ["run", "--project", "<checkout>", "loopcaptain", "mcp"]
+command = "loopcaptain"
+args = ["mcp"]
 ```
 
 Unattended, as `commands.start`: `codex exec --json "Run one round of the loop as AGENTS.md says"`
@@ -46,18 +49,14 @@ Reads by itself: `GEMINI.md` (import `AGENTS.md` with a line `@AGENTS.md`).
 Add the server:
 
 ```text
-gemini mcp add loopcaptain uv run --project <checkout> loopcaptain mcp
+gemini mcp add loopcaptain loopcaptain mcp
 
 # or in .gemini/settings.json:
 {
   "mcpServers": {
     "loopcaptain": {
-      "command": "uv",
+      "command": "loopcaptain",
       "args": [
-        "run",
-        "--project",
-        "<checkout>",
-        "loopcaptain",
         "mcp"
       ]
     }
@@ -78,12 +77,8 @@ Add the server:
 {
   "mcpServers": {
     "loopcaptain": {
-      "command": "uv",
+      "command": "loopcaptain",
       "args": [
-        "run",
-        "--project",
-        "<checkout>",
-        "loopcaptain",
         "mcp"
       ]
     }
@@ -105,12 +100,8 @@ Add the server:
   "servers": {
     "loopcaptain": {
       "type": "stdio",
-      "command": "uv",
+      "command": "loopcaptain",
       "args": [
-        "run",
-        "--project",
-        "<checkout>",
-        "loopcaptain",
         "mcp"
       ]
     }
@@ -133,10 +124,6 @@ Add the server:
     "loopcaptain": {
       "type": "local",
       "command": [
-        "uv",
-        "run",
-        "--project",
-        "<checkout>",
         "loopcaptain",
         "mcp"
       ],
@@ -155,7 +142,7 @@ Reads by itself: `AGENTS.md`.
 Add the server:
 
 ```text
-amp mcp add loopcaptain -- uv run --project <checkout> loopcaptain mcp
+amp mcp add loopcaptain -- loopcaptain mcp
 ```
 
 Unattended, as `commands.start`: `amp -x "Run one round of the loop as AGENTS.md says"`
@@ -171,12 +158,8 @@ Add the server:
 {
   "mcpServers": {
     "loopcaptain": {
-      "command": "uv",
+      "command": "loopcaptain",
       "args": [
-        "run",
-        "--project",
-        "<checkout>",
-        "loopcaptain",
         "mcp"
       ]
     }

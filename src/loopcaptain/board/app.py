@@ -1,9 +1,9 @@
 """The board: server-rendered pages over the loops' folders, on this machine only.
 
-Every request reads the files again; there is no cache and no database. Requests that change
-anything (a reply, a stop, a start) are forms that carry the token of this server process, and
-every request must name this server as its host, so a web page open in the same browser cannot
-steer a loop.
+Every request reads the files again; there is no cache and no database. Every request must name
+this server as its host and, the static files and the entry excepted, carry the session cookie
+that the address printed by `serve` sets (`board/access.py`). Requests that change anything (a
+reply, a stop, a start) are forms that also carry the token of this server process.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from markdown_it import MarkdownIt
 from markupsafe import Markup
 
 from loopcaptain.agents import agents, checkout_of
+from loopcaptain.board.access import COOKIE_NAME, ENTER_PATH, HOST, Session, is_open, local_path
 from loopcaptain.board.discover import (
     Config,
     LoopView,
@@ -34,7 +35,10 @@ from loopcaptain.board.discover import (
     git_branch,
     load_config,
     load_loop,
+    reason,
+    unreadable_folders,
 )
+from loopcaptain.board.errors import add_error_pages, secured
 from loopcaptain.board.files import MAX_FILE_BYTES, TEXT_SUFFIXES, inside
 from loopcaptain.board.filters import ago, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
@@ -52,7 +56,6 @@ from loopcaptain.protocol.validate import validate_loop
 log = logging.getLogger("loopcaptain.web")
 
 HERE = Path(__file__).parent
-HOST = "127.0.0.1"
 MAX_REPLY_CHARS = 20_000
 #: The parts of a loop's page, each with its own address: ?tab=<name>.
 TABS = ("overview", "rounds", "findings", "items", "inbox")
@@ -60,6 +63,8 @@ TABS = ("overview", "rounds", "findings", "items", "inbox")
 OVERVIEW_TABS = ("loops", "waiting")
 #: The statuses where "Stop after this round" means something: the loop may still start a round.
 STOPPABLE = frozenset({"running", "sleeping", "stalled", "waiting", "idle"})
+#: The statuses in which a loop is under way or has said when it is back.
+STARTED_ELSEWHERE = frozenset({"running", "sleeping"})
 #: Overview order: what needs the person first, then what moves, then the rest.
 STATUS_ORDER = (
     "waiting",
@@ -74,11 +79,20 @@ STATUS_ORDER = (
     "done",
 )
 
-#: Everything the pages load comes from this server: no inline script or style, no other origin.
-CONTENT_POLICY = (
-    "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-)
 NextHandler = Callable[[Request], Awaitable[Response]]
+STALE_FORM_TEXT = (
+    "Nothing was sent: that page was drawn before the board last started. This one is fresh; send again."
+)
+
+
+class StaleForm(Exception):
+    """A form that carries another server process's token, or none that this one made."""
+
+    def __init__(self, repo_key: str, loop_id: str) -> None:
+        super().__init__("a form from an older page")
+        self.repo_key = repo_key
+        self.loop_id = loop_id
+
 
 MARKDOWN = MarkdownIt("commonmark", {"html": False}).enable("table")
 
@@ -100,15 +114,20 @@ def create_app(
     runner: Runner | None = None,
     *,
     allowed_hosts: frozenset[str],
+    session: Session | None = None,
 ) -> FastAPI:
     """The board. `allowed_hosts` is required: a board that answers to any host name can be reached
-    by a web page that points its own name at this machine."""
+    by a web page that points its own name at this machine. `session` holds the key of the address
+    that lets a browser in; without one the app makes its own and keeps it in `app.state.session`."""
     app = FastAPI(title="Loopcaptain", docs_url=None, redoc_url=None, openapi_url=None)
     templates = make_templates()
     steer = runner or Runner()
     token = secrets.token_urlsafe(24)
     app.state.token = token
+    door = session or Session()
+    app.state.session = door
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+    add_error_pages(app, templates)
 
     @app.middleware("http")
     async def only_this_host(
@@ -117,16 +136,39 @@ def create_app(
         host = request.headers.get("host", "")
         if host not in allowed_hosts:
             return PlainTextResponse("this board answers only on its own address", status_code=400)
-        response = await call_next(request)
-        response.headers["Content-Security-Policy"] = CONTENT_POLICY
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Cache-Control"] = "no-store"
+        if is_open(request.url.path) or door.admits(request.cookies):
+            response = await call_next(request)
+        else:
+            response = locked(request)
+        return secured(response)
+
+    def locked(request: Request) -> Response:
+        """What a browser without the cookie gets, whatever it asked for: where to find the address."""
+        return templates.TemplateResponse(request, "locked.html", {}, status_code=401)
+
+    @app.get(ENTER_PATH, name="enter")
+    def enter(request: Request, key: str = "", next: str = "/") -> Response:
+        if not door.opens(key):
+            return locked(request)
+        response = RedirectResponse(local_path(next), status_code=303)
+        response.set_cookie(door.cookie_name, door.cookie_value, httponly=True, samesite="strict", path="/")
         return response
 
-    def check_token(given: str) -> None:
+    def problems_of(repo: Repo, loop_id: str) -> list[str]:
+        """What is wrong with a loop the board lists but cannot load, in the words of `validate`."""
+        try:
+            return validate_loop(repo.path, loop_id).problems or ["loop.json cannot be read"]
+        except Exception as error:
+            return [f"loop.json cannot be read: {reason(error)}"]
+
+    def check_token(given: str, repo_key: str, loop_id: str) -> None:
         if not hmac.compare_digest(given.encode(), token.encode()):
-            raise HTTPException(403, "this form is from an older page; reload and send again")
+            raise StaleForm(repo_key, loop_id)
+
+    @app.exception_handler(StaleForm)
+    def stale_form(request: Request, problem: StaleForm) -> Response:
+        """A form from a page drawn before this board started: nothing is done, the loop's page says so."""
+        return back(problem.repo_key, problem.loop_id, error=STALE_FORM_TEXT)
 
     def view_of(repo_key: str, loop_id: str) -> tuple[Repo, Manifest, LoopView]:
         found = find_loop(config(), repo_key, loop_id)
@@ -177,9 +219,10 @@ def create_app(
         try:
             cfg = config()
             views = all_views()
+            unreadable = unreadable_folders(cfg)
             error = ""
         except StoreError as problem:
-            cfg, views, error = Config(), [], str(problem)
+            cfg, views, unreadable, error = Config(), [], [], str(problem)
 
         def rank(view: LoopView) -> tuple[int, float]:
             status = view.state.status if view.state else "failed"
@@ -204,6 +247,7 @@ def create_app(
             "waiting": [view for view in views if view.state and view.state.question],
             "config": cfg,
             "error": error,
+            "unreadable": unreadable,
             "token": token,
             "pulse": overview_fingerprint() if not error else "error",
             "total_usd": sum(view.state.cost_usd for view in views if view.state),
@@ -225,8 +269,7 @@ def create_app(
         broken = find_repo(config(), repo_key, loop_id) if found is None else None
         if broken is not None:
             # Listed, but its loop.json cannot be read: say what is wrong instead of a bare error.
-            problems = validate_loop(broken.path, loop_id).problems or ["loop.json cannot be read"]
-            context = {"repo": broken, "loop_id": loop_id, "problems": problems}
+            context = {"repo": broken, "loop_id": loop_id, "problems": problems_of(broken, loop_id)}
             return templates.TemplateResponse(request, "unreadable.html", context)
         repo, manifest, view = view_of(repo_key, loop_id)
         note, error = message_of(request)
@@ -234,6 +277,7 @@ def create_app(
         if state is None:
             context = {"repo": repo, "loop_id": loop_id, "problems": [view.error]}
             return templates.TemplateResponse(request, "unreadable.html", context)
+        manifest = state.manifest  # as the fold counts it: a cost cap that is not finite is none
         shown = next((r for r in state.rounds if r.number == round), state.last_round)
         process = steer.process(repo, loop_id)
         context = {
@@ -248,6 +292,7 @@ def create_app(
             "process": process,
             "log_tail": steer.log_tail(repo, loop_id) if process else "",
             "confirmed": steer.is_confirmed(repo, manifest.commands.get("start", "")),
+            "runs_elsewhere": runs_elsewhere(view, steer),
             "signed": inbox_marks(state),
             "charts": charts_of(state),
             "stuck": no_progress_signs(state),
@@ -304,7 +349,7 @@ def create_app(
         text: Annotated[str, Form()] = "",
         choice: Annotated[str, Form()] = "",
     ) -> Response:
-        check_token(token)
+        check_token(token, repo_key, loop_id)
         repo, _, view = view_of(repo_key, loop_id)
         asked = view.state.question if view.state else None
         picked = next((option for option in asked.options if option.id == choice), None) if asked else None
@@ -335,10 +380,18 @@ def create_app(
 
     @app.post("/loop/{repo_key}/{loop_id}/stop", name="loop_stop")
     def loop_stop(repo_key: str, loop_id: str, token: Annotated[str, Form()]) -> Response:
-        check_token(token)
+        check_token(token, repo_key, loop_id)
         repo, _, view = view_of(repo_key, loop_id)
         if view.state and view.state.stop_requested:
             return back(repo_key, loop_id, note="A stop is already waiting for the loop.")
+        if view.state and view.state.status not in STOPPABLE:
+            # Nothing would read it now, and the next start would read it and end at once.
+            status = view.state.status
+            return back(
+                repo_key,
+                loop_id,
+                error=f"No stop was sent: this loop is {status} and starts no further round by itself.",
+            )
         try:
             store.append_inbox(repo.path, loop_id, "stop", key=board_key())
         except StoreError as problem:
@@ -352,13 +405,21 @@ def create_app(
         token: Annotated[str, Form()],
         command: Annotated[str, Form()] = "",
         confirm: Annotated[str, Form()] = "",
+        again: Annotated[str, Form()] = "",
     ) -> Response:
-        check_token(token)
-        repo, manifest, _ = view_of(repo_key, loop_id)
+        check_token(token, repo_key, loop_id)
+        repo, manifest, view = view_of(repo_key, loop_id)
         if command != manifest.commands.get("start", ""):
             # The loop rewrote its command after the page was drawn: run only what the person saw.
             return back(
                 repo_key, loop_id, error="Not started: the start command changed. Check it and press again."
+            )
+        if command and runs_elsewhere(view, steer) and again != "yes":
+            return back(
+                repo_key,
+                loop_id,
+                error="Not started: this loop is under way and the board did not start it. "
+                "A second copy would write the same files. Tick the box to start one anyway.",
             )
         first = not steer.is_confirmed(repo, command)
         if first and confirm != "yes":
@@ -377,7 +438,7 @@ def create_app(
 
     @app.post("/loop/{repo_key}/{loop_id}/kill", name="loop_kill")
     def loop_kill(repo_key: str, loop_id: str, token: Annotated[str, Form()]) -> Response:
-        check_token(token)
+        check_token(token, repo_key, loop_id)
         repo, _, _ = view_of(repo_key, loop_id)
         try:
             steer.kill(repo, loop_id)
@@ -406,6 +467,15 @@ def create_app(
     return app
 
 
+def runs_elsewhere(view: LoopView, steer: Runner) -> bool:
+    """Whether a loop reads as under way although no process the board started is alive: someone
+    started it from a terminal or a schedule, and a Start here would run a second copy beside it."""
+    if view.state is None or view.state.status not in STARTED_ELSEWHERE:
+        return False
+    process = steer.process(view.repo, view.loop_id)
+    return not (process and process.alive)
+
+
 def inbox_marks(state: LoopState) -> dict[str, bool | None]:
     """For each inbox entry, whether this board signed it; None where the board has no key yet."""
     key = read_key()
@@ -422,9 +492,20 @@ def pulse_of(repo: Repo, loop_id: str, steer: Runner) -> str:
     return f"{store.fingerprint(repo.path, loop_id)}.{alive}.{log_size}"
 
 
-def serve(port: int) -> None:
+def session_for(port: int) -> Session:
+    """A new key for a board on this port. Browsers keep one cookie jar per host name, whatever the
+    port, so the cookie is named after the port and two boards do not log each other out."""
+    return Session(cookie_name=f"{COOKIE_NAME}-{port}")
+
+
+def entry_address(port: int, session: Session) -> str:
+    """The address `serve` prints: opening it lets that browser in."""
+    return f"http://{HOST}:{port}{session.entry_path}"
+
+
+def serve(port: int, session: Session) -> None:
     import uvicorn
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     hosts = frozenset({f"{HOST}:{port}", f"localhost:{port}"})
-    uvicorn.run(create_app(allowed_hosts=hosts), host=HOST, port=port, log_level="warning")
+    uvicorn.run(create_app(allowed_hosts=hosts, session=session), host=HOST, port=port, log_level="warning")

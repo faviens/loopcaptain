@@ -51,9 +51,9 @@ The pictures on this page show invented loops.
 2. **Stop.** Appends a signed `stop`; the loop finishes its round and ends.
    Offered only where the loop may still start a round.
 3. **Start.** Runs the `commands.start` the loop's own `loop.json` names, in
-   its repository, without a shell, with only `PATH`, `HOME`, `LANG`, `TERM` and
-   `LOOPCAPTAIN_INBOX_KEY` from the board's environment. The first start of a command in a
-   repository asks for a tick.
+   its repository, without a shell, with only `PATH`, `HOME`, `LANG` and `TERM` from
+   the board's environment, and `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs
+   with. The first start of a command in a repository asks for a tick.
 4. **End the process now.** Only for a process the board started.
 
 ## Statuses

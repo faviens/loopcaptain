@@ -30,6 +30,9 @@ docs-pages: ## Write the docs pages that come from the code: command line, MCP t
 docs: ## Build the documentation site into site/
 	uv run --group docs zensical build --clean
 
+links: ## Check the links inside the built site, offline: every page and anchor it names is there
+	uv run python scripts/site_links.py site
+
 docs-serve: ## Preview the documentation site while editing
 	uv run --group docs zensical serve
 
@@ -39,11 +42,12 @@ shots: ## Retake the screenshots from invented loops, light and dark (needs Chro
 readme: ## Free: redraw the banner, the how-it-works picture and the architecture picture into docs/assets/
 	uv run python scripts/readme_assets.py
 
-check: ## Format check, lint, types, tests: what CI runs
+check: ## Format check, lint, types, tests, the site and its links: what CI runs
 	uv run ruff format --check .
 	uv run ruff check .
 	uv run mypy
 	uv run pytest -q --cov=loopcaptain --cov-report=term:skip-covered --cov-fail-under=85
 	uv run --group docs zensical build --clean
+	uv run python scripts/site_links.py site
 
-.PHONY: help setup hooks serve demo validate schema docs-pages docs docs-serve shots readme check
+.PHONY: help setup hooks serve demo validate schema docs-pages docs links docs-serve shots readme check

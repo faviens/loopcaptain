@@ -56,25 +56,32 @@ with a Copy button, and the line for the agent you pick.
 ## 4. Run the board
 
 ```bash
-loopcaptain serve                   # http://127.0.0.1:8484
+loopcaptain serve                   # prints the address to open, port 8484
 loopcaptain serve --port 9000
 ```
 
 1. The board binds to 127.0.0.1 and accepts requests only for that host.
-   It has no login because nothing outside the machine reaches it.
-2. It reads the files again on every request and keeps no database. Stop
+   It has no login: `serve` prints one line with the address to open,
+   the number of repositories it watches and the config it read. Opening
+   that address sets a session cookie in that browser; a browser without
+   it sees a page that says where the address is. The key in the address
+   is new at every start, so after a restart open the new address.
+2. A port that is taken stops `serve` with one line that says so; start
+   it with `--port <other>`.
+3. It reads the files again on every request and keeps no database. Stop
    it whenever you like; nothing is lost.
-3. It runs only while you run it. To keep it up, leave it in a terminal
+4. It runs only while you run it. To keep it up, leave it in a terminal
    or a terminal multiplexer.
-4. Restart it after an upgrade.
+5. Restart it after an upgrade.
 
 ## 5. The key your answers are signed with
 
 The board signs every line it writes into a loop's `inbox.jsonl` with
 `~/.config/loopcaptain/inbox.key`, made on first use. A loop that reads
 the same key can refuse a stop or an answer the board did not write. A
-loop the board starts gets the key's path as `LOOPCAPTAIN_INBOX_KEY`; a
-loop you start yourself finds it in the default place.
+loop the board starts gets the key's path as `LOOPCAPTAIN_INBOX_KEY`,
+whether or not the board's own environment sets it; a loop you start
+yourself finds it in the default place.
 
 ## When a loop does not show
 
@@ -85,4 +92,4 @@ loop you start yourself finds it in the default place.
 | `stalled` | a round is open and no line arrived for 45 minutes | the loop's own log; a loop that sleeps says so with `next_at` |
 | Start is not offered | the loop declares no `commands.start` | its `loop.json` |
 | Your answer is not taken | the loop does not read its inbox, or refuses an unsigned line | `loopcaptain doctor <repository> <loop-id>` |
-| The port is taken | another board, or another program on 8484 | `loopcaptain serve --port <other>` |
+| `serve` says the port cannot be used | another board, or another program on that port | `loopcaptain serve --port <other>` |

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from pathlib import Path
 from typing import Any, get_args
 
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
+from loopcaptain.cli import main
 from loopcaptain.mcp_server import server as mcp
 from loopcaptain.protocol import signing, store
 from loopcaptain.protocol.models import AnyEvent
@@ -130,7 +132,14 @@ def test_inbox_read_returns_each_entry_once(repo: Path) -> None:
             ),
             "verdict",
         ),
-        (lambda repo: mcp.emit("plan-loop", "inbox_read", {"ids": []}, repo=repo), "not an event to emit"),
+        (
+            lambda repo: mcp.emit("plan-loop", "step_finished", {"round": 5, "step": "facts"}, repo=repo),
+            "not recorded: round 5 has not started: emit round_started for it first",
+        ),
+        (
+            lambda repo: mcp.emit("plan-loop", "round_finished", {"round": 5, "verdict": "done"}, repo=repo),
+            "round 5 has not started",
+        ),
         (lambda repo: mcp.emit("plan-loop", "made_up", {}, repo=repo), "One of: round_started"),
     ],
 )
@@ -139,6 +148,36 @@ def test_a_bad_call_is_refused_in_one_line(repo: Path, call: Any, message: str) 
 
     with pytest.raises(ToolError, match=message):
         call(str(repo))
+
+
+def test_an_inbox_line_this_version_cannot_read_can_still_be_marked_read(repo: Path) -> None:
+    register(repo)
+    with (repo / ".loops" / "plan-loop" / "inbox.jsonl").open("a") as inbox:
+        inbox.write('{"id": "later-1", "ts": "2026-11-15T08:00:00Z", "kind": "pause"}\n')
+
+    said = mcp.emit("plan-loop", "inbox_read", {"ids": ["later-1"]}, repo=str(repo))
+
+    assert said.startswith("inbox_read recorded; warning: ids: 'later-1' is not an entry")
+    assert store.read_events(repo, "plan-loop")[0][-1].event == "inbox_read"
+
+
+def test_a_log_too_large_to_check_still_takes_the_event_and_says_so(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    register(repo)
+    emit(repo, "round_started", {"round": 1})
+    monkeypatch.setattr(store, "MAX_LOG_BYTES", 10)
+
+    said = mcp.emit("plan-loop", "round_finished", {"round": 1, "verdict": "done"}, repo=str(repo))
+    code = main(["emit", "plan-loop", "heartbeat", "--repo", str(repo)])
+
+    assert said.startswith("round_finished recorded; warning: events.jsonl:") and "without checking" in said
+    assert code == 0 and "without checking it against the log" in capsys.readouterr().err
+    lines = (repo / ".loops" / "plan-loop" / "events.jsonl").read_text().splitlines()
+    assert [line.split('"event":"')[1].split('"')[0] for line in lines[-2:]] == [
+        "round_finished",
+        "heartbeat",
+    ]
 
 
 def test_a_refusal_reaches_the_agent_with_its_reason(repo: Path) -> None:
@@ -184,3 +223,97 @@ def test_every_field_the_emit_tool_names_exists_on_its_event() -> None:
         named = re.findall(r"(?:^|, )([a-z_]+)", re.sub(r"[\[{(].*?[\]})]", "", found.group(2)))
         missing = [name for name in named if name not in model.model_fields]
         assert missing == [], f"{found.group(1)} names {missing}"
+
+
+def test_loop_status_reads_a_far_year_and_an_infinite_cost_without_failing(repo: Path) -> None:
+    register(repo)
+    emit(repo, "round_started", {"round": 1})
+    with (repo / ".loops" / "plan-loop" / "events.jsonl").open("a") as log:
+        log.write('{"ts": "9999-12-31T23:00:00Z", "event": "heartbeat", "next_at": "9999-12-31T23:00:00Z"}\n')
+        log.write('{"ts": "2026-11-15T08:00:00Z", "event": "step_finished", "round": 1, "step": "facts",')
+        log.write(' "cost": {"usd": 1e309}}\n')
+        log.write('{"ts": "2026-11-15T08:00:00Z", "event": "heartbeat", "next_at": ')
+        log.write("[" * 100_000 + "]" * 100_000 + "}\n")
+
+    status = mcp.loop_status("plan-loop", repo=str(repo))
+
+    assert status["status"] in ("running", "stalled") and status["cost_usd"] == 0
+    assert [line.split(":")[1] for line in status["unreadable_lines"]] == ["4"]
+
+
+def test_a_tool_says_how_to_repair_a_loop_json_it_cannot_read(repo: Path) -> None:
+    register(repo)
+    (repo / ".loops" / "plan-loop" / "loop.json").write_text('{"protocol": 1,', encoding="utf-8")
+
+    with pytest.raises(ToolError, match=r"Invalid JSON.*Call loop_register again"):
+        mcp.loop_status("plan-loop", repo=str(repo))
+
+
+def test_emit_refuses_what_validate_would_call_a_problem_and_writes_nothing(repo: Path) -> None:
+    register(repo)
+    emit(repo, "round_started", {"round": 1})
+    emit(repo, "round_finished", {"round": 1, "verdict": "continue"})
+    before = len(store.read_events(repo, "plan-loop")[0])
+    refused = [
+        (
+            "step_finished",
+            {"round": 1, "step": "mystery"},
+            "step 'mystery' is not in loop.json, which has plan",
+        ),
+        ("step_started", {"round": 2, "step": "plan"}, "round 2 has not started"),
+        (
+            "step_finished",
+            {"round": 1, "step": "plan", "artifact": "work/plan.md"},
+            "work/plan.md does not exist",
+        ),
+        ("round_finished", {"round": 1, "verdict": "failed"}, "finished twice, as continue and as failed"),
+    ]
+
+    for event, fields, message in refused:
+        with pytest.raises(ToolError, match=message):
+            emit(repo, event, fields)
+    unchanged = len(store.read_events(repo, "plan-loop")[0])
+    (repo / "work").mkdir()
+    (repo / "work" / "plan.md").write_text("The plan.\n")
+    emit(repo, "step_finished", {"round": 1, "step": "plan", "artifact": "work/plan.md"})
+    emit(repo, "round_finished", {"round": 1, "verdict": "continue"})
+
+    assert unchanged == before and validate_repo(repo) == []
+
+
+def test_a_loop_that_reads_the_inbox_file_itself_marks_its_entries_read_through_emit(repo: Path) -> None:
+    register(repo)
+    sent = store.append_inbox(repo, "plan-loop", "reply", "The second.")
+
+    emit(repo, "inbox_read", {"ids": [sent.id]})
+
+    assert mcp.inbox_read("plan-loop", repo=str(repo)) == []
+
+
+def test_inbox_read_marks_a_reply_to_an_earlier_asking_as_stale(repo: Path) -> None:
+    register(repo)
+    emit(repo, "question", {"id": "design", "text": "Which of the two?"})
+    time.sleep(0.002)
+    store.append_inbox(repo, "plan-loop", "reply", "The first.", question="design")
+    time.sleep(0.002)
+    emit(repo, "question", {"id": "design", "text": "Which of the two, now?"})
+    time.sleep(0.002)
+    store.append_inbox(repo, "plan-loop", "reply", "The second.", question="design")
+
+    taken = mcp.inbox_read("plan-loop", repo=str(repo))
+
+    assert [(entry["text"], entry["stale"]) for entry in taken] == [
+        ("The first.", True),
+        ("The second.", False),
+    ]
+
+
+def test_finding_closed_before_its_round_is_written_as_validate_allows(tmp_path: Path) -> None:
+    from loopcaptain.protocol.models import EVENT, Manifest
+    from loopcaptain.protocol.validate import refusals
+
+    manifest = Manifest.model_validate({"protocol": 1, "id": "x", "name": "x"})
+    event = EVENT.validate_python(
+        {"ts": "2026-11-16T08:00:00Z", "event": "finding_closed", "round": 3, "step": "a", "id": "f1"}
+    )
+    assert refusals(tmp_path, manifest, [], event) == []

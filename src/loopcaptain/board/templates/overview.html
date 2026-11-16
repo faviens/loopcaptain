@@ -6,6 +6,12 @@
 <p class="eyebrow">Where every loop stands</p>
 <h1>Loops</h1>
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
+{% if unreadable %}
+<div class="flash bad" role="alert">
+  <p>Not shown, because the board could not look into {{ 'it' if unreadable|length == 1 else 'them' }}:</p>
+  <ul class="plain">{% for folder in unreadable %}<li><code>{{ folder.path|place }}</code> <span class="body">{{ folder.message }}</span></li>{% endfor %}</ul>
+</div>
+{% endif %}
 
 {% if views %}
 {% set running = views|selectattr('state')|selectattr('state.status', 'equalto', 'running')|list %}
@@ -97,7 +103,7 @@
 {% endif %}
 {% else %}
 <section class="start-here" aria-label="Get started">
-  <p class="lead">{% if not config.source %}No loop to show yet, and no list of repositories to watch.{% else %}None of the repositories in <code>{{ config.source.name }}</code> has a <code>.loops/</code> folder yet.{% endif %} Copy one of these into your coding agent:</p>
+  <p class="lead">{% if not config.source %}No loop to show yet, and no list of repositories to watch: the board found no <code>loopcaptain.local.yaml</code> in the folder it was started in and no <code>~/.config/loopcaptain/config.yaml</code>.{% else %}The board reads <code>{{ config.source|place }}</code>{% if not config.roots and not config.repos %}, which lists no folder yet{% else %}, and none of the {{ config.roots|length + config.repos|length }} folder{{ 's' if config.roots|length + config.repos|length != 1 }} it lists has a <code>.loops/</code> folder with a loop yet{% endif %}.{% endif %} Copy one of these into your coding agent:</p>
   <div class="prompts">
     <div class="card"><p class="eyebrow">Build a loop</p><pre class="prompt" tabindex="0">{{ prompts['build-a-loop'] }}</pre></div>
     <div class="card"><p class="eyebrow">Watch the loops on this machine</p><pre class="prompt" tabindex="0">{{ prompts['watch-my-loops'] }}</pre></div>

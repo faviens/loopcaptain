@@ -3,7 +3,9 @@ name = "loopcaptain"
 version = "0.0.0"  # a release is a git tag made by CI (scripts/release.py); the wheel is stamped with it
 description = "An open protocol for agent loops and a local dashboard to monitor and steer them: plain files, any agent, no dependency."
 authors = [{ name = "Daniel Vogler" }]
-readme = "README.md"
+# The long description is README.md with every address absolute and at the release's tag
+# (scripts/pypi_readme.py), so its pictures and links work on the package index.
+dynamic = ["readme"]
 requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE", "src/loopcaptain/board/static/fonts/OFL.txt"]
@@ -37,6 +39,7 @@ dependencies = [
 ]
 
 [project.urls]
+Documentation = "https://faviens.github.io/loopcaptain/"
 Repository = "https://github.com/faviens/loopcaptain"
 Issues = "https://github.com/faviens/loopcaptain/issues"
 Changelog = "https://github.com/faviens/loopcaptain/blob/main/CHANGELOG.md"
@@ -61,6 +64,9 @@ docs = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata.hooks.custom]
+path = "scripts/pypi_readme.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/loopcaptain"]
@@ -91,6 +97,9 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 "scripts/readme_assets.py" = ["E501"]
 "scripts/shots.py" = ["E501"]
 "scripts/docs_pages.py" = ["E501"]
+# The helper runs on Python 3.9, which has no `datetime.UTC`; its text is printed in LOOPS.md, so
+# the exception lives here rather than as a comment a loop author would paste.
+"standard/loops.py" = ["UP017"]
 
 [tool.mypy]
 strict = true

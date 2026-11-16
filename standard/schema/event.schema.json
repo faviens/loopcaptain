@@ -91,7 +91,7 @@
       "type": "object"
     },
     "Cost": {
-      "description": "What a step or round cost. `usd` is optional: an agent on a subscription reports none.",
+      "description": "What a step or round cost. `usd` is optional: an agent on a subscription reports none.\n\nAn infinite figure, or a count larger than a float holds, is read and counted as absent; `NaN` is\nnot a cost and makes the line a problem, as it always did.",
       "properties": {
         "estimated": {
           "default": false,
@@ -393,7 +393,7 @@
       "type": "object"
     },
     "Metric": {
-      "description": "A number a loop optimises, per step or round: a score, a test pass rate, a word count.",
+      "description": "A number a loop optimises, per step or round: a score, a test pass rate, a word count.\n\nA `value` that is not finite is read and not drawn; such a `target` counts as none.",
       "properties": {
         "better": {
           "anyOf": [
@@ -461,6 +461,54 @@
         "label"
       ],
       "title": "Option",
+      "type": "object"
+    },
+    "OtherEvent": {
+      "description": "An event this reader does not know: one a later release of version 1 added, or a loop's own.\n\nIt is read and skipped, never refused, so a board installed today reads a loop written\ntomorrow. It still counts as a sign of life.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "not": {
+            "enum": [
+              "round_started",
+              "step_started",
+              "step_finished",
+              "finding_closed",
+              "round_finished",
+              "question",
+              "question_closed",
+              "check",
+              "inbox_read",
+              "loop_stopped",
+              "heartbeat"
+            ]
+          },
+          "title": "Event",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts",
+        "event"
+      ],
+      "title": "OtherEvent",
       "type": "object"
     },
     "Question": {
@@ -1042,22 +1090,6 @@
       "type": "object"
     }
   },
-  "discriminator": {
-    "mapping": {
-      "check": "#/$defs/Check",
-      "finding_closed": "#/$defs/FindingClosed",
-      "heartbeat": "#/$defs/Heartbeat",
-      "inbox_read": "#/$defs/InboxRead",
-      "loop_stopped": "#/$defs/LoopStopped",
-      "question": "#/$defs/Question",
-      "question_closed": "#/$defs/QuestionClosed",
-      "round_finished": "#/$defs/RoundFinished",
-      "round_started": "#/$defs/RoundStarted",
-      "step_finished": "#/$defs/StepFinished",
-      "step_started": "#/$defs/StepStarted"
-    },
-    "propertyName": "event"
-  },
   "oneOf": [
     {
       "$ref": "#/$defs/RoundStarted"
@@ -1091,6 +1123,9 @@
     },
     {
       "$ref": "#/$defs/Heartbeat"
+    },
+    {
+      "$ref": "#/$defs/OtherEvent"
     }
   ]
 }

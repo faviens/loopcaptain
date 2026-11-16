@@ -446,3 +446,238 @@ runs side by side.
 learns, and a fold that has to key rounds by two numbers. Numbering rounds
 on across runs: the loop's own files count from 1, so the board and the
 loop would disagree.
+
+## 22. The package's long description is the README, made absolute at build time by a backend hook
+
+**Decision.** `scripts/pypi_readme.py` is a metadata hook of the build
+backend (`[tool.hatch.metadata.hooks.custom]` in `pyproject.toml`). While
+the package is built it reads `README.md`, writes every relative picture
+and link in full, pictures to the code host's raw files and links to its
+pages, at the tag of the version being built (`v<version>`, the branch
+for 0.0.0), and hands that text to the backend as the long description.
+The README in the repository stays relative.
+
+**Why.** A package index shows the long description outside the
+repository, where a relative path leads nowhere: on 0.3.1 the banner and
+screenshots were broken and 18 links dead (F29). Pinning to the tag keeps
+a release's page showing that release. In the backend, every build makes
+the same text, a local `uv build` included, without a workflow step or a
+new dependency.
+
+**Rejected.** A workflow step that rewrites the README before `uv build`:
+a build made elsewhere would carry the broken text. Absolute addresses in
+the README itself: a reader on the code host would be sent off the
+branch they are reading, and a fork to the original. A second README
+for the index: a copy that drifts from the first.
+
+## 23. A released package pins its prompts to its own tag when they are read
+
+**Decision.** The two copy-paste prompts live once, in
+`standard/prompts/`, and name the runbooks on the `main` branch.
+`prompt_text` in `src/loopcaptain/prompts.py` reads the installed
+version when a prompt is shown and, for a release, moves every address on
+the branch to that release's tag (`v<version>`). A checkout and an
+install from the branch (version 0.0.0) keep the branch.
+
+**Why.** A person who installed a release hands the prompt to an agent,
+and the agent should read the runbook that matches the commands that
+release has, not whatever `main` holds that day. Doing it at read time
+from the installed version needs no edit at release and nothing
+committed back.
+
+**Rejected.** Rewriting the prompt files at release: the release would
+need a commit by hand or by the workflow, and the text on the branch
+would name an old tag. Rewriting them in the build hook of section 22:
+a second hook for text the package already reads at run time, and a
+checkout would show other addresses than the package. Leaving them on
+the branch: the agent reads instructions for a newer release than the
+person runs.
+
+## 24. Any time and any number a parser takes is read; the readers count what they can
+
+**Decision.** The models in `protocol/models.py` take every time the
+parser takes (`aware_time` only adds UTC to a time without a zone) and
+every number, `Infinity` included, and `NaN` where the field has no lower
+bound. The fold in `protocol/state.py` keeps its arithmetic inside the
+calendar (`later`), holds a `next_at` to a week after its line
+(`promise`), takes no promise from a line stamped ahead of the clock, and
+counts a cost, a measure or a cost cap that is not finite, or a count no
+float holds, as absent (`countable_cost`, `countable_metrics`,
+`countable_manifest`); a sum of costs stays finite (`finite_sum`). The
+loop page reads the manifest as the fold counted it. `validate` warns of
+a year outside 2000 to 2100 and of such a number (`odd_values`); neither
+is a problem. `speaks_protocol` in `protocol/store.py` counts a
+`loop.json` that is not JSON at all as a loop, so `read_manifest` can say
+what the parser said. `standard/LOOPS.md` sections 1 and 2 state both.
+
+**Why.** "Reading never raises on a loop's bad line" held for lines the
+models refused, not for lines they accepted and the fold then could not
+compute with. Version 1 only grows: the first release read a `next_at` of
+9999 (a loop's word for "no next round"), an `at` of 1970, a measure of
+`NaN` and a cost cap of `Infinity`, so refusing them would make a
+finished loop read as stalled and a loop with such a cap unreadable.
+Keeping the readers from failing on arithmetic is the readers' job, in
+the few places that compute. A `loop.json` with a typing mistake used to
+be skipped as another tool's file, so the loop vanished without a word.
+
+**Rejected.** Bounding the values where they enter and refusing such
+lines: it breaks loops written against the first release. Clamping a
+value into range: the board would show a number the loop never wrote.
+Catching the errors in the fold, or guarding every template: every new
+sum or comparison would need its own guard, while the fold is the one
+place every page, the MCP tools and `validate` read through, and a sum or
+a chart there sees only what it can count. Listing only a broken
+`loop.json` whose text mentions `protocol`: an empty or cut-off file
+would still vanish.
+
+## 25. An event a reader does not know is read as `OtherEvent`
+
+**Decision.** The event union in `protocol/models.py` picks its model by
+the line's `event` (`event_tag`); a name not in `EVENT_NAMES` reads as
+`OtherEvent`, which the fold skips and which still counts as a sign of
+life. `validate` warns (`unknown_events`). The published schema takes any
+other event name with a `ts`. Writing stays strict: both `emit` doors
+take known events only.
+
+**Why.** Version 1 grows by new events, and the standard tells a board to
+ignore what it does not know. A reader that refused them would call the
+first event a later release adds a problem, on every board installed
+before it.
+
+**Rejected.** Dropping such lines in the store without a model: `validate`
+could not warn of a typo, and the line's time would be lost as a sign of
+life. Leaving the union closed and skipping on the error text: a known
+event with a bad field would be hard to tell from an unknown one.
+
+## 26. An entry nobody checked is not an entry the board signed
+
+**Decision.** `standard/LOOPS.md` section 3 tells a loop to act only on
+inbox entries whose `signed` is `true`, and says what `null` means:
+nothing was checked, because the loop cannot read the key. The example in
+section 4 and the example loop (`src/loopcaptain/demo/loop.py`) do so.
+The helper's `inbox()` writes a line to standard error whenever it hands
+out an entry it could not check. This narrows section 16: `null` is no
+longer treated as good enough.
+
+**Why.** A loop reads `null` wherever the key is out of its reach: no
+board has written yet, the loop runs in a container, the environment
+names another file. Acting on `null` makes the inbox as safe as the
+repository and no safer, which is what the signature was added to change,
+and it did so without a word. A loop the board starts gets the key's path
+(section 17), so the strict rule costs such a loop nothing.
+
+**Rejected.** Having the helper drop unchecked entries, or return `false`
+for them: a loop written against the earlier text reads `null` and decides
+for itself, and its call must keep returning what it returned (version 1
+only grows). Raising an error without a key: a loop on a machine where no
+board has run yet would not start. A new event for the case: boards
+installed before unknown events were skipped would call it a problem.
+
+## 27. A door refuses an event that would stay a problem, and no more
+
+**Decision.** `before_writing` in `protocol/validate.py` holds what the
+two doors that write on a loop's behalf check, the MCP `emit` and
+`loopcaptain emit`. `refusals` (the round has started, the step is in
+`loop.json`, the artifact exists, the verdict agrees with the round's
+first) refuses an event: the door writes nothing. An `inbox_read` naming
+an entry the models cannot read is written with a warning; where
+`loop.json` or the log cannot be read (over the size the reader takes,
+unreadable), the event is written without the checks against the log,
+with a warning. The MCP `emit` adds the warning to its answer,
+`loopcaptain emit` writes it to standard error. Both take `inbox_read`.
+
+**Why.** The log is append-only, so a line `validate` refuses is refused
+for good; a writer that hears `recorded` never learns it. A door that
+refuses more than `validate` calls a problem stops a loop for nothing.
+The standard has a loop append `inbox_read` after acting on entries, and
+a loop that reads the inbox file itself has no other way to mark them;
+an inbox line a later release writes, or one with a mistake, is not read
+by this version's models, yet the loop must be able to mark it read. A
+log the reader no longer takes in full is still the loop's log, and the
+loop still has to report.
+
+**Rejected.** Writing the line and returning the problems with it: the
+problem is then permanent, and the caller can only add to it. Refusing
+`inbox_read` on both doors: a shell loop would have to write the line by
+hand, without any check of its ids. Refusing an unreadable entry or an
+unreadable log: the loop could not report at all. Writing such a line
+silently: the writer would not know its line went unchecked.
+
+## 28. A browser is let in by the address `serve` prints
+
+**Decision.** `loopcaptain serve` makes a random key at every start and
+prints an address that carries it (`session_for` and `entry_address` in
+`board/app.py`, printed by `cli.py`). Opening it sets a cookie, `HttpOnly`
+and `SameSite=Strict`, and leads on to the clean address; every other
+request, the reload pulse and the file viewer included, needs the cookie
+(`board/access.py`, the middleware in `board/app.py`). Only the static
+files are served without it. A browser without the cookie gets one page
+that says where the address is. The key lives in the process only: a
+restart makes a new one, and a page left open turns to that same page.
+The cookie holds a value made from the key, not the key, and is named
+after the port. The host check and the form token of section 5 stay. This
+adds to sections 4 and 5; it replaces neither.
+
+**Why.** Binding to 127.0.0.1 says which machine may ask, not who on it.
+The board shows files of every watched repository, writes signed inbox
+lines and starts a command, so reading and steering both belong to the
+person alone. The form token cannot draw that line by itself, since it is
+printed on the pages. A cookie set from a secret the person carries from
+the terminal to the browser can. The entry is a path, not a full address,
+so it works unchanged under a host name that a proxy on the machine
+forwards to the board.
+
+**Rejected.**
+1. A Unix socket with file permissions: no browser opens one, so the
+   board would need a helper or a proxy in front, and a phone behind a
+   private proxy could not reach it.
+2. The form token only, with reading left open: every page and file would
+   stay readable to anything that reaches the port, and the token with
+   them.
+3. A password or key kept in a file: one more secret on disk to protect,
+   and nothing to gain over a key that ends with the process.
+4. A key that works once: a second browser, or a phone, would need a
+   restart of the board. The key works for as long as the board runs.
+
+## 29. The board's records are named by what a repository is, not by its folder's name
+
+**Decision.** A record and a log of a started loop in the state folder
+are named `<folder name>-<digest>~<loop id>` (`Runner.name` in
+`board/steer.py`). The digest is of `identity`: the `.git` a repository
+shares with its worktrees (`git_common_dir`), else its resolved folder.
+The record names the same identity and is read only where it matches.
+Records named the earlier way are no longer read.
+
+**Why.** The state folder is the user's own and serves every board of
+that user. Named by folder name alone, two repositories called `app` in
+different folders, or two boards watching them, wrote one record and one
+log, so one board took the other's process for its own and showed its
+output. The shared `.git` keeps worktrees of one repository together, as
+the board shows them as one: when the board reads the loop from another
+worktree, the process it started is still found.
+
+**Rejected.** The resolved folder for every repository: a worktree that
+is written to last would lose the process started from the other. A
+digest alone: a person looking in the folder could not tell which file is
+which. A state folder per board: a second board would not see what the
+first started.
+
+## 30. A worktree counts only when its repository lists it back
+
+**Decision.** `git_common_dir` in `board/discover.py` groups a folder with
+a repository as its worktree only when the folder's `.git` file names
+`<common>/worktrees/<name>` and that folder's `gitdir` file points back
+at this folder's `.git`. A claim that is not returned, and any other
+`gitdir:` line, makes the folder stand for itself. This refines section
+13; it does not replace it.
+
+**Why.** Section 13 shows worktrees of one repository once, from the one
+written last. The `.git` file lives inside the watched folder, so it is
+content of that folder like any other. Read alone, it would let one
+folder take the place of another repository on the board. The
+back-pointer lives in the repository that is named, which the claiming
+folder does not own.
+
+**Rejected.** Asking git (`git worktree list`): a second command the
+board runs in a watched repository, on every request. Dropping the
+grouping: the reason for section 13 stands.

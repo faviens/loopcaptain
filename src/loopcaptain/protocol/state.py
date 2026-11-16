@@ -6,8 +6,11 @@ argument so "running or stalled" can be tested.
 
 from __future__ import annotations
 
+import math
+import sys
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from loopcaptain.protocol.models import (
@@ -34,6 +37,9 @@ from loopcaptain.protocol.models import (
 #: A round with no new line for this long counts as stalled, not running. A research step with
 #: many agents can be quiet for a while; an hour of silence is a stopped process.
 STALE_AFTER = timedelta(minutes=45)
+
+#: How far ahead of the reader's clock a line may be stamped and still count as a sign of life.
+CLOCK_SKEW = timedelta(minutes=5)
 
 #: Stop reasons that mean a limit of the loop's own was reached.
 CAP_REASONS = frozenset({"round_cap", "cost_cap", "runtime_cap"})
@@ -129,7 +135,7 @@ class RoundState:
 
     @property
     def cost_usd(self) -> float:
-        return sum(cost.usd for cost in self.costs)
+        return finite_sum(cost.usd for cost in self.costs)
 
     @property
     def tokens(self) -> int:
@@ -175,7 +181,12 @@ class OpenQuestion:
     @property
     def gives_up(self) -> datetime | None:
         """When a blocking loop stops waiting and goes on without the answer."""
-        return self.asked + timedelta(seconds=self.timeout_s) if self.blocks and self.timeout_s else None
+        if not (self.blocks and self.timeout_s):
+            return None
+        try:
+            return self.asked + timedelta(seconds=self.timeout_s)
+        except OverflowError:
+            return None  # a wait longer than the calendar: the loop never gives up
 
 
 @dataclass(frozen=True)
@@ -234,7 +245,7 @@ class LoopState:
 
     @property
     def cost_usd(self) -> float:
-        return sum(r.cost_usd for r in self.rounds)
+        return finite_sum(r.cost_usd for r in self.rounds)
 
     @property
     def tokens(self) -> int:
@@ -287,6 +298,7 @@ def fold(
     `untrusted`: ids of inbox entries whose signature failed. They are shown, but they answer no
     question and request no stop: an agent of the loop may have written them.
     """
+    manifest = countable_manifest(manifest)
     rounds: dict[int, RoundState] = {}
     items: dict[str, ItemState] = {}
     read_ids: set[str] = set()
@@ -310,7 +322,7 @@ def fold(
             current = rounds.get(event.round, RoundState(event.round, started=event.when))
             rounds[event.round] = apply_to_round(current, event)
             if isinstance(event, RoundFinished):
-                expected = promise(event.next_at, event.ts)
+                expected = promise(event.next_at, event.ts, at)
         elif isinstance(event, Question):
             last_question = event
             if event.round is not None and event.round in rounds:
@@ -330,12 +342,12 @@ def fold(
         elif isinstance(event, LoopStopped):
             ended = event
         elif isinstance(event, Heartbeat):
-            expected = promise(event.next_at, event.ts) or expected
+            expected = promise(event.next_at, event.ts, at) or expected
 
     ordered = tuple(rounds[n] for n in sorted(rounds))
     trusted = [entry for entry in inbox if entry.id not in untrusted]
     question = open_question(last_question, trusted, at) or needs_person(ordered, trusted)
-    last_event = max((event.ts for event in events), default=None)
+    last_event = max((event.ts for event in events if event.ts <= at + CLOCK_SKEW), default=None)
     declared = {step.id for step in manifest.steps}
     undeclared: list[str] = []
     for round_ in ordered:
@@ -376,12 +388,65 @@ def describe(event: AnyEvent) -> str:
 #: The furthest a loop may promise its next sign of life: past this it is stalled, whatever it said.
 LONGEST_PROMISE = timedelta(days=7)
 
+#: The last moment the calendar holds: a time plus a span past it reads as this, never as an error.
+END_OF_TIME = datetime.max.replace(tzinfo=UTC)
 
-def promise(next_at: datetime | None, written: datetime) -> datetime | None:
-    """When the loop said it is back, capped: a `next_at` in 2099 must not hide a dead loop forever."""
-    if next_at is None:
+
+def later(moment: datetime, span: timedelta) -> datetime:
+    """`moment + span`, kept within the calendar: a loop may write the year 9999."""
+    try:
+        return moment + span
+    except OverflowError:
+        return END_OF_TIME
+
+
+def promise(next_at: datetime | None, written: datetime, at: datetime) -> datetime | None:
+    """When the loop said it is back, capped: a `next_at` in 2099 must not hide a dead loop forever.
+
+    A line stamped ahead of the reader's clock promises nothing, as it is no sign of life either.
+    """
+    if next_at is None or written > at + CLOCK_SKEW:
         return None
-    return min(next_at, written + LONGEST_PROMISE)
+    return min(next_at, later(written, LONGEST_PROMISE))
+
+
+#: The largest count a sum takes; a larger one has no float and counts as absent.
+LARGEST_COUNT = 2**63 - 1
+COUNTS = ("tokens_in", "tokens_out", "tokens_cache_read", "tokens_cache_write", "turns")
+
+
+def finite_sum(figures: Iterable[float]) -> float:
+    """A sum of finite figures that stays finite: one too large for a float holds the largest instead."""
+    return min(sum(figures, 0.0), sys.float_info.max)
+
+
+def countable_cost(cost: Cost | None) -> Cost | None:
+    """A cost as the sums take it: a figure that is not finite, or no float can hold, counts as absent."""
+    if cost is None:
+        return None
+    changes: dict[str, object] = {name: 0 for name in COUNTS if getattr(cost, name) > LARGEST_COUNT}
+    if not math.isfinite(cost.usd):
+        changes["usd"] = 0.0
+    return cost.model_copy(update=changes) if changes else cost
+
+
+def countable_metrics(metrics: list[Metric]) -> tuple[Metric, ...]:
+    """The measures a page and a chart can draw: one that is not finite is absent, so is such a target."""
+    return tuple(
+        metric
+        if metric.target is None or math.isfinite(metric.target)
+        else metric.model_copy(update={"target": None})
+        for metric in metrics
+        if math.isfinite(metric.value)
+    )
+
+
+def countable_manifest(manifest: Manifest) -> Manifest:
+    """The loop's caps as the board compares against them: a cost cap that is not finite is none."""
+    cap = manifest.cost_cap_usd
+    if cap is None or math.isfinite(cap):
+        return manifest
+    return manifest.model_copy(update={"cost_cap_usd": None})
 
 
 def ended_status(ended: LoopStopped) -> Status:
@@ -421,8 +486,8 @@ def apply_to_round(
             next=event.next,
             commit=event.commit,
             verdict_artifact=event.artifact,
-            round_cost=event.cost,
-            metrics=tuple(event.metrics),
+            round_cost=countable_cost(event.cost),
+            metrics=countable_metrics(event.metrics),
             outcome=event.outcome,
             next_at=event.next_at,
         )
@@ -455,8 +520,8 @@ def apply_to_round(
         summary=event.summary,
         artifact=event.artifact,
         findings=tuple(FindingState(f.id, f.text, f.severity) for f in event.findings),
-        cost=event.cost,
-        metrics=tuple(event.metrics),
+        cost=countable_cost(event.cost),
+        metrics=countable_metrics(event.metrics),
         attempt=event.attempt,
         error=event.error,
         session=event.session,
@@ -507,11 +572,15 @@ def status_of(
     process_alive: bool,
     expected: datetime | None = None,
 ) -> Status:
+    # A loop that stands still for the person waits, between rounds too and with its process alive.
+    stands_still = question is not None and question.blocks
     if not rounds:
-        return "running" if process_alive else "new"
+        if process_alive:
+            return "waiting" if stands_still else "running"
+        return "new"
     last = rounds[-1]
     # Silence is fine until the loop's own word for when it is back, and for a while after any line.
-    promised = expected is not None and at <= expected + STALE_AFTER
+    promised = expected is not None and at <= later(expected, STALE_AFTER)
     if last.running:
         # A round under way waits only where the loop said it stands still, or where it has gone
         # silent with a question open. A question the loop asked in passing does not stop it.
@@ -520,7 +589,7 @@ def status_of(
             return "waiting"
         return "running" if fresh else "stalled"
     if process_alive:
-        return "running"
+        return "waiting" if stands_still else "running"
     if last.verdict == "done":
         return "done"
     if last.verdict == "failed":

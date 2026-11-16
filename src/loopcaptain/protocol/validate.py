@@ -7,6 +7,7 @@ inbox nobody reads). `--strict` counts warnings as problems.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -18,12 +19,17 @@ from loopcaptain.protocol.models import (
     AnyEvent,
     InboxEntry,
     InboxRead,
+    LoopStopped,
     Manifest,
+    Metric,
+    OtherEvent,
     RoundFinished,
     RoundStarted,
     StepFinished,
     StepStarted,
+    now,
 )
+from loopcaptain.protocol.state import CLOCK_SKEW, COUNTS, LARGEST_COUNT
 from loopcaptain.protocol.store import StoreError
 
 
@@ -83,6 +89,10 @@ def validate_loop(repo: Path, loop_id: str) -> Report:
     report.warnings += missing_outputs(repo, manifest)
     report.warnings += unread_inbox(events, inbox)
     report.warnings += restarted_count(events)
+    report.warnings += unknown_events(events)
+    report.warnings += future_events(events, now())
+    report.warnings += stop_in_a_round(events)
+    report.warnings += odd_values(manifest, events)
     return Report(list(dict.fromkeys(report.problems)), list(dict.fromkeys(report.warnings)))
 
 
@@ -156,6 +166,8 @@ def verdict_problems(events: list[AnyEvent]) -> list[str]:
     verdicts: dict[int, str] = {}
     problems = []
     for event in events:
+        if isinstance(event, RoundStarted):
+            verdicts.pop(event.round, None)  # a round that starts again starts clean, its verdict too
         if not isinstance(event, RoundFinished):
             continue
         earlier = verdicts.get(event.round)
@@ -197,3 +209,114 @@ def restarted_count(events: list[AnyEvent]) -> list[str]:
             )
         highest = max(highest, event.round)
     return warnings
+
+
+def unknown_events(events: list[AnyEvent]) -> list[str]:
+    """Events this version does not know. They are skipped, as the standard asks; a typo looks the same."""
+    names = list(dict.fromkeys(event.event for event in events if isinstance(event, OtherEvent)))
+    return [
+        f"events.jsonl: event {name!r} is not one this version knows; it is skipped (a newer one, or a typo?)"
+        for name in names
+    ]
+
+
+def before_writing(repo: Path, loop_id: str, event: AnyEvent) -> Report:
+    """What `validate` would say of this event once it is in the log, for the two doors that write on
+    a loop's behalf: a problem refuses it, since a line cannot be taken back; a warning goes with it.
+
+    Nothing here refuses more than `validate` would: an `inbox_read` of an entry this version cannot
+    read is written with a warning, and a log the reader cannot read takes the line unchecked.
+    """
+    try:
+        manifest = store.read_manifest(repo, loop_id)
+        events, _ = store.read_events(repo, loop_id)
+    except StoreError as error:
+        return Report(warnings=[f"{error}; written without checking it against the log"])
+    report = Report(problems=refusals(repo, manifest, events, event))
+    if isinstance(event, InboxRead):
+        sent = {entry.id for entry in store.read_inbox(repo, loop_id)[0]}
+        report.warnings += [
+            f"ids: {entry_id!r} is not an entry of inbox.jsonl this version can read"
+            for entry_id in event.ids
+            if entry_id not in sent
+        ]
+    return report
+
+
+def refusals(repo: Path, manifest: Manifest, events: list[AnyEvent], event: AnyEvent) -> list[str]:
+    """Why this event would be a problem for good once it is in the log; empty when it may be written."""
+    found: list[str] = []
+    started = {before.round for before in events if isinstance(before, RoundStarted)}
+    if isinstance(event, StepStarted | StepFinished | RoundFinished) and event.round not in started:
+        found.append(f"round {event.round} has not started: emit round_started for it first")
+    if isinstance(event, StepStarted | StepFinished):
+        declared = [step.id for step in manifest.steps]
+        if declared and event.step not in declared:
+            found.append(f"step {event.step!r} is not in loop.json, which has {', '.join(declared)}")
+    if isinstance(event, StepFinished) and event.artifact and not (repo / event.artifact).exists():
+        found.append(f"artifact {event.artifact} does not exist: write the file, then report it")
+    if isinstance(event, RoundFinished):
+        settled = set(verdict_problems(events))
+        found += [line for line in verdict_problems([*events, event]) if line not in settled]
+    return found
+
+
+def future_events(events: list[AnyEvent], at: datetime) -> list[str]:
+    """Lines stamped later than this machine's clock: they are no sign of life until their time comes."""
+    ahead = [number for number, event in enumerate(events, start=1) if event.ts > at + CLOCK_SKEW]
+    if not ahead:
+        return []
+    count = f"{len(ahead)} event{'s are' if len(ahead) != 1 else ' is'}"
+    return [
+        f"events.jsonl: {count} stamped in the future, from event {ahead[0]} on; is the loop's clock right?"
+    ]
+
+
+def stop_in_a_round(events: list[AnyEvent]) -> list[str]:
+    """A `loop_stopped` while a round is open ends nothing: the round still waits for its `round_finished`."""
+    open_rounds: set[int] = set()
+    warnings = []
+    for event in events:
+        if isinstance(event, RoundStarted):
+            open_rounds.add(event.round)
+        elif isinstance(event, RoundFinished):
+            open_rounds.discard(event.round)
+        elif isinstance(event, LoopStopped) and open_rounds:
+            warnings.append(
+                f"events.jsonl: loop_stopped while round {max(open_rounds)} is open; "
+                "finish the round first, with its verdict"
+            )
+    return warnings
+
+
+#: Years a loop's times usually lie in. A time outside is read and counted; `validate` asks about it.
+USUAL_YEARS = range(2000, 2101)
+
+
+def odd_values(manifest: Manifest, events: list[AnyEvent]) -> list[str]:
+    """Values every reader takes but no page can show as written: a far year, a number that is not finite."""
+    warnings = []
+    if manifest.cost_cap_usd is not None and not math.isfinite(manifest.cost_cap_usd):
+        warnings.append("loop.json: cost_cap_usd is not a finite number; the board shows no cost cap")
+    for number, event in enumerate(events, start=1):
+        times = [getattr(event, name, None) for name in ("ts", "at", "next_at")]
+        years = sorted({moment.year for moment in times if moment and moment.year not in USUAL_YEARS})
+        if years:
+            named = ", ".join(str(year) for year in years)
+            warnings.append(f"events.jsonl: event {number} ({event.event}) names the year {named}; meant?")
+        if uncountable(event):
+            warnings.append(
+                f"events.jsonl: event {number} ({event.event}) has a cost or measure that is not a finite "
+                "number, or too large for one; the board counts it as absent"
+            )
+    return warnings
+
+
+def uncountable(event: AnyEvent) -> bool:
+    """Whether a cost or a measure of the event is NaN, infinite, or a count no float can hold."""
+    cost = getattr(event, "cost", None)
+    metrics: list[Metric] = getattr(event, "metrics", [])
+    numbers = [cost.usd] if cost is not None else []
+    numbers += [value for metric in metrics for value in (metric.value, metric.target) if value is not None]
+    too_large = cost is not None and any(getattr(cost, name) > LARGEST_COUNT for name in COUNTS)
+    return too_large or not all(math.isfinite(value) for value in numbers)

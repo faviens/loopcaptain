@@ -10,30 +10,31 @@ the board installs nothing: it writes its files, see
 | What | Version | Why |
 |---|---|---|
 | Python | 3.12 or later | the board and the command line |
-| [uv](https://docs.astral.sh/uv/) | any recent | installs the tool into its own environment |
+| [uv](https://docs.astral.sh/uv/), pipx or pip | any recent | installs the command; uv and pipx give it its own environment |
 | A browser | any | the board is a local web page |
 
 ## Install the command
 
-Loopcaptain is not on PyPI yet; install it from the repository.
+Loopcaptain is on [PyPI](https://pypi.org/project/loopcaptain/) as
+`loopcaptain`.
 
 === "uv (recommended)"
 
     ```bash
-    uv tool install git+https://github.com/faviens/loopcaptain
+    uv tool install loopcaptain
     ```
 
 === "pipx"
 
     ```bash
-    pipx install git+https://github.com/faviens/loopcaptain
+    pipx install loopcaptain
     ```
 
 === "pip, in a virtual environment"
 
     ```bash
     python3 -m venv .venv && source .venv/bin/activate
-    pip install git+https://github.com/faviens/loopcaptain
+    pip install loopcaptain
     ```
 
 Check it:
@@ -42,9 +43,20 @@ Check it:
 loopcaptain --version
 ```
 
-An install from the repository's `main` branch reports `0.0.0`; a released
-wheel, from the [releases page](https://github.com/faviens/loopcaptain/releases),
-reports its version.
+To run it once without installing, `uvx loopcaptain demo` and
+`uvx loopcaptain serve` do the same from a temporary environment.
+
+## Install from the repository
+
+A release is also a tag in the repository. Name the tag, so the install
+is that release and not whatever the branch holds today:
+
+```bash
+uv tool install git+https://github.com/faviens/loopcaptain@v0.3.1
+```
+
+Without `@<tag>` the install is the `main` branch: the way to run a change
+that is not released yet. It reports version `0.0.0`.
 
 ## Install from a checkout
 
@@ -53,7 +65,7 @@ For changing Loopcaptain itself, or for running it without installing:
 ```bash
 git clone https://github.com/faviens/loopcaptain && cd loopcaptain
 make setup          # dependencies and git hooks, through uv
-make serve          # the board on http://127.0.0.1:8484
+make serve          # the board; open the address it prints
 ```
 
 In a checkout, put `uv run` in front of every `loopcaptain` command on
@@ -74,7 +86,7 @@ Restart the board after an upgrade: a running board does not reload.
 |---|---|---|
 | `~/.config/loopcaptain/config.yaml` | the folders the board watches | deleting the file |
 | `~/.config/loopcaptain/inbox.key` | the key the board signs your answers with | deleting the file; a new one is made |
-| `.state/` where the board starts | records and logs of loops the board started | deleting the folder |
+| `~/.local/state/loopcaptain/` (`$XDG_STATE_HOME/loopcaptain/` where that is set) | records and logs of loops the board started, the confirmed start commands | deleting the folder |
 | `~/.local/share/loopcaptain/demo/` | the example loop, after `loopcaptain demo` | deleting the folder |
 
 Nothing else is written, nothing runs in the background, and nothing is
