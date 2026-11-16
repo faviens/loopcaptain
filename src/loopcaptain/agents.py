@@ -1,7 +1,7 @@
 """How each coding agent adds the Loopcaptain MCP server and runs a loop without a person at the keyboard.
 
 One source for the command line (`loopcaptain mcp-config <agent>`), the board's Connect page and the
-"Works with every agent" page (`docs/agents.md`, written by `make agents`). Each entry was taken from
+"Works with every agent" page (`docs/agents.md`, written by `make docs-pages`). Each entry was taken from
 that agent's own documentation on the date in CHECKED.
 """
 
@@ -16,6 +16,8 @@ CHECKED = "2026-11-15"
 SERVER = ("uv", "run", "--project", "{checkout}", "loopcaptain", "mcp")
 #: The same, where the package is installed.
 INSTALLED_SERVER = ("loopcaptain", "mcp")
+#: Other names a person types for an agent, and the key each means.
+ALIASES = {"claude": "claude-code"}
 
 
 def checkout_of(folder: Path) -> str:
@@ -123,26 +125,30 @@ def agents(checkout: str) -> list[Agent]:
 
 
 def agent(key: str, checkout: str) -> Agent:
+    key = ALIASES.get(key, key)
     found = next((item for item in agents(checkout) if item.key == key), None)
     if found is None:
         raise KeyError(f"no agent {key!r}; one of {', '.join(item.key for item in agents(checkout))}")
     return found
 
 
-def markdown(checkout: str = "<checkout>") -> str:
-    """The "Works with every agent" page."""
+def markdown(checkout: str = "") -> str:
+    """The "Works with every agent" page: the lines for the installed command, as most readers have it."""
     parts = [
         "# Works with every agent",
         "",
         "The protocol names no vendor: a loop writes its files, whatever runs it. Around it, each",
-        "agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio; from a",
-        f"checkout it is `{' '.join(server_argv(checkout))}`.",
+        "agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio.",
+        "",
+        "The lines below are for the installed command. From a checkout of the repository the server",
+        f"is `{' '.join(server_argv('<checkout>'))}`, and `loopcaptain mcp-config <agent>`, run",
+        "there, prints the line with that.",
         "",
         f"Taken from each agent's documentation as of {CHECKED}. Agents change their commands: where a",
         "line fails, the agent's own documentation wins, and a report of what works is welcome.",
         "",
-        "This page is written by `make agents` from `src/loopcaptain/agents.py`; edit that, not this.",
-        "`loopcaptain mcp-config <agent>` prints one block.",
+        "This page is written by `make docs-pages` from `src/loopcaptain/agents.py`; edit that, not",
+        "this. `loopcaptain mcp-config <agent>` prints one block.",
     ]
     for item in agents(checkout):
         parts += [

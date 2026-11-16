@@ -6,7 +6,9 @@ import re
 import subprocess
 from pathlib import Path
 
-from loopcaptain.agents import agents, checkout_of, markdown, server_argv
+import pytest
+
+from loopcaptain.agents import agent, agents, checkout_of, markdown, server_argv
 
 ROOT = Path(__file__).resolve().parents[1]
 #: The files allowed to name an agent's own command: the one source, its page, the
@@ -64,3 +66,19 @@ def test_the_agents_page_gives_every_agent_the_same_standing() -> None:
 
     assert "unconfirmed" not in page.lower()
     assert all(f"## {item.name}\n" in page for item in agents("/x"))
+
+
+def test_the_agents_page_shows_the_installed_line_and_names_a_target_that_exists() -> None:
+    page = markdown()
+    targets = re.findall(r"`make ([a-z-]+)`", page)
+
+    assert "claude mcp add loopcaptain -- loopcaptain mcp\n" in page
+    assert "uv run --project <checkout> loopcaptain mcp" in page.split("## ")[0]
+    assert "uv run --project" not in "".join(page.split("## ")[1:])
+    assert targets and all(f"\n{target}:" in (ROOT / "Makefile").read_text() for target in targets)
+
+
+def test_a_short_name_finds_its_agent() -> None:
+    assert agent("claude", "").key == "claude-code"
+    with pytest.raises(KeyError, match="no agent"):
+        agent("nobody", "")
