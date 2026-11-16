@@ -147,16 +147,6 @@ def test_the_helper_is_as_short_as_the_pages_say() -> None:
     assert "under 110 lines" in (ROOT / "README.md").read_text(encoding="utf-8")
 
 
-def test_every_variable_the_code_reads_is_on_the_configuration_page() -> None:
-    read = set()
-    for path in (ROOT / "src").rglob("*.py"):
-        read |= set(re.findall(r'"(LOOPCAPTAIN_[A-Z_]+)"', path.read_text(encoding="utf-8")))
-    page = (ROOT / "docs" / "reference" / "configuration.md").read_text(encoding="utf-8")
-
-    assert read and [name for name in sorted(read) if f"`{name}`" not in page] == []
-    assert not (ROOT / ".env.example").exists(), "nothing reads a .env file: the page lists the variables"
-
-
 #: What only the documentation site renders: an included file, a tab, a boxed note.
 SITE_ONLY = re.compile(r'^(--8<--|=== "|!!! )', re.MULTILINE)
 
@@ -232,3 +222,60 @@ def test_every_link_in_llms_txt_is_a_full_address(docs_pages: types.ModuleType) 
         else:
             page = link.removeprefix(site + "/").rstrip("/")
             assert (ROOT / "docs" / f"{page}.md").is_file(), link
+
+
+@pytest.fixture(scope="module")
+def pypi_readme() -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location("pypi_readme", ROOT / "scripts" / "pypi_readme.py")
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_package_page_gets_a_readme_whose_every_address_is_full_and_at_the_tag(
+    pypi_readme: types.ModuleType,
+) -> None:
+    text = pypi_readme.readme_for("1.2.3")
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+    files = project["urls"]["Repository"] + "/blob/v1.2.3/"
+    pictures = re.findall(r'(?:src|srcset)="([^"]+)"', text)
+    links = re.findall(r"\]\(([^)\s]+)\)", text)
+
+    assert len(pictures) >= 12 and all("/v1.2.3/docs/assets/" in picture for picture in pictures)
+    assert [link for link in links if not link.startswith("https://")] == []
+    assert "/blob/main/" not in text and f"Read {files}AGENTS.md, section A." in text
+    for address in [link for link in links if link.startswith(files)] + pictures:
+        path = address.split("/v1.2.3/", 1)[1].split("#")[0]
+        assert (ROOT / path).is_file(), address
+
+
+def test_a_build_from_the_branch_keeps_the_branch_and_leaves_other_hosts_alone(
+    pypi_readme: types.ModuleType,
+) -> None:
+    repository = "https://example.org/owner/thing"
+    text = '<img src="docs/a.svg"> ![b](docs/b.webp) [c](LICENSE) [d](https://example.com/x) [e](#more)'
+
+    assert pypi_readme.ref_of("0.0.0") == "main" and pypi_readme.ref_of("0.4.0") == "v0.4.0"
+    assert pypi_readme.absolute(text, repository, "main") == (
+        '<img src="https://raw.githubusercontent.com/owner/thing/main/docs/a.svg"> '
+        "![b](https://raw.githubusercontent.com/owner/thing/main/docs/b.webp) "
+        "[c](https://example.org/owner/thing/blob/main/LICENSE) [d](https://example.com/x) [e](#more)"
+    )
+
+
+def test_the_build_takes_its_long_description_from_that_script() -> None:
+    settings = tomllib.loads((ROOT / "pyproject.toml").read_text())
+
+    assert "readme" in settings["project"]["dynamic"] and "readme" not in settings["project"]
+    assert (ROOT / settings["tool"]["hatch"]["metadata"]["hooks"]["custom"]["path"]).is_file()
+
+
+def test_every_variable_the_code_reads_is_on_the_configuration_page() -> None:
+    read = set()
+    for path in (ROOT / "src").rglob("*.py"):
+        read |= set(re.findall(r'"(LOOPCAPTAIN_[A-Z_]+)"', path.read_text(encoding="utf-8")))
+    page = (ROOT / "docs" / "reference" / "configuration.md").read_text(encoding="utf-8")
+
+    assert read and [name for name in sorted(read) if f"`{name}`" not in page] == []
+    assert not (ROOT / ".env.example").exists(), "nothing reads a .env file: the page lists the variables"

@@ -3,7 +3,9 @@ name = "loopcaptain"
 version = "0.0.0"  # a release is a git tag made by CI (scripts/release.py); the wheel is stamped with it
 description = "An open protocol for agent loops and a local dashboard to monitor and steer them: plain files, any agent, no dependency."
 authors = [{ name = "Daniel Vogler" }]
-readme = "README.md"
+# The long description is README.md with every address absolute and at the release's tag
+# (scripts/pypi_readme.py), so its pictures and links work on the package index.
+dynamic = ["readme"]
 requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE", "src/loopcaptain/board/static/fonts/OFL.txt"]
@@ -62,6 +64,9 @@ docs = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata.hooks.custom]
+path = "scripts/pypi_readme.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/loopcaptain"]

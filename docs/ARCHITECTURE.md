@@ -446,3 +446,26 @@ runs side by side.
 learns, and a fold that has to key rounds by two numbers. Numbering rounds
 on across runs: the loop's own files count from 1, so the board and the
 loop would disagree.
+
+## 22. The package's long description is the README, made absolute at build time by a backend hook
+
+**Decision.** `scripts/pypi_readme.py` is a metadata hook of the build
+backend (`[tool.hatch.metadata.hooks.custom]` in `pyproject.toml`). While
+the package is built it reads `README.md`, writes every relative picture
+and link in full, pictures to the code host's raw files and links to its
+pages, at the tag of the version being built (`v<version>`, the branch
+for 0.0.0), and hands that text to the backend as the long description.
+The README in the repository stays relative.
+
+**Why.** A package index shows the long description outside the
+repository, where a relative path leads nowhere: on 0.3.1 the banner and
+screenshots were broken and 18 links dead (F29). Pinning to the tag keeps
+a release's page showing that release. In the backend, every build makes
+the same text, a local `uv build` included, without a workflow step or a
+new dependency.
+
+**Rejected.** A workflow step that rewrites the README before `uv build`:
+a build made elsewhere would carry the broken text. Absolute addresses in
+the README itself: a reader on the code host would be sent off the
+branch they are reading, and a fork to the original. A second README
+for the index: a copy that drifts from the first.
