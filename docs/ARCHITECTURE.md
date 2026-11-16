@@ -469,3 +469,26 @@ a build made elsewhere would carry the broken text. Absolute addresses in
 the README itself: a reader on the code host would be sent off the
 branch they are reading, and a fork to the original. A second README
 for the index: a copy that drifts from the first.
+
+## 23. A released package pins its prompts to its own tag when they are read
+
+**Decision.** The two copy-paste prompts live once, in
+`standard/prompts/`, and name the runbooks on the `main` branch.
+`prompt_text` in `src/loopcaptain/prompts.py` reads the installed
+version when a prompt is shown and, for a release, moves every address on
+the branch to that release's tag (`v<version>`). A checkout and an
+install from the branch (version 0.0.0) keep the branch.
+
+**Why.** A person who installed a release hands the prompt to an agent,
+and the agent should read the runbook that matches the commands that
+release has, not whatever `main` holds that day. Doing it at read time
+from the installed version needs no edit at release and nothing
+committed back.
+
+**Rejected.** Rewriting the prompt files at release: the release would
+need a commit by hand or by the workflow, and the text on the branch
+would name an old tag. Rewriting them in the build hook of section 22:
+a second hook for text the package already reads at run time, and a
+checkout would show other addresses than the package. Leaving them on
+the branch: the agent reads instructions for a newer release than the
+person runs.
