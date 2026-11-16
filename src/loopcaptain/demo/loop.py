@@ -239,8 +239,8 @@ def ask_audience(number: int, pace_s: float, wait_s: float = ANSWER_WAIT_S) -> s
     waited = 0.0
     while waited < wait_s:
         for message in loops.inbox(LOOP):
-            if message["signed"] is False:
-                continue  # not from the board: an agent or a hand wrote it, not the person
+            if message["signed"] is not True or message["stale"]:
+                continue  # not shown to be from the board, or an answer to an earlier asking
             if message["kind"] == "stop":
                 return None
             if message["kind"] == "reply":
@@ -289,10 +289,10 @@ def main(argv: list[str] | None = None) -> int:
     first = loops.last_round(LOOP) + 1  # a second start goes on counting
     for number in range(first, first + args.rounds):
         messages = loops.inbox(LOOP)
-        if any(m["kind"] == "stop" and m["signed"] is not False for m in messages):
+        if any(m["kind"] == "stop" and m["signed"] is True for m in messages):
             loops.emit(LOOP, "loop_stopped", {"stop_reason": "person", "summary": "Stopped from the board."})
             return 0
-        replies = [m["text"] for m in messages if m["kind"] == "reply" and m["signed"] is not False]
+        replies = [m["text"] for m in messages if m["kind"] == "reply" and m["signed"] is True]
         steering, carried = " ".join(text for text in (carried, *replies) if text), ""
         if number == 3:
             picked = ask_audience(number, args.pace, args.wait)
@@ -325,7 +325,7 @@ def last_look(done: bool) -> None:
     A stop sent during the last round is taken now and answered; left unread, the next start would
     take it and end at once. A reply sent that late is kept for the next start.
     """
-    messages = [m for m in loops.inbox(LOOP) if m["signed"] is not False]
+    messages = [m for m in loops.inbox(LOOP) if m["signed"] is True]
     if any(m["kind"] == "stop" for m in messages):
         ending = (
             {"stop_reason": "goal_met", "summary": "A stop came once the goal was met."}

@@ -141,3 +141,14 @@ def test_a_stop_sent_during_the_last_round_is_taken_before_the_loop_ends(tmp_pat
     assert all(item.read for item in stopped.inbox) and stopped.inbox[0].entry.id == stop.id
     assert len(after.rounds) == SEEDED_ROUNDS + 2 and after.ended is None and after.status == "done"
     assert "Shorter rows." in (repo / "work" / "rounds" / f"{SEEDED_ROUNDS + 2}-plan.md").read_text()
+
+
+def test_the_example_does_not_take_a_stop_it_cannot_check(tmp_path: Path, inbox_key: Path) -> None:
+    repo = write_demo(tmp_path / "demo")
+    store.append_inbox(repo, LOOP, "stop")  # no board has run here: no key, so `signed` is None
+
+    run_loop(repo, "--rounds", "1")
+
+    state = state_of(repo)
+    assert not inbox_key.exists()
+    assert len(state.rounds) == SEEDED_ROUNDS + 1 and state.ended is None and state.status == "idle"

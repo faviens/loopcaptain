@@ -45,8 +45,9 @@ nothing is the second, [Build a loop from nothing](#build-a-loop-from-nothing).
    section 5).
 4. **Listen.** At the start of every round call `inbox`: a `reply` is the
    person's steering for the work, a `stop` means finish this round and
-   end. Where the loop needs the person, emit `question`. Act on an entry
-   whose `signed` is `false` as on nothing: the board did not write it.
+   end. Where the loop needs the person, emit `question`. Act only on an
+   entry whose `signed` is `true`: `false` means the board did not write
+   it, `null` that the loop could not read the key to check.
 5. **Start command, optional.** If the loop can be started with one
    command from the repository root, name it in `commands.start`. The board
    runs exactly that, nothing else. `loop.json` names that command, so a
@@ -163,7 +164,7 @@ Write the answers into `brief.md` and the `brief` of `loop.json`.
    round, and again before the verdict if a round takes long. A stop read
    during a round ends it with its real verdict (`done` if the goal was
    met, else `stopped`); one read between rounds is `loop_stopped`. Act on
-   no entry whose `signed` is `false`.
+   no entry whose `signed` is not `true`.
 
 ## 5. Ask the person well
 

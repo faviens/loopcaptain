@@ -237,10 +237,30 @@ The line names its loop in `loop`, signed with the rest, so a line copied
 into another loop's inbox does not verify there. The key is in the
 board's config folder, `~/.config/loopcaptain/inbox.key`
 or the file `LOOPCAPTAIN_INBOX_KEY` names, outside every repository. The
-helper and the MCP tool add `signed` to each entry: `true` if the board
-wrote it, `false` if anything else did, `null` where the machine has no
-key. A loop whose agents can write files SHOULD NOT act on an entry whose
-`signed` is `false`: it is not from the person.
+helper and the MCP tool add `signed` to each entry:
+
+1. `true`: the board wrote it for this loop.
+2. `false`: anything else did. A loop whose agents can write files SHOULD
+   NOT act on it: it is not from the person.
+3. `null`: nothing was checked, because the loop cannot read the key. No
+   board has written to an inbox on this machine yet, or the loop runs
+   somewhere the config folder is not visible (a container), or
+   `LOOPCAPTAIN_INBOX_KEY` names another file. `null` is not `true`: a
+   line from the person and a line from anyone else who can write the
+   file look the same.
+
+A loop SHOULD act only on entries whose `signed` is `true`. Where the key
+cannot be read, make it readable to the loop (mount the file, or set
+`LOOPCAPTAIN_INBOX_KEY`) rather than accept `null`; a loop that accepts
+`null` anyway does so knowing that its inbox is then only as safe as its
+repository. The helper writes a line to standard error whenever it hands
+out an entry it could not check, so the case does not pass unseen.
+
+A signature says who wrote a line, not when it still applies. The helper
+and the MCP tool therefore add `stale` to each entry: `true` for a reply
+that names a question (`question`) and was written before the loop last
+asked that question. It answers an earlier asking, and a loop SHOULD NOT
+take it as the answer to the present one.
 
 ## 4. The helper to paste
 
@@ -254,7 +274,9 @@ import hashlib
 import hmac
 import json
 import os
+import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -321,17 +343,37 @@ def signed(entry, loop_id):
     return hmac.compare_digest(mark, str(entry.get("sig", "")))
 
 
+def moment(stamp):
+    """A `ts` as seconds to compare, or None where it cannot be read. No zone means UTC."""
+    try:
+        parsed = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)).timestamp()
+
+
+def stale(entry, asked):
+    """True for a reply written before the question it names was last asked: it answers an earlier asking."""
+    then, sent = asked.get(str(entry.get("question"))), moment(entry.get("ts"))
+    return then is not None and sent is not None and sent < then
+
+
 def inbox(loop_id, repo="."):
-    """What the person sent since the last call, oldest first, each with `signed`, and mark it read."""
+    """What the person sent since the last call, oldest first, with `signed` and `stale`; marks it read."""
     base = folder(loop_id, repo)
-    seen = set()
+    seen, asked = set(), {}
     for event in lines(base / "events.jsonl"):
         if event.get("event") == "inbox_read":
             seen.update(event.get("ids", []))
+        elif event.get("event") == "question" and event.get("id"):
+            asked[str(event["id"])] = moment(event.get("ts"))
     fresh = [entry for entry in lines(base / "inbox.jsonl") if entry.get("id") and entry["id"] not in seen]
     if fresh:
         emit(loop_id, "inbox_read", {"ids": [entry["id"] for entry in fresh]}, repo)
-    return [{**entry, "signed": signed(entry, loop_id)} for entry in fresh]
+    taken = [{**entry, "signed": signed(entry, loop_id), "stale": stale(entry, asked)} for entry in fresh]
+    if any(entry["signed"] is None for entry in taken):
+        sys.stderr.write("loops: no board key to read, so `signed` is None: these entries are unchecked\n")
+    return taken
 ```
 
 A loop then needs about one call per step. `last_round` is what lets the
@@ -346,7 +388,7 @@ board.register("market-scan", {"title": "Market scan", "steps": STEPS, "commands
 first = board.last_round("market-scan") + 1  # a second start counts on; it never begins at 1 again
 for n in range(first, first + ROUNDS):
     messages = board.inbox("market-scan")
-    if any(m["kind"] == "stop" and m["signed"] is not False for m in messages):
+    if any(m["kind"] == "stop" and m["signed"] is True for m in messages):
         board.emit("market-scan", "loop_stopped", {"stop_reason": "person"})
         break
     board.emit("market-scan", "round_started", {"round": n, "plan": plan_text})
@@ -366,7 +408,7 @@ for n in range(first, first + ROUNDS):
         )
     board.emit("market-scan", "round_finished", {"round": n, "verdict": verdict, "commit": sha})
 else:  # the rounds ran out: look once more, so a stop sent during the last one is not left unread
-    if any(m["kind"] == "stop" and m["signed"] is not False for m in board.inbox("market-scan")):
+    if any(m["kind"] == "stop" and m["signed"] is True for m in board.inbox("market-scan")):
         board.emit("market-scan", "loop_stopped", {"stop_reason": "person"})
 ```
 

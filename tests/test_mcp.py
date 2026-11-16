@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from pathlib import Path
 from typing import Any, get_args
 
@@ -208,3 +209,21 @@ def test_a_tool_says_how_to_repair_a_loop_json_it_cannot_read(repo: Path) -> Non
 
     with pytest.raises(ToolError, match=r"Invalid JSON.*Call loop_register again"):
         mcp.loop_status("plan-loop", repo=str(repo))
+
+
+def test_inbox_read_marks_a_reply_to_an_earlier_asking_as_stale(repo: Path) -> None:
+    register(repo)
+    emit(repo, "question", {"id": "design", "text": "Which of the two?"})
+    time.sleep(0.002)
+    store.append_inbox(repo, "plan-loop", "reply", "The first.", question="design")
+    time.sleep(0.002)
+    emit(repo, "question", {"id": "design", "text": "Which of the two, now?"})
+    time.sleep(0.002)
+    store.append_inbox(repo, "plan-loop", "reply", "The second.", question="design")
+
+    taken = mcp.inbox_read("plan-loop", repo=str(repo))
+
+    assert [(entry["text"], entry["stale"]) for entry in taken] == [
+        ("The first.", True),
+        ("The second.", False),
+    ]

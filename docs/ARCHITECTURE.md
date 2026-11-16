@@ -548,3 +548,27 @@ before it.
 could not warn of a typo, and the line's time would be lost as a sign of
 life. Leaving the union closed and skipping on the error text: a known
 event with a bad field would be hard to tell from an unknown one.
+
+## 26. An entry nobody checked is not an entry the board signed
+
+**Decision.** `standard/LOOPS.md` section 3 tells a loop to act only on
+inbox entries whose `signed` is `true`, and says what `null` means:
+nothing was checked, because the loop cannot read the key. The example in
+section 4 and the example loop (`src/loopcaptain/demo/loop.py`) do so.
+The helper's `inbox()` writes a line to standard error whenever it hands
+out an entry it could not check. This narrows section 16: `null` is no
+longer treated as good enough.
+
+**Why.** A loop reads `null` wherever the key is out of its reach: no
+board has written yet, the loop runs in a container, the environment
+names another file. Acting on `null` makes the inbox as safe as the
+repository and no safer, which is what the signature was added to change,
+and it did so without a word. A loop the board starts gets the key's path
+(section 17), so the strict rule costs such a loop nothing.
+
+**Rejected.** Having the helper drop unchecked entries, or return `false`
+for them: a loop written against the earlier text reads `null` and decides
+for itself, and its call must keep returning what it returned (version 1
+only grows). Raising an error without a key: a loop on a machine where no
+board has run yet would not start. A new event for the case: boards
+installed before unknown events were skipped would call it a problem.

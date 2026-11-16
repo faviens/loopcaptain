@@ -4,7 +4,9 @@ import hashlib
 import hmac
 import json
 import os
+import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -71,14 +73,34 @@ def signed(entry, loop_id):
     return hmac.compare_digest(mark, str(entry.get("sig", "")))
 
 
+def moment(stamp):
+    """A `ts` as seconds to compare, or None where it cannot be read. No zone means UTC."""
+    try:
+        parsed = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)).timestamp()
+
+
+def stale(entry, asked):
+    """True for a reply written before the question it names was last asked: it answers an earlier asking."""
+    then, sent = asked.get(str(entry.get("question"))), moment(entry.get("ts"))
+    return then is not None and sent is not None and sent < then
+
+
 def inbox(loop_id, repo="."):
-    """What the person sent since the last call, oldest first, each with `signed`, and mark it read."""
+    """What the person sent since the last call, oldest first, with `signed` and `stale`; marks it read."""
     base = folder(loop_id, repo)
-    seen = set()
+    seen, asked = set(), {}
     for event in lines(base / "events.jsonl"):
         if event.get("event") == "inbox_read":
             seen.update(event.get("ids", []))
+        elif event.get("event") == "question" and event.get("id"):
+            asked[str(event["id"])] = moment(event.get("ts"))
     fresh = [entry for entry in lines(base / "inbox.jsonl") if entry.get("id") and entry["id"] not in seen]
     if fresh:
         emit(loop_id, "inbox_read", {"ids": [entry["id"] for entry in fresh]}, repo)
-    return [{**entry, "signed": signed(entry, loop_id)} for entry in fresh]
+    taken = [{**entry, "signed": signed(entry, loop_id), "stale": stale(entry, asked)} for entry in fresh]
+    if any(entry["signed"] is None for entry in taken):
+        sys.stderr.write("loops: no board key to read, so `signed` is None: these entries are unchecked\n")
+    return taken

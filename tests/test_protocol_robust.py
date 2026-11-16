@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+import sys
 import time
 import types
 from datetime import UTC, datetime, timedelta
@@ -11,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from loopcaptain.cli import main
-from loopcaptain.protocol import store
+from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.models import EVENT, EVENT_NAMES, Cost
 from loopcaptain.protocol.signing import board_key
 from loopcaptain.protocol.state import LoopState, RoundState, finite_sum, fold
@@ -20,6 +24,7 @@ from loopcaptain.protocol.validate import validate_repo, validate_report
 
 NOW = datetime(2026, 11, 15, 9, 0, tzinfo=UTC)
 DEEP = "[" * 100_000 + "]" * 100_000
+STANDARD_HELPER = Path(__file__).resolve().parents[1] / "standard" / "loops.py"
 
 
 def fresh_loop(repo: Path, helper: types.ModuleType) -> Path:
@@ -273,56 +278,6 @@ def test_the_schema_takes_an_unknown_event_and_still_refuses_a_bad_known_one() -
     assert sorted(other["required"]) == ["event", "ts"]
 
 
-def test_a_line_stamped_in_the_future_does_not_keep_a_silent_loop_running(
-    repo: Path, helper: types.ModuleType
-) -> None:
-    folder = fresh_loop(repo, helper)
-    write_lines(
-        folder / "events.jsonl",
-        [
-            '{"ts": "2026-11-15T06:00:00Z", "event": "round_started", "round": 1}',
-            '{"ts": "2026-11-15T09:03:00Z", "event": "heartbeat"}',
-            '{"ts": "2026-12-24T09:00:00Z", "event": "step_started", "round": 1, "step": "work"}',
-        ],
-    )
-    manifest = store.read_manifest(repo, "scan")
-    events, _ = store.read_events(repo, "scan")
-
-    state = fold(manifest, events, [], NOW)
-    later = fold(manifest, events, [], NOW + timedelta(hours=2))
-
-    assert (state.status, state.last_event) == ("running", datetime(2026, 11, 15, 9, 3, tzinfo=UTC))
-    assert later.status == "stalled"
-    assert any(
-        "1 event is stamped in the future, from event 3 on" in line for line in validate_report(repo).warnings
-    )
-
-
-def test_validate_warns_of_a_loop_stopped_inside_an_open_round(repo: Path, helper: types.ModuleType) -> None:
-    fresh_loop(repo, helper)
-    helper.emit("scan", "round_started", {"round": 1}, repo)
-    helper.emit("scan", "loop_stopped", {"stop_reason": "person"}, repo)
-    inside = validate_report(repo).warnings
-    helper.emit("scan", "round_finished", {"round": 1, "verdict": "stopped", "stop_reason": "person"}, repo)
-    helper.emit("scan", "loop_stopped", {"stop_reason": "person"}, repo)
-
-    assert inside == [
-        "scan/events.jsonl: loop_stopped while round 1 is open; finish the round first, with its verdict"
-    ]
-    assert validate_report(repo).warnings == inside
-
-
-def test_costs_too_large_together_add_up_to_a_finite_figure() -> None:
-    assert finite_sum([1e308, 1e308]) < float("inf")
-    round_state = RoundState(number=1, started=datetime(2026, 11, 16, tzinfo=UTC), round_cost=Cost(usd=1e308))
-    assert round_state.cost_usd == 1e308
-
-
-def test_a_nan_cost_stays_a_problem_as_the_text_says() -> None:
-    with pytest.raises(ValueError):
-        Cost.model_validate(json.loads('{"usd": NaN}'))
-
-
 def test_a_round_that_was_started_again_may_end_with_another_verdict(
     repo: Path, helper: types.ModuleType
 ) -> None:
@@ -377,3 +332,124 @@ def test_a_started_loop_that_stands_on_a_blocking_question_between_rounds_is_wai
 
     assert (before_any_round, between_rounds, asked_in_passing) == ("waiting", "running", "running")
     assert (standing_still, status_now()) == ("waiting", "running")
+
+
+def test_the_helper_says_on_standard_error_when_it_could_not_check_who_wrote_an_entry(
+    repo: Path, helper: types.ModuleType, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fresh_loop(repo, helper)
+    store.append_inbox(repo, "scan", "stop")
+    unchecked = helper.inbox("scan", repo)
+    without_key = capsys.readouterr().err
+    store.append_inbox(repo, "scan", "stop", key=board_key())
+    store.append_inbox(repo, "scan", "stop")
+    checked = helper.inbox("scan", repo)
+    with_key = capsys.readouterr().err
+
+    assert [entry["signed"] for entry in unchecked] == [None] and "unchecked" in without_key
+    assert [entry["signed"] for entry in checked] == [True, False] and with_key == ""
+
+
+def test_the_standard_tells_a_loop_to_act_on_what_the_board_signed_and_nothing_else() -> None:
+    text = spec_text()
+
+    assert 'm["signed"] is True' in text and "is not False" not in text
+    assert "A loop SHOULD act only on entries whose `signed` is `true`" in text
+
+
+def test_a_line_stamped_in_the_future_does_not_keep_a_silent_loop_running(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    folder = fresh_loop(repo, helper)
+    write_lines(
+        folder / "events.jsonl",
+        [
+            '{"ts": "2026-11-15T06:00:00Z", "event": "round_started", "round": 1}',
+            '{"ts": "2026-11-15T09:03:00Z", "event": "heartbeat"}',
+            '{"ts": "2026-12-24T09:00:00Z", "event": "step_started", "round": 1, "step": "work"}',
+        ],
+    )
+    manifest = store.read_manifest(repo, "scan")
+    events, _ = store.read_events(repo, "scan")
+
+    state = fold(manifest, events, [], NOW)
+    later = fold(manifest, events, [], NOW + timedelta(hours=2))
+
+    assert (state.status, state.last_event) == ("running", datetime(2026, 11, 15, 9, 3, tzinfo=UTC))
+    assert later.status == "stalled"
+    assert any(
+        "1 event is stamped in the future, from event 3 on" in line for line in validate_report(repo).warnings
+    )
+
+
+def test_validate_warns_of_a_loop_stopped_inside_an_open_round(repo: Path, helper: types.ModuleType) -> None:
+    fresh_loop(repo, helper)
+    helper.emit("scan", "round_started", {"round": 1}, repo)
+    helper.emit("scan", "loop_stopped", {"stop_reason": "person"}, repo)
+    inside = validate_report(repo).warnings
+    helper.emit("scan", "round_finished", {"round": 1, "verdict": "stopped", "stop_reason": "person"}, repo)
+    helper.emit("scan", "loop_stopped", {"stop_reason": "person"}, repo)
+
+    assert inside == [
+        "scan/events.jsonl: loop_stopped while round 1 is open; finish the round first, with its verdict"
+    ]
+    assert validate_report(repo).warnings == inside
+
+
+def test_a_reply_older_than_the_question_it_names_is_handed_out_as_stale(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    helper.emit("scan", "question", {"id": "audience", "text": "For whom?"}, repo)
+    time.sleep(0.002)
+    store.append_inbox(repo, "scan", "reply", "Team leads.", question="audience", choice="leads")
+    store.append_inbox(repo, "scan", "reply", "And keep it short.")
+    time.sleep(0.002)
+    helper.emit("scan", "question", {"id": "audience", "text": "For whom, this time?"}, repo)
+    earlier = helper.inbox("scan", repo)
+    time.sleep(0.002)
+    store.append_inbox(repo, "scan", "reply", "Engineers.", question="audience")
+    store.append_inbox(repo, "scan", "reply", "Other.", question="never-asked")
+    with (repo / ".loops" / "scan" / "inbox.jsonl").open("a") as log:
+        log.write('{"id": "odd", "ts": "some time ago", "kind": "reply", "question": "audience"}\n')
+
+    assert [(entry["text"], entry["stale"]) for entry in earlier] == [
+        ("Team leads.", True),
+        ("And keep it short.", False),
+    ]
+    assert [entry["stale"] for entry in helper.inbox("scan", repo)] == [False, False, False]
+
+
+def test_the_helper_reads_a_time_without_a_zone_as_utc_whatever_the_machine_zone(tmp_path: Path) -> None:
+    script = tmp_path / "check.py"
+    script.write_text(
+        "import loops\n"
+        "asked = {'pick': loops.moment('2026-11-15T12:00:00Z')}\n"
+        "print(loops.moment('2026-11-15T11:00:00') == loops.moment('2026-11-15T11:00:00Z'),"
+        " loops.stale({'question': 'pick', 'ts': '2026-11-15T11:00:00'}, asked))\n",
+        encoding="utf-8",
+    )
+    shutil.copy(STANDARD_HELPER, tmp_path / "loops.py")
+    zone = {"PATH": os.environ.get("PATH", ""), "TZ": "America/New_York"}
+
+    run = subprocess.run(
+        [sys.executable, "-E", "-s", str(script)],
+        env=zone,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+
+    assert run.stdout.split() == ["True", "True"]
+
+
+def test_costs_too_large_together_add_up_to_a_finite_figure() -> None:
+    assert finite_sum([1e308, 1e308]) < float("inf")
+    round_state = RoundState(number=1, started=datetime(2026, 11, 16, tzinfo=UTC), round_cost=Cost(usd=1e308))
+    assert round_state.cost_usd == 1e308
+
+
+def test_a_nan_cost_stays_a_problem_as_the_text_says() -> None:
+    with pytest.raises(ValueError):
+        Cost.model_validate(json.loads('{"usd": NaN}'))
