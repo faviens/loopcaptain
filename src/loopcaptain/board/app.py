@@ -1,9 +1,9 @@
 """The board: server-rendered pages over the loops' folders, on this machine only.
 
-Every request reads the files again; there is no cache and no database. Requests that change
-anything (a reply, a stop, a start) are forms that carry the token of this server process, and
-every request must name this server as its host, so a web page open in the same browser cannot
-steer a loop.
+Every request reads the files again; there is no cache and no database. Every request must name
+this server as its host and, the static files and the entry excepted, carry the session cookie
+that the address printed by `serve` sets (`board/access.py`). Requests that change anything (a
+reply, a stop, a start) are forms that also carry the token of this server process.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from markdown_it import MarkdownIt
 from markupsafe import Markup
 
 from loopcaptain.agents import agents, checkout_of
+from loopcaptain.board.access import COOKIE_NAME, ENTER_PATH, HOST, Session, is_open, local_path
 from loopcaptain.board.discover import (
     Config,
     LoopView,
@@ -52,7 +53,6 @@ from loopcaptain.protocol.validate import validate_loop
 log = logging.getLogger("loopcaptain.web")
 
 HERE = Path(__file__).parent
-HOST = "127.0.0.1"
 MAX_REPLY_CHARS = 20_000
 #: The parts of a loop's page, each with its own address: ?tab=<name>.
 TABS = ("overview", "rounds", "findings", "items", "inbox")
@@ -100,14 +100,18 @@ def create_app(
     runner: Runner | None = None,
     *,
     allowed_hosts: frozenset[str],
+    session: Session | None = None,
 ) -> FastAPI:
     """The board. `allowed_hosts` is required: a board that answers to any host name can be reached
-    by a web page that points its own name at this machine."""
+    by a web page that points its own name at this machine. `session` holds the key of the address
+    that lets a browser in; without one the app makes its own and keeps it in `app.state.session`."""
     app = FastAPI(title="Loopcaptain", docs_url=None, redoc_url=None, openapi_url=None)
     templates = make_templates()
     steer = runner or Runner()
     token = secrets.token_urlsafe(24)
     app.state.token = token
+    door = session or Session()
+    app.state.session = door
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
     @app.middleware("http")
@@ -117,11 +121,26 @@ def create_app(
         host = request.headers.get("host", "")
         if host not in allowed_hosts:
             return PlainTextResponse("this board answers only on its own address", status_code=400)
-        response = await call_next(request)
+        if is_open(request.url.path) or door.admits(request.cookies):
+            response = await call_next(request)
+        else:
+            response = locked(request)
         response.headers["Content-Security-Policy"] = CONTENT_POLICY
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Cache-Control"] = "no-store"
+        return response
+
+    def locked(request: Request) -> Response:
+        """What a browser without the cookie gets, whatever it asked for: where to find the address."""
+        return templates.TemplateResponse(request, "locked.html", {}, status_code=401)
+
+    @app.get(ENTER_PATH, name="enter")
+    def enter(request: Request, key: str = "", next: str = "/") -> Response:
+        if not door.opens(key):
+            return locked(request)
+        response = RedirectResponse(local_path(next), status_code=303)
+        response.set_cookie(door.cookie_name, door.cookie_value, httponly=True, samesite="strict", path="/")
         return response
 
     def check_token(given: str) -> None:
@@ -423,9 +442,20 @@ def pulse_of(repo: Repo, loop_id: str, steer: Runner) -> str:
     return f"{store.fingerprint(repo.path, loop_id)}.{alive}.{log_size}"
 
 
-def serve(port: int) -> None:
+def session_for(port: int) -> Session:
+    """A new key for a board on this port. Browsers keep one cookie jar per host name, whatever the
+    port, so the cookie is named after the port and two boards do not log each other out."""
+    return Session(cookie_name=f"{COOKIE_NAME}-{port}")
+
+
+def entry_address(port: int, session: Session) -> str:
+    """The address `serve` prints: opening it lets that browser in."""
+    return f"http://{HOST}:{port}{session.entry_path}"
+
+
+def serve(port: int, session: Session) -> None:
     import uvicorn
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     hosts = frozenset({f"{HOST}:{port}", f"localhost:{port}"})
-    uvicorn.run(create_app(allowed_hosts=hosts), host=HOST, port=port, log_level="warning")
+    uvicorn.run(create_app(allowed_hosts=hosts, session=session), host=HOST, port=port, log_level="warning")

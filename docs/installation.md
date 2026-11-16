@@ -65,7 +65,7 @@ For changing Loopcaptain itself, or for running it without installing:
 ```bash
 git clone https://github.com/faviens/loopcaptain && cd loopcaptain
 make setup          # dependencies and git hooks, through uv
-make serve          # the board on http://127.0.0.1:8484
+make serve          # the board; open the address it prints
 ```
 
 In a checkout, put `uv run` in front of every `loopcaptain` command on

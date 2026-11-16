@@ -21,8 +21,8 @@ invented content and comes with two rounds of history.
 loopcaptain serve
 ```
 
-Open the board in a browser, at <http://127.0.0.1:8484> unless you gave
-`serve` another port. The board answers on this machine only.
+Open the address `serve` prints in a browser. The board answers on this
+machine only, and to a browser that opened that address.
 
 ## 3. Steer the loop
 

@@ -17,7 +17,11 @@
   function poll() {
     if (document.hidden) return;
     fetch(url, { cache: "no-store" })
-      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (response) {
+        // 401: the board was started again and no longer knows this browser; the reload says so.
+        if (response.status === 401) return { pulse: null };
+        return response.ok ? response.json() : null;
+      })
       .then(function (data) {
         if (data && data.pulse !== seen && !busy()) window.location.reload();
       })

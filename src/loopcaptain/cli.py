@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import sys
 from importlib.metadata import version as package_version
 from pathlib import Path
@@ -11,7 +12,8 @@ from pathlib import Path
 from pydantic import TypeAdapter, ValidationError
 
 from loopcaptain.agents import agent, agents, checkout_of, markdown
-from loopcaptain.board.discover import as_written, edit_config
+from loopcaptain.board.access import HOST
+from loopcaptain.board.discover import as_written, edit_config, find_repos, load_config
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.doctor import examine
 from loopcaptain.protocol.models import EVENT_NAMES, AnyEvent, InboxEntry, Manifest, now
@@ -80,6 +82,50 @@ def as_json(raw: str) -> object:
         return json.loads(raw)
     except (ValueError, RecursionError):
         return raw
+
+
+def serve_command() -> str:
+    """How the board is started from here: the Makefile's target in a checkout, the command when installed."""
+    return "make serve" if checkout_of(CHECKOUT) and Path("Makefile").is_file() else "loopcaptain serve"
+
+
+def watched_line() -> str:
+    """How many repositories the board will show and which config file says so, in a few words."""
+    try:
+        config = load_config()
+        count = len(find_repos(config))
+    except StoreError as error:
+        return f"the config cannot be read ({error}); the board's first page says the same"
+    source = as_written(config.source) if config.source else "no config file"
+    noun = "repository" if count == 1 else "repositories"
+    return f"{count} {noun} with loops, config: {source}"
+
+
+def port_is_free(port: int) -> bool:
+    """Whether the board can listen on this port of 127.0.0.1, asked before anything is printed."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind((HOST, port))
+        except (OSError, OverflowError):
+            return False
+    return True
+
+
+def serve_board(port: int) -> int:
+    """Say where the board is, then serve it until it is stopped."""
+    from loopcaptain.board.app import entry_address, serve, session_for
+
+    if not port_is_free(port):
+        raise StoreError(
+            f"port {port} on {HOST} cannot be used: another board or program has it, or it is no port. "
+            f"Stop that one, or pick another: `loopcaptain serve --port <number>`"
+        )
+    session = session_for(port)
+    sys.stdout.write(f"open {entry_address(port, session)}   ({watched_line()})\n")
+    sys.stdout.flush()
+    serve(port, session)
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -202,7 +248,7 @@ def run(args: argparse.Namespace) -> int:
             sys.stdout.write(
                 "".join(f"{line}\n" for line in edit_config(target, add=("repos", as_written(target))))
             )
-        sys.stdout.write("start the board with `loopcaptain serve` and open http://127.0.0.1:8484\n")
+        sys.stdout.write(f"start the board with `{serve_command()}` and open the address it prints\n")
         return 0
     if args.command == "mcp-config":
         if args.markdown:
@@ -225,10 +271,7 @@ def run(args: argparse.Namespace) -> int:
 
         serve_stdio()
         return 0
-    from loopcaptain.board.app import serve
-
-    serve(args.port)
-    return 0
+    return serve_board(args.port)
 
 
 if __name__ == "__main__":

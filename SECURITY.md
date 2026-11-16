@@ -20,9 +20,26 @@
    from an agent that writes files in its repository. The board's own
    status ignores a line whose signature fails. A process with the user's
    full file access can read that key too.
-5. **The network:** the board listens on `127.0.0.1` only, answers only to
-   its own host name, and every form carries a per-process token. No page
-   loads anything from another origin. Nothing is sent off the machine.
+5. **The network:** the board listens on `127.0.0.1` only and answers only
+   to its own host name. No page loads anything from another origin.
+   Nothing is sent off the machine.
+6. **Who may use it:** every request, reading a page included, needs the
+   session cookie that the address printed by `loopcaptain serve` sets;
+   only the stylesheet, the script and the font are served without it.
+   Each start makes a new key, kept in the board's memory only, so an
+   address or a cookie from an earlier start is refused. Every form also
+   carries a per-process token. The printed address is a password for as
+   long as that board runs: do not paste it anywhere.
+7. **What that does not cover:** a process that runs as you and can read
+   your terminal, your browser's cookie store or the board's memory can
+   get in, as it can read the watched repositories and the inbox key
+   directly. The boundary is between you and everything else that can
+   reach the port: other accounts on the machine, a container on the host
+   network, a forwarded port, a process confined to its own folder.
+   A browser sends a cookie for `127.0.0.1` to every port there, so
+   another web server on `127.0.0.1` that you open in the same browser
+   receives the board's cookie while that board runs; the key, and so the
+   cookie, changes at each start.
 
 ## Reporting a vulnerability
 

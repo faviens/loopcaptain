@@ -49,10 +49,10 @@ runs one without installing. In a checkout of this repository, put
 
 ```bash
 loopcaptain demo             # the example loop; free, no model, no network
-loopcaptain serve            # the board, this machine only, port 8484 unless --port
+loopcaptain serve            # the board, this machine only; prints the address to open
 ```
 
-Open the example loop, press Start, answer its question with a button,
+Open the address `serve` prints, then the example loop, press Start, answer its question with a button,
 watch it converge and end `done`. Then the person knows what a connected
 loop looks like.
 
@@ -181,8 +181,11 @@ stdio: `loopcaptain mcp-config <agent>` prints the line for it,
 6. **No page loads anything from another origin,** and no template carries
    inline script or style: the content policy in `board/app.py` forbids it
    and a test checks it. The font is vendored.
-7. **Every form carries the server's token and every request names this
-   server as host.** A new route that changes anything takes the token.
+7. **Every request carries the session cookie, every form the server's
+   token, and every request names this server as host.** The cookie comes
+   from the address `serve` prints (`board/access.py`); only that entry
+   and the static files go without it. A new route that changes anything
+   takes the token.
 8. **Neutral and invented.** An agent product may be named as an example
    ("Claude Code's `/loop`"); nothing may need one to run or to be
    understood. No company, client or real loop is named anywhere, the

@@ -602,3 +602,39 @@ problem is then permanent, and the caller can only add to it. Refusing
 hand, without any check of its ids. Refusing an unreadable entry or an
 unreadable log: the loop could not report at all. Writing such a line
 silently: the writer would not know its line went unchecked.
+
+## 28. A browser is let in by the address `serve` prints
+
+**Decision.** `loopcaptain serve` makes a random key at every start and
+prints an address that carries it (`session_for` and `entry_address` in
+`board/app.py`, printed by `cli.py`). Opening it sets a cookie, `HttpOnly`
+and `SameSite=Strict`, and leads on to the clean address; every other
+request, the reload pulse and the file viewer included, needs the cookie
+(`board/access.py`, the middleware in `board/app.py`). Only the static
+files are served without it. A browser without the cookie gets one page
+that says where the address is. The key lives in the process only: a
+restart makes a new one, and a page left open turns to that same page.
+The cookie holds a value made from the key, not the key, and is named
+after the port. The host check and the form token of section 5 stay. This
+adds to sections 4 and 5; it replaces neither.
+
+**Why.** Binding to 127.0.0.1 says which machine may ask, not who on it.
+The board shows files of every watched repository, writes signed inbox
+lines and starts a command, so reading and steering both belong to the
+person alone. The form token cannot draw that line by itself, since it is
+printed on the pages. A cookie set from a secret the person carries from
+the terminal to the browser can. The entry is a path, not a full address,
+so it works unchanged under a host name that a proxy on the machine
+forwards to the board.
+
+**Rejected.**
+1. A Unix socket with file permissions: no browser opens one, so the
+   board would need a helper or a proxy in front, and a phone behind a
+   private proxy could not reach it.
+2. The form token only, with reading left open: every page and file would
+   stay readable to anything that reaches the port, and the token with
+   them.
+3. A password or key kept in a file: one more secret on disk to protect,
+   and nothing to gain over a key that ends with the process.
+4. A key that works once: a second browser, or a phone, would need a
+   restart of the board. The key works for as long as the board runs.

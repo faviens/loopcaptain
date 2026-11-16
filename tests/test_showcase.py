@@ -50,7 +50,10 @@ def test_the_overview_marks_what_waits_what_runs_and_what_is_stuck(repos: list[P
         allowed_hosts=frozenset({HOST}),
     )
 
-    page = TestClient(app, base_url=f"http://{HOST}").get("/?finished=1").text
+    client = TestClient(app, base_url=f"http://{HOST}")
+    client.cookies.set(app.state.session.cookie_name, app.state.session.cookie_value)
+
+    page = client.get("/?finished=1").text
 
     assert 'class="kpi hot"><b>1</b>' in page
     assert 'class="kpi live"><b>2</b>' in page

@@ -67,8 +67,8 @@ loopcaptain demo               # writes the example loop and puts it on the boar
 loopcaptain serve              # the board, on this machine only
 ```
 
-Open the board in a browser, at <http://127.0.0.1:8484> unless you gave
-`serve` another port. Open the example loop, press Start, answer its
+Open the address `serve` prints in a browser: it lets that browser in.
+Open the example loop, press Start, answer its
 question with a button and watch it end `done`. It needs Python 3.12 or
 later, on macOS or Linux, and [uv](https://docs.astral.sh/uv/), pipx or
 pip. From a checkout: `make setup && make demo && make serve`.
@@ -201,7 +201,7 @@ From a checkout, put `uv run` in front, or use the `make` targets in
 No agent runtime: the board runs no model and schedules nothing; it starts
 only the one command a loop declares, after you tick it once. No database:
 the files are the truth. No cloud and no login: it answers on 127.0.0.1
-only. No transcripts: a loop reports summaries and paths. See
+only, and to a browser that opened the address `serve` prints. No transcripts: a loop reports summaries and paths. See
 [SECURITY.md](SECURITY.md) for what it trusts.
 
 ## More

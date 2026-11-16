@@ -37,7 +37,14 @@ def client(scan: Path, tmp_path: Path) -> TestClient:
         runner=Runner(tmp_path / "state"),
         allowed_hosts=frozenset({HOST}),
     )
-    return TestClient(app, base_url=f"http://{HOST}", follow_redirects=False)
+    return let_in(TestClient(app, base_url=f"http://{HOST}", follow_redirects=False))
+
+
+def let_in(client: TestClient) -> TestClient:
+    """The client as a browser that opened the address `serve` printed."""
+    session = client.app.state.session  # type: ignore[attr-defined]
+    client.cookies.set(session.cookie_name, session.cookie_value)
+    return client
 
 
 def token_of(client: TestClient) -> str:
@@ -606,7 +613,7 @@ def test_the_loop_page_says_which_worktree_it_reads(tmp_path: Path, helper: type
         config=lambda: Config(roots=(root,)), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST})
     )
 
-    page = TestClient(app, base_url=f"http://{HOST}").get("/loop/tool/scan").text
+    page = let_in(TestClient(app, base_url=f"http://{HOST}")).get("/loop/tool/scan").text
 
     assert "Fresh copy" in page and "the latest of 2 worktrees" in page and "tool-loop" in page
 
@@ -738,7 +745,7 @@ def test_a_stalled_loop_says_what_it_last_did_and_what_to_do(
         config=lambda: Config(repos=(scan,)), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST})
     )
 
-    page = TestClient(app, base_url=f"http://{HOST}").get("/loop/some-repo/scan").text
+    page = let_in(TestClient(app, base_url=f"http://{HOST}")).get("/loop/some-repo/scan").text
 
     assert 'class="pill stalled"' in page and "Why this loop looks stalled" in page
     assert "The last line was <b>" in page and "If it died, start it again" in page
@@ -790,7 +797,7 @@ def test_the_overview_filters_by_text_and_status_and_folds_finished_loops(
 def test_a_fresh_board_offers_the_two_prompts_and_the_demo(tmp_path: Path) -> None:
     app = create_app(config=lambda: Config(), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST}))
 
-    page = TestClient(app, base_url=f"http://{HOST}").get("/").text
+    page = let_in(TestClient(app, base_url=f"http://{HOST}")).get("/").text
 
     assert "Help me build an agent loop" in page and "Help me see and steer" in page
     assert "loopcaptain demo" in page
