@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · Loopcaptain{% endblock %}
+{% block main %}
+<p class="crumb"><a href="{{ url_for('overview') }}">Loops</a></p>
+<h1>{{ title }}</h1>
+<p class="flash bad" role="alert">{{ message }}</p>
+<p class="note">Nothing was changed. {% if loop_url %}<a href="{{ loop_url }}">Back to the loop</a>, or to {% else %}Back to {% endif %}<a href="{{ url_for('overview') }}">all loops</a>.</p>
+{% endblock %}

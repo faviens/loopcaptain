@@ -1,7 +1,12 @@
-"""Which loops the board shows: the repositories named in the config, read fresh on every request."""
+"""Which loops the board shows: the repositories named in the config, read fresh on every request.
+
+Every repository and every loop is a boundary: a folder the board may not enter, or a loop whose
+files cannot be read or folded, is named with the reason and left out, and the rest is shown.
+"""
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from dataclasses import dataclass
@@ -15,6 +20,8 @@ from loopcaptain.protocol.models import FOLDER, Manifest, now
 from loopcaptain.protocol.signing import untrusted_ids
 from loopcaptain.protocol.state import LoopState, fold
 from loopcaptain.protocol.store import Problem, StoreError
+
+log = logging.getLogger("loopcaptain.discover")
 
 #: Where the config is looked for, first hit wins. The file names this laptop's folders, so it is
 #: never committed (`*.local.yaml` is ignored).
@@ -116,7 +123,8 @@ def load_config(cwd: Path | None = None) -> Config:
 def parse_config(path: Path) -> Config:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError) as error:
+    except (OSError, ValueError, RecursionError, yaml.YAMLError) as error:
+        # ValueError: bytes that are not UTF-8 text. RecursionError: nesting deeper than the parser goes.
         raise StoreError(f"{path.name}: {error}") from error
     if not isinstance(data, dict):
         raise StoreError(f"{path.name}: expected `roots:` and `repos:` lists")
@@ -125,20 +133,75 @@ def parse_config(path: Path) -> Config:
         value = data.get(key) or []
         if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             raise StoreError(f"{path.name}: `{key}` must be a list of paths")
-        return tuple((path.parent / Path(item).expanduser()).resolve() for item in value)
+        try:
+            return tuple((path.parent / Path(item).expanduser()).resolve() for item in value)
+        except (OSError, ValueError) as error:
+            # ValueError: a path with a null character, which no file system takes.
+            raise StoreError(f"{path.name}: `{key}`: {error}") from error
 
     return Config(roots=paths("roots"), repos=paths("repos"), source=path)
 
 
+@dataclass(frozen=True)
+class Unreadable:
+    """A folder the config names, or one under a `roots:` folder, that the board could not look into."""
+
+    path: Path
+    message: str
+
+
+def reason(error: BaseException) -> str:
+    """Why something could not be read, in a few words: the system's own text for a file error."""
+    if isinstance(error, OSError) and error.strerror:
+        return error.strerror
+    return str(error) if isinstance(error, StoreError) else f"{type(error).__name__}: {error}"
+
+
+def has_loops(path: Path) -> bool:
+    """Whether a folder holds a `.loops` folder whose loops can be listed; raises if it cannot be told."""
+    if not (path / FOLDER).is_dir():
+        return False
+    store.loop_ids(path)
+    return True
+
+
+def candidates(config: Config) -> tuple[list[Path], list[Unreadable]]:
+    """The folders the config leads to, and those among them the board may not enter."""
+    listed: list[Path] = []
+    unreadable: list[Unreadable] = []
+    for root in config.roots:
+        try:
+            listed.extend(sorted(root.iterdir()) if root.is_dir() else [])
+        except OSError as error:
+            unreadable.append(Unreadable(root, reason(error)))
+    return list(dict.fromkeys([*listed, *config.repos])), unreadable
+
+
+def survey(config: Config) -> tuple[list[Path], list[Unreadable]]:
+    """Every configured folder with loops the board can list, and every folder it could not look into."""
+    listed, unreadable = candidates(config)
+    found: list[Path] = []
+    for path in listed:
+        try:
+            if has_loops(path):
+                found.append(path)
+        except Exception as error:
+            # The boundary of one repository: whatever its files make the reader raise, the
+            # folder is named with the reason and every other repository is still shown. The
+            # page says it on every request, so the log only notes it for debugging.
+            log.debug("cannot read %s: %s", path, reason(error))
+            unreadable.append(Unreadable(path, reason(error)))
+    return found, unreadable
+
+
+def unreadable_folders(config: Config) -> list[Unreadable]:
+    return survey(config)[1]
+
+
 def find_repos(config: Config) -> list[Repo]:
     """Every configured repository that has a `.loops` folder, each once, in a stable order."""
-    found: list[Path] = []
-    for root in config.roots:
-        if not root.is_dir():
-            continue
-        found.extend(child for child in sorted(root.iterdir()) if (child / FOLDER).is_dir())
-    found.extend(repo for repo in config.repos if (repo / FOLDER).is_dir())
-    grouped = one_per_repository(list(dict.fromkeys(found)))
+    found, _ = survey(config)
+    grouped = one_per_repository(found)
     names = [path.name for path, _ in grouped]
     repos = []
     for path, others in grouped:
@@ -157,9 +220,14 @@ def load_loop(repo: Repo, loop_id: str, at: datetime | None = None, process_aliv
         manifest = store.read_manifest(repo.path, loop_id)
         events, event_problems = store.read_events(repo.path, loop_id)
         inbox, inbox_problems = store.read_inbox(repo.path, loop_id)
+        state = fold(manifest, events, inbox, at or now(), process_alive, untrusted_ids(inbox, loop_id))
     except StoreError as error:
         return LoopView(repo, loop_id, None, error=str(error))
-    state = fold(manifest, events, inbox, at or now(), process_alive, untrusted_ids(inbox, loop_id))
+    except Exception as error:
+        # The boundary of one loop: whatever its files make the reader or the fold raise, this
+        # loop shows as unreadable with the reason and every other loop is still shown.
+        log.debug("cannot show %s in %s: %s", loop_id, repo.path, reason(error))
+        return LoopView(repo, loop_id, None, error=f"cannot be read: {reason(error)}")
     return LoopView(repo, loop_id, state, (*event_problems, *inbox_problems))
 
 
@@ -185,7 +253,8 @@ def find_loop(config: Config, repo_key: str, loop_id: str) -> tuple[Repo, Manife
         if repo.key == repo_key and loop_id in store.loop_ids(repo.path):
             try:
                 return repo, store.read_manifest(repo.path, loop_id)
-            except StoreError:
+            except Exception as error:
+                log.debug("cannot read the manifest of %s in %s: %s", loop_id, repo.path, reason(error))
                 return None
     return None
 

@@ -35,7 +35,10 @@ from loopcaptain.board.discover import (
     git_branch,
     load_config,
     load_loop,
+    reason,
+    unreadable_folders,
 )
+from loopcaptain.board.errors import add_error_pages, secured
 from loopcaptain.board.files import MAX_FILE_BYTES, TEXT_SUFFIXES, inside
 from loopcaptain.board.filters import ago, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
@@ -74,11 +77,20 @@ STATUS_ORDER = (
     "done",
 )
 
-#: Everything the pages load comes from this server: no inline script or style, no other origin.
-CONTENT_POLICY = (
-    "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-)
 NextHandler = Callable[[Request], Awaitable[Response]]
+STALE_FORM_TEXT = (
+    "Nothing was sent: that page was drawn before the board last started. This one is fresh; send again."
+)
+
+
+class StaleForm(Exception):
+    """A form that carries another server process's token, or none that this one made."""
+
+    def __init__(self, repo_key: str, loop_id: str) -> None:
+        super().__init__("a form from an older page")
+        self.repo_key = repo_key
+        self.loop_id = loop_id
+
 
 MARKDOWN = MarkdownIt("commonmark", {"html": False}).enable("table")
 
@@ -113,6 +125,7 @@ def create_app(
     door = session or Session()
     app.state.session = door
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+    add_error_pages(app, templates)
 
     @app.middleware("http")
     async def only_this_host(
@@ -125,11 +138,7 @@ def create_app(
             response = await call_next(request)
         else:
             response = locked(request)
-        response.headers["Content-Security-Policy"] = CONTENT_POLICY
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Cache-Control"] = "no-store"
-        return response
+        return secured(response)
 
     def locked(request: Request) -> Response:
         """What a browser without the cookie gets, whatever it asked for: where to find the address."""
@@ -143,9 +152,21 @@ def create_app(
         response.set_cookie(door.cookie_name, door.cookie_value, httponly=True, samesite="strict", path="/")
         return response
 
-    def check_token(given: str) -> None:
+    def problems_of(repo: Repo, loop_id: str) -> list[str]:
+        """What is wrong with a loop the board lists but cannot load, in the words of `validate`."""
+        try:
+            return validate_loop(repo.path, loop_id).problems or ["loop.json cannot be read"]
+        except Exception as error:
+            return [f"loop.json cannot be read: {reason(error)}"]
+
+    def check_token(given: str, repo_key: str, loop_id: str) -> None:
         if not hmac.compare_digest(given.encode(), token.encode()):
-            raise HTTPException(403, "this form is from an older page; reload and send again")
+            raise StaleForm(repo_key, loop_id)
+
+    @app.exception_handler(StaleForm)
+    def stale_form(request: Request, problem: StaleForm) -> Response:
+        """A form from a page drawn before this board started: nothing is done, the loop's page says so."""
+        return back(problem.repo_key, problem.loop_id, error=STALE_FORM_TEXT)
 
     def view_of(repo_key: str, loop_id: str) -> tuple[Repo, Manifest, LoopView]:
         found = find_loop(config(), repo_key, loop_id)
@@ -196,9 +217,10 @@ def create_app(
         try:
             cfg = config()
             views = all_views()
+            unreadable = unreadable_folders(cfg)
             error = ""
         except StoreError as problem:
-            cfg, views, error = Config(), [], str(problem)
+            cfg, views, unreadable, error = Config(), [], [], str(problem)
 
         def rank(view: LoopView) -> tuple[int, float]:
             status = view.state.status if view.state else "failed"
@@ -223,6 +245,7 @@ def create_app(
             "waiting": [view for view in views if view.state and view.state.question],
             "config": cfg,
             "error": error,
+            "unreadable": unreadable,
             "token": token,
             "pulse": overview_fingerprint() if not error else "error",
             "total_usd": sum(view.state.cost_usd for view in views if view.state),
@@ -244,8 +267,7 @@ def create_app(
         broken = find_repo(config(), repo_key, loop_id) if found is None else None
         if broken is not None:
             # Listed, but its loop.json cannot be read: say what is wrong instead of a bare error.
-            problems = validate_loop(broken.path, loop_id).problems or ["loop.json cannot be read"]
-            context = {"repo": broken, "loop_id": loop_id, "problems": problems}
+            context = {"repo": broken, "loop_id": loop_id, "problems": problems_of(broken, loop_id)}
             return templates.TemplateResponse(request, "unreadable.html", context)
         repo, manifest, view = view_of(repo_key, loop_id)
         note, error = message_of(request)
@@ -324,7 +346,7 @@ def create_app(
         text: Annotated[str, Form()] = "",
         choice: Annotated[str, Form()] = "",
     ) -> Response:
-        check_token(token)
+        check_token(token, repo_key, loop_id)
         repo, _, view = view_of(repo_key, loop_id)
         asked = view.state.question if view.state else None
         picked = next((option for option in asked.options if option.id == choice), None) if asked else None
@@ -355,7 +377,7 @@ def create_app(
 
     @app.post("/loop/{repo_key}/{loop_id}/stop", name="loop_stop")
     def loop_stop(repo_key: str, loop_id: str, token: Annotated[str, Form()]) -> Response:
-        check_token(token)
+        check_token(token, repo_key, loop_id)
         repo, _, view = view_of(repo_key, loop_id)
         if view.state and view.state.stop_requested:
             return back(repo_key, loop_id, note="A stop is already waiting for the loop.")
@@ -373,7 +395,7 @@ def create_app(
         command: Annotated[str, Form()] = "",
         confirm: Annotated[str, Form()] = "",
     ) -> Response:
-        check_token(token)
+        check_token(token, repo_key, loop_id)
         repo, manifest, _ = view_of(repo_key, loop_id)
         if command != manifest.commands.get("start", ""):
             # The loop rewrote its command after the page was drawn: run only what the person saw.
@@ -397,7 +419,7 @@ def create_app(
 
     @app.post("/loop/{repo_key}/{loop_id}/kill", name="loop_kill")
     def loop_kill(repo_key: str, loop_id: str, token: Annotated[str, Form()]) -> Response:
-        check_token(token)
+        check_token(token, repo_key, loop_id)
         repo, _, _ = view_of(repo_key, loop_id)
         try:
             steer.kill(repo, loop_id)

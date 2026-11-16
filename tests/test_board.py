@@ -188,8 +188,10 @@ def test_a_form_without_this_servers_token_changes_nothing(
     wrong = client.post(f"/loop/some-repo/scan/{action}", data={"token": "guess", "text": "hello"})
     missing = client.post(f"/loop/some-repo/scan/{action}", data={"text": "hello"})
 
-    assert (wrong.status_code, missing.status_code) == (403, 422)
+    assert (wrong.status_code, missing.status_code) == (303, 422)
+    assert wrong.headers["location"].startswith("/loop/some-repo/scan?error=Nothing%20was%20sent")
     assert store.read_inbox(scan, "scan") == ([], [])
+    assert not (scan / "started").exists()
 
 
 def test_a_request_for_another_host_is_refused(client: TestClient) -> None:

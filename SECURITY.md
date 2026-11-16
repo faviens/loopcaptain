@@ -14,6 +14,9 @@
    by an agent. The board reads them bounded, follows no symbolic link in
    `.loops/`, never shows `.git`, `.env*` or credential files, and renders
    content only as escaped text or Markdown without HTML.
+   Each repository and each loop is a boundary: one the board cannot
+   enter, read or make sense of is named with the reason and left out,
+   and every other loop stays readable and steerable.
 3. **The one command it runs:** `commands.start` of a loop's `loop.json`,
    when the person presses Start, split into arguments with no shell, with
    only `PATH`, `HOME`, `LANG` and `TERM` from the board's environment,

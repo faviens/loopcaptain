@@ -1,10 +1,19 @@
-// Two small things, no library: reload the page when a loop's files change, and copy the protocol.
+// Three small things, no library: reload the page when a loop's files change, show a message once,
+// and copy the protocol.
 (function () {
   "use strict";
   var body = document.body;
   var url = body.getAttribute("data-pulse-url");
   var seen = body.getAttribute("data-pulse");
   var POLL_MS = 4000;
+
+  // A message shows once: out of the address it goes, so a reload or a copied link does not repeat it.
+  var here = new URL(window.location.href);
+  var shown = ["note", "error", "seal"].filter(function (name) { return here.searchParams.has(name); });
+  if (shown.length && window.history.replaceState) {
+    shown.forEach(function (name) { here.searchParams.delete(name); });
+    window.history.replaceState(null, "", here.pathname + here.search + here.hash);
+  }
 
   function busy() {
     // Never reload under someone who is typing an answer or reading a check's history.

@@ -6,6 +6,12 @@
 <p class="eyebrow">Where every loop stands</p>
 <h1>Loops</h1>
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
+{% if unreadable %}
+<div class="flash bad" role="alert">
+  <p>Not shown, because the board could not look into {{ 'it' if unreadable|length == 1 else 'them' }}:</p>
+  <ul class="plain">{% for folder in unreadable %}<li><code>{{ folder.path|place }}</code> <span class="body">{{ folder.message }}</span></li>{% endfor %}</ul>
+</div>
+{% endif %}
 
 {% if views %}
 {% set running = views|selectattr('state')|selectattr('state.status', 'equalto', 'running')|list %}
