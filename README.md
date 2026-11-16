@@ -4,6 +4,10 @@
   <img alt="Loopcaptain: monitor and steer your agent loops from one local board. An open protocol lets any loop report to it." src="docs/assets/banner-light.svg">
 </picture>
 
+[![CI](https://img.shields.io/github/actions/workflow/status/faviens/loopcaptain/ci.yml?branch=main&label=CI)](https://github.com/faviens/loopcaptain/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/github/actions/workflow/status/faviens/loopcaptain/docs.yml?branch=main&label=docs)](https://faviens.github.io/loopcaptain/)
+[![PyPI](https://img.shields.io/pypi/v/loopcaptain?color=0E0E10)](https://pypi.org/project/loopcaptain/)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-0E0E10.svg)](Makefile#L46)
 [![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-0E0E10.svg)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/badge/deps-uv-0E0E10.svg)](https://docs.astral.sh/uv/)
