@@ -13,25 +13,25 @@ happens, in one small folder.
 
 | File | What it is |
 |---|---|
-| [LOOPS.md](LOOPS.md) | The protocol: the files, the events, the rules for a loop and a board. Read it first. |
-| [loops.py](loops.py) | The helper to copy into a Python loop: `register`, `emit`, `inbox`. Standard library only. |
-| [templates/](templates) | Three `loop.json` to start from: a research loop, a review loop, an editor-maker-lens loop. |
-| [schema/](schema) | The same contract as JSON Schema, for loops in other languages. |
-| [prompts/](prompts) | The two prompts a person gives their coding agent: build a loop, watch the loops here. |
+| [LOOPS.md][loops.md] | The protocol: the files, the events, the rules for a loop and a board. Read it first. |
+| [loops.py][loops.py] | The helper to copy into a Python loop: `register`, `emit`, `inbox`. Standard library only. |
+| [templates/][templates] | Three `loop.json` to start from: a research loop, a review loop, an editor-maker-lens loop. |
+| [schema/][schema] | The same contract as JSON Schema, for loops in other languages. |
+| [prompts/][prompts] | The two prompts a person gives their coding agent: build a loop, watch the loops here. |
 
 Connecting a loop that exists is the first part below; building one from
 nothing is the second, [Build a loop from nothing](#build-a-loop-from-nothing).
 
 ## What to do
 
-1. **Read [LOOPS.md](LOOPS.md)**, then the loop's own code: which
+1. **Read [LOOPS.md][loops.md]**, then the loop's own code: which
    roles run in a round, in which order, what each writes, where the round
    ends, where it asks the person.
 2. **Describe the loop.** At start-up, write `.loops/<loop-id>/loop.json`:
    the title, the brief in three lines with the path of the full brief, and
    one step per role as the loop really runs them. Use `after` only where a
    step does not simply follow the one before. Copy the closest file in
-   [templates/](templates) and change it; do not bend the loop to the
+   [templates/][templates] and change it; do not bend the loop to the
    template.
 3. **Report what happens.** One line per event, at the places the loop
    already has: `round_started` where a round begins, `step_finished` where
@@ -39,7 +39,7 @@ nothing is the second, [Build a loop from nothing](#build-a-loop-from-nothing).
    cost if the loop knows them), `round_finished` where the verdict is
    known. Report as it happens; a loop that can only report later gives
    each line `at`, the time it really happened. In Python, copy
-   [loops.py](loops.py) and call `emit`;
+   [loops.py][loops.py] and call `emit`;
    elsewhere, append one JSON line. A loop driven by an agent session, with
    no script, uses the `loopcaptain` MCP server instead (LOOPS.md,
    section 5).
@@ -61,7 +61,7 @@ nothing is the second, [Build a loop from nothing](#build-a-loop-from-nothing).
 1. `loopcaptain validate <repository>` prints `ok`. The command comes
    with `uv tool install loopcaptain` (Python 3.12 or later), or runs
    once without installing as `uvx loopcaptain validate <repository>`.
-   Where neither is possible, check each file against [schema/](schema).
+   Where neither is possible, check each file against [schema/][schema].
 2. One real round has run and the folder shows it: a `round_started`, one
    `step_finished` per role that ran, a `round_finished` with its verdict.
 3. Every path in the folder is relative to the repository root and exists.
@@ -187,7 +187,7 @@ minimal environment.
    keyboard, and reports with the helper. Map the agent's JSON result to
    `cost` (tokens, cache tokens, turns; `usd` only if the agent reports
    it) and its budget flags to the caps. The command per agent is in
-   [docs/agents.md](../docs/agents.md).
+   [docs/agents.md][agents].
 2. **An agent session** that loops by itself (a native loop or schedule
    command, a stop hook that starts the next round) reports through the
    MCP server. It calls `inbox_read` at the start of every round.
@@ -204,3 +204,10 @@ Read on 2026-11-15:
 [effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents),
 [autoresearch](https://github.com/karpathy/autoresearch),
 [human in the loop](https://docs.langchain.com/oss/python/langchain/human-in-the-loop).
+
+[loops.md]: https://github.com/faviens/loopcaptain/blob/main/standard/LOOPS.md
+[loops.py]: https://github.com/faviens/loopcaptain/blob/main/standard/loops.py
+[templates]: https://github.com/faviens/loopcaptain/tree/main/standard/templates
+[schema]: https://github.com/faviens/loopcaptain/tree/main/standard/schema
+[prompts]: https://github.com/faviens/loopcaptain/tree/main/standard/prompts
+[agents]: https://faviens.github.io/loopcaptain/agents/

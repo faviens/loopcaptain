@@ -8,20 +8,20 @@
 
 ## Start
 
-- [Build a loop](standard/prompts/build-a-loop.md): Help me build an agent loop that reports to Loopcaptain.
-- [Watch the loops on this machine](standard/prompts/watch-my-loops.md): Help me see and steer the agent loops on this machine with Loopcaptain.
-- [Installation](docs/installation.md): `uv tool install loopcaptain`, from PyPI; Python 3.12 or later
-- [Get started](docs/get-started.md): the example loop, free, in five minutes
-- [Setup](docs/setup.md): what the board watches, checking a loop, when a loop does not show
+- [Build a loop](https://github.com/faviens/loopcaptain/blob/main/standard/prompts/build-a-loop.md): Help me build an agent loop that reports to Loopcaptain.
+- [Watch the loops on this machine](https://github.com/faviens/loopcaptain/blob/main/standard/prompts/watch-my-loops.md): Help me see and steer the agent loops on this machine with Loopcaptain.
+- [Installation](https://faviens.github.io/loopcaptain/installation/): `uv tool install loopcaptain`, from PyPI; Python 3.12 or later
+- [Get started](https://faviens.github.io/loopcaptain/get-started/): the example loop, free, in five minutes
+- [Setup](https://faviens.github.io/loopcaptain/setup/): what the board watches, checking a loop, when a loop does not show
 
 ## The standard
 
-- [LOOPS.md](standard/LOOPS.md): the protocol, the helper to paste, conformance
-- [AGENTS.md for a loop](standard/AGENTS.md): connect a loop, or build one from nothing
-- [Works with every agent](docs/agents.md): how each coding agent adds the MCP server
+- [LOOPS.md](https://github.com/faviens/loopcaptain/blob/main/standard/LOOPS.md): the protocol, the helper to paste, conformance
+- [AGENTS.md for a loop](https://github.com/faviens/loopcaptain/blob/main/standard/AGENTS.md): connect a loop, or build one from nothing
+- [Works with every agent](https://faviens.github.io/loopcaptain/agents/): how each coding agent adds the MCP server
 
 ## Optional
 
-- [The command line](docs/reference/cli.md)
-- [The MCP tools](docs/reference/mcp.md)
-- [Security](SECURITY.md)
+- [The command line](https://faviens.github.io/loopcaptain/reference/cli/)
+- [The MCP tools](https://faviens.github.io/loopcaptain/reference/mcp/)
+- [Security](https://faviens.github.io/loopcaptain/security/)

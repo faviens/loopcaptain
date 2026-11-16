@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import sys
 import tomllib
 import types
 from pathlib import Path
@@ -169,3 +170,65 @@ def test_the_readme_sends_a_reader_to_the_site_for_pages_the_code_host_cannot_re
 
     assert linked and broken == []
     assert urls["Documentation"] in readme
+
+
+@pytest.fixture(scope="module")
+def site_links() -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location("site_links", ROOT / "scripts" / "site_links.py")
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["site_links"] = module  # a dataclass looks its module up by name
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_link_check_names_a_missing_page_a_missing_anchor_and_a_wrong_case(
+    site_links: types.ModuleType, tmp_path: Path
+) -> None:
+    (tmp_path / "setup").mkdir()
+    (tmp_path / "setup" / "index.html").write_text('<h2 id="run">Run</h2><a href="../#top">up</a>')
+    (tmp_path / "index.html").write_text(
+        '<a href="setup/#run">ok</a> <a href="setup/#gone">anchor</a> <a href="missing/">page</a>'
+        '<a href="SETUP/">case</a> <a href="https://example.org/x">elsewhere</a> <a href="#here">self</a>'
+        '<a href="mailto:a@example.org">mail</a> <img src="/setup/index.html"> <p id="here"></p>'
+    )
+
+    dead = site_links.dead_links(tmp_path)
+
+    assert dead == [
+        "index.html: setup/#gone: no such anchor",
+        "index.html: missing/: no such file",
+        "index.html: SETUP/: no such file",
+        "setup/index.html: ../#top: no such anchor",
+    ]
+    assert site_links.main([str(tmp_path)]) == 1
+    assert site_links.main([str(tmp_path / "setup" / "none")]) == 2
+
+
+#: Files a page of the site includes from outside docs/: a relative link in them leads nowhere there.
+INCLUDED = ("standard/AGENTS.md", "CONTRIBUTING.md")
+
+
+def test_a_file_the_site_includes_links_by_full_address_or_within_itself() -> None:
+    for name in INCLUDED:
+        text = (ROOT / name).read_text(encoding="utf-8")
+        inline = re.findall(r"\]\(([^)\s]+)\)", text)
+        defined = re.findall(r"^\[[^\]]+\]: (\S+)$", text, re.MULTILINE)
+        used = set(re.findall(r"\]\[([^\]]+)\]", text))
+
+        assert [link for link in inline + defined if not link.startswith(("https://", "#"))] == [], name
+        assert used == set(re.findall(r"^\[([^\]]+)\]: ", text, re.MULTILINE)), name
+
+
+def test_every_link_in_llms_txt_is_a_full_address(docs_pages: types.ModuleType) -> None:
+    links = re.findall(r"\]\(([^)]+)\)", docs_pages.llms_txt())
+    site, files = docs_pages.addresses()
+
+    assert len(links) >= 11
+    assert [link for link in links if not link.startswith((site + "/", files + "/"))] == []
+    for link in links:
+        if link.startswith(files):
+            assert (ROOT / link.removeprefix(files + "/")).is_file(), link
+        else:
+            page = link.removeprefix(site + "/").rstrip("/")
+            assert (ROOT / "docs" / f"{page}.md").is_file(), link

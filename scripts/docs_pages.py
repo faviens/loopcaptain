@@ -11,6 +11,7 @@ import argparse
 import asyncio
 import inspect
 import sys
+import tomllib
 from pathlib import Path
 
 from loopcaptain import agents
@@ -59,8 +60,17 @@ def mcp_page() -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def addresses() -> tuple[str, str]:
+    """Where the documentation site and the repository's files on its main branch are read."""
+    urls = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["urls"]
+    return urls["Documentation"].rstrip("/"), urls["Repository"].rstrip("/") + "/blob/main"
+
+
 def llms_txt() -> str:
+    """The index for a model. Every address is absolute: the file is read from the site and from the
+    repository, and a relative path leads somewhere in only one of them."""
     prompts = ROOT / "standard" / "prompts"
+    site, files = addresses()
     return "\n".join(
         [
             "# Loopcaptain",
@@ -73,25 +83,25 @@ def llms_txt() -> str:
             "",
             "## Start",
             "",
-            "- [Build a loop](standard/prompts/build-a-loop.md): "
+            f"- [Build a loop]({files}/standard/prompts/build-a-loop.md): "
             + (prompts / "build-a-loop.md").read_text().splitlines()[0],
-            "- [Watch the loops on this machine](standard/prompts/watch-my-loops.md): "
+            f"- [Watch the loops on this machine]({files}/standard/prompts/watch-my-loops.md): "
             + (prompts / "watch-my-loops.md").read_text().splitlines()[0],
-            "- [Installation](docs/installation.md): `uv tool install loopcaptain`, from PyPI; Python 3.12 or later",
-            "- [Get started](docs/get-started.md): the example loop, free, in five minutes",
-            "- [Setup](docs/setup.md): what the board watches, checking a loop, when a loop does not show",
+            f"- [Installation]({site}/installation/): `uv tool install loopcaptain`, from PyPI; Python 3.12 or later",
+            f"- [Get started]({site}/get-started/): the example loop, free, in five minutes",
+            f"- [Setup]({site}/setup/): what the board watches, checking a loop, when a loop does not show",
             "",
             "## The standard",
             "",
-            "- [LOOPS.md](standard/LOOPS.md): the protocol, the helper to paste, conformance",
-            "- [AGENTS.md for a loop](standard/AGENTS.md): connect a loop, or build one from nothing",
-            "- [Works with every agent](docs/agents.md): how each coding agent adds the MCP server",
+            f"- [LOOPS.md]({files}/standard/LOOPS.md): the protocol, the helper to paste, conformance",
+            f"- [AGENTS.md for a loop]({files}/standard/AGENTS.md): connect a loop, or build one from nothing",
+            f"- [Works with every agent]({site}/agents/): how each coding agent adds the MCP server",
             "",
             "## Optional",
             "",
-            "- [The command line](docs/reference/cli.md)",
-            "- [The MCP tools](docs/reference/mcp.md)",
-            "- [Security](SECURITY.md)",
+            f"- [The command line]({site}/reference/cli/)",
+            f"- [The MCP tools]({site}/reference/mcp/)",
+            f"- [Security]({site}/security/)",
             "",
         ]
     )
