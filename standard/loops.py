@@ -47,6 +47,13 @@ def lines(path):
     return [entry for entry in found if isinstance(entry, dict)]
 
 
+def last_round(loop_id, repo="."):
+    """The highest round the loop has finished, 0 before the first: a new start counts on from it."""
+    events = lines(folder(loop_id, repo) / "events.jsonl")
+    rounds = [event.get("round") for event in events if event.get("event") == "round_finished"]
+    return max([number for number in rounds if isinstance(number, int)], default=0)
+
+
 def signed(entry, loop_id):
     """True if the board wrote this entry for this loop, False if not, None where there is no key."""
     key = Path(os.environ.get("LOOPCAPTAIN_INBOX_KEY") or "~/.config/loopcaptain/inbox.key").expanduser()

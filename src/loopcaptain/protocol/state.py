@@ -572,8 +572,12 @@ def status_of(
     process_alive: bool,
     expected: datetime | None = None,
 ) -> Status:
+    # A loop that stands still for the person waits, between rounds too and with its process alive.
+    stands_still = question is not None and question.blocks
     if not rounds:
-        return "running" if process_alive else "new"
+        if process_alive:
+            return "waiting" if stands_still else "running"
+        return "new"
     last = rounds[-1]
     # Silence is fine until the loop's own word for when it is back, and for a while after any line.
     promised = expected is not None and at <= later(expected, STALE_AFTER)
@@ -585,7 +589,7 @@ def status_of(
             return "waiting"
         return "running" if fresh else "stalled"
     if process_alive:
-        return "running"
+        return "waiting" if stands_still else "running"
     if last.verdict == "done":
         return "done"
     if last.verdict == "failed":

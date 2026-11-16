@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 import types
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -320,3 +321,59 @@ def test_costs_too_large_together_add_up_to_a_finite_figure() -> None:
 def test_a_nan_cost_stays_a_problem_as_the_text_says() -> None:
     with pytest.raises(ValueError):
         Cost.model_validate(json.loads('{"usd": NaN}'))
+
+
+def test_a_round_that_was_started_again_may_end_with_another_verdict(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    helper.emit("scan", "round_started", {"round": 1}, repo)
+    helper.emit("scan", "round_finished", {"round": 1, "verdict": "failed"}, repo)
+    helper.emit("scan", "round_started", {"round": 1}, repo)
+    helper.emit("scan", "round_finished", {"round": 1, "verdict": "done"}, repo)
+    assert validate_repo(repo) == []
+
+    helper.emit("scan", "round_finished", {"round": 1, "verdict": "stopped"}, repo)
+
+    assert validate_repo(repo) == ["scan/events.jsonl: round 1 finished twice, as done and as stopped"]
+
+
+def test_the_helper_knows_the_last_finished_round_so_a_second_start_counts_on(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    before = helper.last_round("scan", repo)
+    for number in (1, 2):
+        helper.emit("scan", "round_started", {"round": number}, repo)
+        helper.emit("scan", "round_finished", {"round": number, "verdict": "continue"}, repo)
+    helper.emit("scan", "round_started", {"round": 3}, repo)
+    helper.emit("scan", "round_finished", {"round": "four", "verdict": "continue"}, repo)
+
+    assert (before, helper.last_round("scan", repo)) == (0, 2)
+
+
+def test_a_started_loop_that_stands_on_a_blocking_question_between_rounds_is_waiting(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    manifest = store.read_manifest(repo, "scan")
+
+    def status_now() -> str:
+        events, _ = store.read_events(repo, "scan")
+        inbox, _ = store.read_inbox(repo, "scan")
+        return fold(manifest, events, inbox, events[-1].ts, process_alive=True).status
+
+    helper.emit("scan", "question", {"text": "Start with which?", "blocks": True}, repo)
+    before_any_round = status_now()
+    helper.emit("scan", "round_started", {"round": 1}, repo)
+    helper.emit("scan", "round_finished", {"round": 1, "verdict": "continue"}, repo)
+    between_rounds = status_now()
+    helper.emit("scan", "question", {"text": "By the way?"}, repo)
+    asked_in_passing = status_now()
+    helper.emit("scan", "question", {"text": "For whom?", "blocks": True}, repo)
+    standing_still = status_now()
+    time.sleep(0.002)
+    store.append_inbox(repo, "scan", "reply", "Team leads.")
+
+    assert (before_any_round, between_rounds, asked_in_passing) == ("waiting", "running", "running")
+    assert (standing_still, status_now()) == ("waiting", "running")

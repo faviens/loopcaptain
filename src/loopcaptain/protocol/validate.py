@@ -166,6 +166,8 @@ def verdict_problems(events: list[AnyEvent]) -> list[str]:
     verdicts: dict[int, str] = {}
     problems = []
     for event in events:
+        if isinstance(event, RoundStarted):
+            verdicts.pop(event.round, None)  # a round that starts again starts clean, its verdict too
         if not isinstance(event, RoundFinished):
             continue
         earlier = verdicts.get(event.round)

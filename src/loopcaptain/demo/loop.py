@@ -1,8 +1,10 @@
 """An example loop: it builds a one-page dashboard on loop engineering, round by round.
 
 Standard library only, plus `loops.py`, the helper pasted from LOOPS.md: a loop needs nothing else
-to show up on the board. No model and no network: the "agents" are small functions, so it costs
-nothing and always runs the same way. Every claim, source and finding in it is invented.
+to show up on the board. Like the helper it runs on Python 3.9 and later, since the board's Start
+button runs it with whatever `python3` the machine has. No model and no network: the "agents" are
+small functions, so it costs nothing and always runs the same way. Every claim, source and finding
+in it is invented.
 
     python loop.py --rounds 2      what the board's Start button runs, in this folder
 """
@@ -11,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import loops
@@ -34,6 +36,8 @@ AUDIENCES = (
     {"id": "builders", "label": "The engineers who build loops"},
 )
 ANSWER_WAIT_S = 90
+#: Where a reply that came during the last round waits for the next start.
+KEPT_STEERING = "work/steering.md"
 
 MANIFEST = {
     "title": "A dashboard on loop engineering",
@@ -258,18 +262,12 @@ def ask_audience(number: int, pace_s: float, wait_s: float = ANSWER_WAIT_S) -> s
     return "Team leads"
 
 
-def past_rounds() -> int:
-    finished = [
-        e for e in loops.lines(HERE / ".loops" / LOOP / "events.jsonl") if e.get("event") == "round_finished"
-    ]
-    return max((e["round"] for e in finished), default=0)
-
-
 def seed(rounds: int) -> None:
     """The loop's history: its first rounds, run now with times from yesterday."""
     loops.register(LOOP, MANIFEST)
     write("brief.md", "# Brief\n\n" + MANIFEST["brief"]["goal"] + "\n")
-    clock = Clock(datetime.now(UTC).replace(microsecond=0) - timedelta(days=1))
+    today = datetime.now(timezone.utc)  # noqa: UP017 - `datetime.UTC` needs Python 3.11, this runs on 3.9
+    clock = Clock(today.replace(microsecond=0) - timedelta(days=1))
     for number in range(1, rounds + 1):
         loops.inbox(LOOP)
         run_round(number, clock)
@@ -287,13 +285,15 @@ def main(argv: list[str] | None = None) -> int:
         seed(args.seed)
         return 0
     loops.register(LOOP, MANIFEST)
-    audience, steering = "a team about to run its first loop", ""
-    for number in range(past_rounds() + 1, past_rounds() + 1 + args.rounds):
+    audience, carried, done = "a team about to run its first loop", kept_steering(), False
+    first = loops.last_round(LOOP) + 1  # a second start goes on counting
+    for number in range(first, first + args.rounds):
         messages = loops.inbox(LOOP)
         if any(m["kind"] == "stop" and m["signed"] is not False for m in messages):
             loops.emit(LOOP, "loop_stopped", {"stop_reason": "person", "summary": "Stopped from the board."})
             return 0
-        steering = " ".join(m["text"] for m in messages if m["kind"] == "reply" and m["signed"] is not False)
+        replies = [m["text"] for m in messages if m["kind"] == "reply" and m["signed"] is not False]
+        steering, carried = " ".join(text for text in (carried, *replies) if text), ""
         if number == 3:
             picked = ask_audience(number, args.pace, args.wait)
             if picked is None:
@@ -302,9 +302,40 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 return 0
             audience = picked
-        if run_round(number, Clock(pace_s=args.pace), audience, steering):
-            return 0
+        done = run_round(number, Clock(pace_s=args.pace), audience, steering)
+        if done:
+            break
+    last_look(done)
     return 0
+
+
+def kept_steering() -> str:
+    """What `last_look` kept for this start; it is used once."""
+    path = HERE / KEPT_STEERING
+    if not path.is_file():
+        return ""
+    text = path.read_text(encoding="utf-8").strip()
+    path.unlink()
+    return text
+
+
+def last_look(done: bool) -> None:
+    """Read the inbox once more before the loop ends.
+
+    A stop sent during the last round is taken now and answered; left unread, the next start would
+    take it and end at once. A reply sent that late is kept for the next start.
+    """
+    messages = [m for m in loops.inbox(LOOP) if m["signed"] is not False]
+    if any(m["kind"] == "stop" for m in messages):
+        ending = (
+            {"stop_reason": "goal_met", "summary": "A stop came once the goal was met."}
+            if done
+            else {"stop_reason": "person", "summary": "Stopped from the board during its last round."}
+        )
+        loops.emit(LOOP, "loop_stopped", ending)
+    late = " ".join(m["text"] for m in messages if m["kind"] == "reply" and m["text"])
+    if late:
+        write(KEPT_STEERING, late + "\n")
 
 
 if __name__ == "__main__":

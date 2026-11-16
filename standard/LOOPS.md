@@ -205,8 +205,12 @@ A round of the example above, as lines:
 
 ## 3. `inbox.jsonl`: what the person sends
 
-The board appends; the loop only reads. Read it at the start of every round
-and wherever the loop waits for the person.
+The board appends; the loop only reads. Read it at the start of every
+round, wherever the loop waits for the person, and once more before the
+loop ends. That last read takes a stop sent during the final round: left
+unread, it would be the first thing the next start reads, and that start
+would end at once. A reply read that late is steering for the next start;
+keep it in a file of the loop's own.
 
 ```json
 {"id": "20261114T211900-a3f1", "ts": "2026-11-14T21:19:00Z", "kind": "reply", "text": "Per seat.", "round": 3, "sig": "9c1e..."}
@@ -219,8 +223,9 @@ and wherever the loop waits for the person.
    option the person picked, where the question offered options.
 2. `stop`: end. A stop read during a round: finish the round and send
    `round_finished` with its real verdict, `done` if the goal was met,
-   else `stopped` with `stop_reason` `person`. A stop read between rounds:
-   send `loop_stopped` and start no round.
+   else `stopped` with `stop_reason` `person`. A stop read between rounds,
+   or in the last read before the loop ends: send `loop_stopped` and start
+   no round, with `stop_reason` `goal_met` where the last round was `done`.
 
 After acting on entries, append `inbox_read` with their ids so the board
 shows them as read.
@@ -239,8 +244,8 @@ key. A loop whose agents can write files SHOULD NOT act on an entry whose
 
 ## 4. The helper to paste
 
-Standard library only. Copy it into the loop as `loops.py`; the same
-text is the file `loops.py` beside this one.
+Standard library only, for Python 3.9 and later. Copy it into the loop as
+`loops.py`; the same text is the file `loops.py` beside this one.
 
 ```python
 """Loops protocol 1: say what a loop is, what happened, and read the person's answers."""
@@ -292,6 +297,13 @@ def lines(path):
     return [entry for entry in found if isinstance(entry, dict)]
 
 
+def last_round(loop_id, repo="."):
+    """The highest round the loop has finished, 0 before the first: a new start counts on from it."""
+    events = lines(folder(loop_id, repo) / "events.jsonl")
+    rounds = [event.get("round") for event in events if event.get("event") == "round_finished"]
+    return max([number for number in rounds if isinstance(number, int)], default=0)
+
+
 def signed(entry, loop_id):
     """True if the board wrote this entry for this loop, False if not, None where there is no key."""
     key = Path(os.environ.get("LOOPCAPTAIN_INBOX_KEY") or "~/.config/loopcaptain/inbox.key").expanduser()
@@ -322,13 +334,17 @@ def inbox(loop_id, repo="."):
     return [{**entry, "signed": signed(entry, loop_id)} for entry in fresh]
 ```
 
-A loop then needs about one call per step:
+A loop then needs about one call per step. `last_round` is what lets the
+same command run twice: the second run goes on from the round after the
+last one that finished, where a count from 1 would start the old rounds
+again.
 
 ```python
 import loops as board
 
 board.register("market-scan", {"title": "Market scan", "steps": STEPS, "commands": {"start": "make loop"}})
-for n in range(first_round, last_round + 1):
+first = board.last_round("market-scan") + 1  # a second start counts on; it never begins at 1 again
+for n in range(first, first + ROUNDS):
     messages = board.inbox("market-scan")
     if any(m["kind"] == "stop" and m["signed"] is not False for m in messages):
         board.emit("market-scan", "loop_stopped", {"stop_reason": "person"})
@@ -349,6 +365,9 @@ for n in range(first_round, last_round + 1):
             },
         )
     board.emit("market-scan", "round_finished", {"round": n, "verdict": verdict, "commit": sha})
+else:  # the rounds ran out: look once more, so a stop sent during the last one is not left unread
+    if any(m["kind"] == "stop" and m["signed"] is not False for m in board.inbox("market-scan")):
+        board.emit("market-scan", "loop_stopped", {"stop_reason": "person"})
 ```
 
 ## 5. The same through MCP
@@ -385,7 +404,8 @@ A loop:
    to run, never a reason to widen what its agents may do.
 7. SHOULD send `round_started` and `round_finished` for every round, and
    one `step_finished` per step that ran.
-8. SHOULD read the inbox at the start of every round and honour `stop`.
+8. SHOULD read the inbox at the start of every round and once more
+   before it ends, and honour `stop`.
 9. SHOULD keep it small: a summary of a round and paths to its files,
    never transcripts or full outputs.
 10. MAY add fields of its own; they are ignored.
