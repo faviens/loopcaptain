@@ -4,7 +4,8 @@ Writes the loops of `scripts/showcase.py` into a temporary folder, starts a boar
 alone and photographs five pages with headless Chrome: the overview, large, and four smaller views
 for a two-by-two grid. Corners are rounded in the picture itself, so they are round wherever it is
 shown. Nothing of this machine's own loops can appear: the board reads only the temporary folder,
-and the folder stands in for the home folder, so paths read `~/projects/...`. Needs Chrome and
+and the folder stands in for the home folder, so paths read `~/projects/...`. Each page is opened
+through the address `serve` prints, so Chrome gets the board's cookie. Needs Chrome and
 Pillow (`make shots` brings Pillow); costs nothing. `make shots ONLY=connect` retakes the pictures
 whose name contains that word and leaves the others as they are.
 """
@@ -12,6 +13,7 @@ whose name contains that word and leaves the others as they are.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -19,9 +21,13 @@ import time
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+from urllib.parse import quote
 
-from PIL import Image, ImageDraw
 from showcase import write_showcase
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "docs" / "assets"
@@ -42,6 +48,22 @@ PAGES = (
     ("/connect?agent=claude-code", "screenshot-connect", TILE_HEIGHT),
 )
 SCHEMES = {"light": 1, "dark": 0}  # Blink's preferredColorScheme
+#: The one line `serve` prints before it serves: `open <address>   (<what it watches>)`.
+SERVE_LINE = re.compile(r"^open (http://\S+/enter\?key=\S+)")
+
+
+def entry_of(printed: str) -> str | None:
+    """The address that lets a browser in, from what `serve` printed so far, or None before it."""
+    for line in printed.splitlines():
+        found = SERVE_LINE.match(line)
+        if found:
+            return found.group(1)
+    return None
+
+
+def page_address(entry: str, path: str) -> str:
+    """An address that lets the browser in and leads on to `path` on the same board."""
+    return f"{entry}&next={quote(path, safe='')}"
 
 
 def wait_for(check: object, what: str, seconds: float = 60) -> None:
@@ -63,6 +85,8 @@ def answers(url: str) -> bool:
 
 def rounded(shot: Path) -> Image.Image:
     """The screenshot with round, transparent corners."""
+    from PIL import Image, ImageDraw
+
     picture = Image.open(shot).convert("RGBA")
     mask = Image.new("L", picture.size, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, *picture.size), radius=RADIUS * SCALE, fill=255)
@@ -70,7 +94,7 @@ def rounded(shot: Path) -> Image.Image:
     return picture
 
 
-def photograph(path: str, target: Path, height: int, scheme: int) -> None:
+def photograph(address: str, target: Path, height: int, scheme: int) -> None:
     subprocess.run(
         [
             CHROME,
@@ -81,7 +105,7 @@ def photograph(path: str, target: Path, height: int, scheme: int) -> None:
             f"--blink-settings=preferredColorScheme={scheme}",
             f"--force-device-scale-factor={SCALE}",
             f"--screenshot={target}",
-            f"http://127.0.0.1:{PORT}{path}",
+            address,
         ],
         check=True,
         capture_output=True,
@@ -103,15 +127,21 @@ def main(only: str = "") -> int:
             "LOOPCAPTAIN_STATE": str(base / "s"),
             "LOOPCAPTAIN_INBOX_KEY": str(base / "inbox.key"),
         }
-        board = subprocess.Popen(
-            [sys.executable, "-m", "loopcaptain.cli", "serve", "--port", str(PORT)], env=board_env
-        )
+        printed = base / "serve.out"
+        with printed.open("w") as out:
+            board = subprocess.Popen(
+                [sys.executable, "-m", "loopcaptain.cli", "serve", "--port", str(PORT)],
+                env=board_env,
+                stdout=out,
+            )
         try:
-            wait_for(lambda: answers(f"http://127.0.0.1:{PORT}/"), "the board")
+            wait_for(lambda: entry_of(printed.read_text()) is not None, "the address serve prints")
+            entry = entry_of(printed.read_text()) or ""
+            wait_for(lambda: answers(entry.split("/enter")[0] + "/static/board.js"), "the board")
             for path, name, height in (page for page in PAGES if only in page[1]):
                 for scheme, value in SCHEMES.items():
                     shot = base / f"{name}-{scheme}.png"
-                    photograph(path, shot, height, value)
+                    photograph(page_address(entry, path), shot, height, value)
                     webp = ASSETS / f"{name}{'-dark' if scheme == 'dark' else ''}.webp"
                     rounded(shot).save(webp, "WEBP", quality=82, method=6)
                     sys.stdout.write(f"{webp.relative_to(ROOT)}\n")
