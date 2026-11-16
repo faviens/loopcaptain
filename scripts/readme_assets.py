@@ -1,4 +1,4 @@
-"""Draw the README's banner, the how-it-works picture and the architecture's parts, light and dark: `make readme`.
+"""Draw the README's banner and the pictures of the architecture and security pages, light and dark: `make readme`.
 
 Plain SVG in the board's own palette (warm canvas, ink, one iris accent), written to docs/assets/.
 No dependency, so the pictures are redrawn the same on any machine.
@@ -524,81 +524,213 @@ def trust_picture(theme: str) -> str:
     return picture("Who may do what", label, height, body, t)
 
 
+#: A row of steps: (name, lines under it, look), read left to right. The look is `mono` for a file
+#: or a command, `plain` for anything else; `key` and `key-plain` mark the step that carries the logic.
+Step = tuple[str, tuple[str, ...], str]
+BAND_LEFT = 40
+BAND_GAP = 22
+
+
+def band(y: int, title: str, steps: list[Step], t: dict[str, str], tile_w: int = 196) -> list[str]:
+    """A lifted band with a row of tiles, an arrow from each to the next."""
+    tile_h = band_tile_height(max(len(under) for _, under, _ in steps))
+    out = [
+        plate(BAND_LEFT, y, band_width(len(steps), tile_w), band_height(steps), t),
+        text(BAND_LEFT + 18, y + 26, title, 11, t["grey"], 600, 'letter-spacing="1.4"'),
+    ]
+    for col, (name, under, look) in enumerate(steps):
+        x, ty = tile_x(col, tile_w), y + GROUP_HEAD
+        stroke, width = (t["accent"], 2) if look.startswith("key") else (t["hair"], 1.2)
+        out.append(
+            f'<rect x="{x}" y="{ty}" width="{tile_w}" height="{tile_h}" rx="12" fill="{t["card"]}" '
+            f'stroke="{stroke}" stroke-width="{width}"/>'
+        )
+        family = FONT if look.endswith("plain") else MONO
+        out.append(
+            f'<text x="{x + 14}" y="{ty + 25}" font-size="13.5" font-weight="600" fill="{t["ink"]}" '
+            f'font-family="{family}">{name}</text>'
+        )
+        out += [text(x + 14, ty + 47 + 17 * n, line, 12.5, t["grey"]) for n, line in enumerate(under)]
+        if col:
+            out.append(arrow(f"M {x - BAND_GAP + 2} {ty + tile_h // 2} H {x - 4}", t["grey"], "tip"))
+    return out
+
+
+def band_tile_height(lines: int) -> int:
+    return 50 + 17 * lines
+
+
+def band_height(steps: list[Step]) -> int:
+    return GROUP_HEAD + band_tile_height(max(len(lines) for _, lines, _ in steps)) + 14
+
+
+def band_width(tiles: int, tile_w: int) -> int:
+    return tiles * tile_w + (tiles - 1) * BAND_GAP + 44
+
+
+def tile_x(col: int, tile_w: int) -> int:
+    return BAND_LEFT + 22 + col * (tile_w + BAND_GAP)
+
+
+def turn(
+    from_col: int, to_col: int, top: int, low: int, label: str, t: dict[str, str], tile_w: int = 196
+) -> list[str]:
+    """The arrow from a tile of the upper band down onto the lower band, above a tile, with its words."""
+    start, end = tile_x(from_col, tile_w) + tile_w // 2, tile_x(to_col, tile_w) + tile_w // 2
+    bend = low - 38
+    return [
+        arrow(f"M {start} {top + LIFT} V {bend} H {end} V {low - 5}", t["grey"], "tip"),
+        text((start + end) // 2, bend - 9, label, 12.5, t["grey"], 400, 'text-anchor="middle"'),
+    ]
+
+
 def request_picture(theme: str) -> str:
     """How one page comes about: two rows of five steps, read left to right."""
     t = THEMES[theme]
-    grey = t["grey"]
-    first = [
+    first: list[Step] = [
         ("GET /loop/...", ("a request for", "one loop's page"), "plain"),
-        ("board/app.py", ("the host guard,", "then the route"), "mono"),
+        ("board/app.py", ("the host guard:", "else 400"), "mono"),
+        ("board/access.py", ("the session cookie:", "else the locked page, 401"), "mono"),
         ("board/discover.py", ("find_loop: only", "watched repositories"), "mono"),
         ("protocol/store.py", ("reads the loop's files;", "a bad line is a Problem"), "mono"),
-        ("protocol/models.py", ("validates", "each line"), "mono"),
     ]
-    second = [
+    second: list[Step] = [
+        ("protocol/models.py", ("validates", "each line"), "mono"),
         ("board/steer.py", ("is the process the", "board started alive?"), "mono"),
         ("protocol/state.py", ("fold(): rounds, runs,", "findings, status"), "key"),
         ("board/graph.py", ("layout(): columns,", "rows, curves"), "mono"),
-        ("templates/loop.html", ("with style.css", "and board.js"), "mono"),
-        ("HTML", ("under a content policy", "without inline script"), "plain"),
+        ("templates/loop.html", ("HTML under a content", "policy, no inline script"), "mono"),
     ]
-    left, tile_w, gap, tile_h = 40, 196, 22, 84
-    band_w = 5 * tile_w + 4 * gap + 44
-    band_h = GROUP_HEAD + tile_h + 14
-    top, low = 60, 60 + band_h + 70
-    height = low + band_h + LIFT + 92
-
-    def band(y: int, title: str, tiles: list[tuple[str, tuple[str, str], str]]) -> list[str]:
-        out = [
-            plate(left, y, band_w, band_h, t),
-            text(left + 18, y + 26, title, 11, grey, 600, 'letter-spacing="1.4"'),
-        ]
-        for col, (name, lines, look) in enumerate(tiles):
-            x, ty = left + 22 + col * (tile_w + gap), y + GROUP_HEAD
-            stroke, width = (t["accent"], 2) if look == "key" else (t["hair"], 1.2)
-            out.append(
-                f'<rect x="{x}" y="{ty}" width="{tile_w}" height="{tile_h}" rx="12" fill="{t["card"]}" '
-                f'stroke="{stroke}" stroke-width="{width}"/>'
-            )
-            family = FONT if look == "plain" else MONO
-            out.append(
-                f'<text x="{x + 14}" y="{ty + 25}" font-size="13.5" font-weight="600" fill="{t["ink"]}" '
-                f'font-family="{family}">{name}</text>'
-            )
-            out += [text(x + 14, ty + 47 + 17 * n, line, 12.5, grey) for n, line in enumerate(lines)]
-            if col:
-                out.append(arrow(f"M {x - gap + 2} {ty + tile_h // 2} H {x - 4}", grey, "tip"))
-        return out
-
-    fold_x = left + 22 + (tile_w + gap) + tile_w // 2
-    end_x = left + 22 + 4 * (tile_w + gap) + tile_w // 2
-    turn = top + band_h + LIFT + 32
+    top = 60
+    low = top + band_height(first) + 70
+    height = low + band_height(second) + LIFT + 92
     body = [
-        *band(top, "A REQUEST COMES IN: FIND THE LOOP AND READ ITS FILES", first),
-        *band(low, "FOLD, DRAW, ANSWER", second),
-        arrow(f"M {end_x} {top + band_h + LIFT} V {turn} H {fold_x} V {low + GROUP_HEAD - 5}", grey, "tip"),
-        text(
-            (fold_x + end_x) // 2,
-            turn - 9,
-            "the manifest, the events, the inbox",
-            12.5,
-            grey,
-            400,
-            'text-anchor="middle"',
-        ),
+        *band(top, "A REQUEST COMES IN: TWO GATES, THEN FIND AND READ THE LOOP", first, t),
+        *band(low, "VALIDATE, FOLD, DRAW, ANSWER", second, t),
+        *turn(4, 0, top + band_height(first), low, "the manifest, the events, the inbox", t),
         footer(
             height, "Nothing is stored between two requests: the page is the files, read and folded again.", t
         ),
     ]
     label = (
-        "How one page comes about. A request for a loop's page passes the host guard in board/app.py, "
-        "board/discover.py finds the loop among the watched repositories, protocol/store.py reads the "
-        "loop's files and protocol/models.py validates each line. protocol/state.py folds the lines "
-        "into rounds, runs, findings and a status, with board/steer.py saying whether a started "
-        "process is alive; board/graph.py lays out the round, the template renders it, and the answer "
-        "is HTML under a content policy without inline script."
+        "How one page comes about. A request for a loop's page passes the host guard in board/app.py "
+        "and the session cookie of board/access.py, board/discover.py finds the loop among the watched "
+        "repositories, protocol/store.py reads the loop's files and protocol/models.py validates each "
+        "line. protocol/state.py folds the lines into rounds, runs, findings and a status, with "
+        "board/steer.py saying whether a started process is alive; board/graph.py lays out the round, "
+        "and the template renders it as HTML under a content policy without inline script."
     )
     return picture("How one page comes about", label, height, body, t)
+
+
+def entry_picture(theme: str) -> str:
+    """How a browser gets into the board: once through the printed address, then three gates a request."""
+    t = THEMES[theme]
+    once: list[Step] = [
+        ("loopcaptain serve", ("makes a new key at every", "start, kept in memory only"), "mono"),
+        ("/enter?key=…", ("on 127.0.0.1:&lt;port&gt;, the", "address it prints"), "mono"),
+        ("The key", ("checked in constant time;", "a wrong one: 401"), "plain"),
+        (
+            "loopcaptain-&lt;port&gt;",
+            ("a cookie: HttpOnly,", "SameSite=Strict, a value", "made from the key"),
+            "mono",
+        ),
+        ("303 to the page", ("the address without", "the key in it"), "plain"),
+    ]
+    gates: list[Step] = [
+        ("Any later request", ("a page, the pulse, a file;", "or a form that steers"), "plain"),
+        ("1  Host", ("127.0.0.1:&lt;port&gt; or", "localhost:&lt;port&gt;, else 400"), "plain"),
+        ("2  Cookie", ("the one this start set,", "else the locked page, 401"), "plain"),
+        ("3  Form token", ("on a POST: this process's", "token, else nothing is sent"), "plain"),
+        ("The route", ("reads the loop's files,", "or steers it"), "key-plain"),
+    ]
+    top = 60
+    low = top + band_height(once) + 70
+    open_y = low + band_height(gates) + LIFT + 34
+    height = open_y + 92
+    body = [
+        *band(top, "ONCE PER START: THE PRINTED ADDRESS LETS A BROWSER IN", once, t),
+        *band(low, "EVERY REQUEST AFTER: THREE GATES, IN ORDER", gates, t),
+        *turn(4, 0, top + band_height(once), low, "the browser sends the cookie with every request", t),
+        text(
+            BAND_LEFT,
+            open_y,
+            "Open without the cookie: /enter itself and /static/, the stylesheet, the script and the font.",
+            13,
+            t["grey"],
+        ),
+        footer(
+            height,
+            "A restart makes a new key: an address or a cookie from an earlier start is refused.",
+            t,
+        ),
+    ]
+    label = (
+        "How a browser gets into the board. loopcaptain serve makes a new key at every start, keeps it "
+        "in memory only, and prints the address 127.0.0.1, its port, /enter with the key. Opening it "
+        "checks the key in constant time, sets the cookie loopcaptain-port, HttpOnly and "
+        "SameSite=Strict, holding a value made from the key, not the key, and leads on to the page. "
+        "Every request after passes three gates in order: the host must be this server's, the cookie "
+        "the one this start set, else the locked page with 401, and a form that steers must carry this "
+        "process's token. Only /enter and the static files are open without the cookie."
+    )
+    return picture("How a browser gets into the board", label, height, body, t)
+
+
+def steer_picture(theme: str) -> str:
+    """How steering reaches a loop: a signed line in its inbox, and the one command it declared."""
+    t = THEMES[theme]
+    wide = 252
+    answer: list[Step] = [
+        ("Answer or Stop", ("a form on the loop's page,", "past the three gates"), "plain"),
+        (
+            "Signed with inbox.key",
+            ("~/.config/loopcaptain/, or the", "file LOOPCAPTAIN_INBOX_KEY", "names"),
+            "plain",
+        ),
+        (
+            "inbox.jsonl",
+            ("one line appended; it names", "its loop, and sig is an HMAC", "over the rest"),
+            "mono",
+        ),
+        (
+            "The loop's helper",
+            ("checks sig with the same key", "and acts only on", "signed is True"),
+            "key-plain",
+        ),
+    ]
+    start: list[Step] = [
+        ("Start", ("the first start of a command", "in a repository needs a tick"), "plain"),
+        ("commands.start", ("from the loop's loop.json,", "split, run without a shell"), "mono"),
+        (
+            "A minimal environment",
+            ("PATH, HOME, LANG, TERM, and", "LOOPCAPTAIN_INBOX_KEY:", "the key's path"),
+            "plain",
+        ),
+        ("~/.local/state/loopcaptain", ("the tick, the pid, the log,", "readable by this user only"), "mono"),
+    ]
+    top = 60
+    low = top + band_height(answer) + 40
+    height = low + band_height(start) + LIFT + 92
+    body = [
+        *band(top, "AN ANSWER OR A STOP: ONE SIGNED LINE IN THE LOOP'S INBOX", answer, t, wide),
+        *band(low, "START: THE ONE COMMAND THE LOOP DECLARED", start, t, wide),
+        footer(
+            height,
+            "A line the board did not sign, or signed for another loop, reaches the loop as signed False.",
+            t,
+        ),
+    ]
+    label = (
+        "How steering reaches a loop. An answer or a stop, sent from the loop's page past the three "
+        "gates, is appended to the loop's inbox.jsonl as one line that names its loop, signed with an "
+        "HMAC under the key in ~/.config/loopcaptain/inbox.key or the file LOOPCAPTAIN_INBOX_KEY names. "
+        "The loop's helper checks the signature with the same key and acts only on signed is True. "
+        "Start runs commands.start from the loop's loop.json, after a tick the first time, split into "
+        "arguments without a shell, with only PATH, HOME, LANG, TERM and the key's path in its "
+        "environment; the tick, the pid and the log are kept in ~/.local/state/loopcaptain."
+    )
+    return picture("How steering reaches a loop", label, height, body, t)
 
 
 def main() -> int:
@@ -610,6 +742,8 @@ def main() -> int:
             ("parts", parts_picture),
             ("trust", trust_picture),
             ("request", request_picture),
+            ("entry", entry_picture),
+            ("steer", steer_picture),
         ):
             path = ASSETS / f"{name}-{theme}.svg"
             path.write_text(draw(theme), encoding="utf-8")

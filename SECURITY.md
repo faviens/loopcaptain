@@ -1,7 +1,24 @@
+<!-- The site's copy, docs/security.md, takes the parts between these marks and draws the pictures from its own folder. -->
+<!-- --8<-- [start:head] -->
 # Security
 
 ## Threat model
 
+How a browser gets into the board, and how an answer, a stop or a start
+reaches a loop:
+
+<!-- --8<-- [end:head] -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/entry-dark.svg">
+  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it sets a cookie made from the key and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="docs/assets/entry-light.svg">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/steer-dark.svg">
+  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with the inbox key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that names the key's path, and keeps its records in the state folder." src="docs/assets/steer-light.svg">
+</picture>
+
+<!-- --8<-- [start:model] -->
 1. **Trusted:** the person at the board, the board's own config
    (`loopcaptain.local.yaml` or `~/.config/loopcaptain/config.yaml`) and its
    state folder. The state folder holds which start commands were ticked
@@ -62,3 +79,4 @@
 Report privately through the repository's security advisories:
 `https://github.com/faviens/loopcaptain/security/advisories/new`. Please do not open a public
 issue. Expect an answer within a week.
+<!-- --8<-- [end:model] -->
