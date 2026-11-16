@@ -44,7 +44,7 @@ loopcaptain emit [-h] [--repo REPO]
 |---|---|
 | `loop` |  |
 | `event` |  |
-| `fields` |  |
+| `fields` | key=value; a value is read as JSON where it parses (round=2, blocks=true, ids='["a"]'), and as text where the field is text (commit=1234567) |
 | `--repo` |  |
 
 ## `schema`

@@ -220,6 +220,47 @@ def unknown_events(events: list[AnyEvent]) -> list[str]:
     ]
 
 
+def before_writing(repo: Path, loop_id: str, event: AnyEvent) -> Report:
+    """What `validate` would say of this event once it is in the log, for the two doors that write on
+    a loop's behalf: a problem refuses it, since a line cannot be taken back; a warning goes with it.
+
+    Nothing here refuses more than `validate` would: an `inbox_read` of an entry this version cannot
+    read is written with a warning, and a log the reader cannot read takes the line unchecked.
+    """
+    try:
+        manifest = store.read_manifest(repo, loop_id)
+        events, _ = store.read_events(repo, loop_id)
+    except StoreError as error:
+        return Report(warnings=[f"{error}; written without checking it against the log"])
+    report = Report(problems=refusals(repo, manifest, events, event))
+    if isinstance(event, InboxRead):
+        sent = {entry.id for entry in store.read_inbox(repo, loop_id)[0]}
+        report.warnings += [
+            f"ids: {entry_id!r} is not an entry of inbox.jsonl this version can read"
+            for entry_id in event.ids
+            if entry_id not in sent
+        ]
+    return report
+
+
+def refusals(repo: Path, manifest: Manifest, events: list[AnyEvent], event: AnyEvent) -> list[str]:
+    """Why this event would be a problem for good once it is in the log; empty when it may be written."""
+    found: list[str] = []
+    started = {before.round for before in events if isinstance(before, RoundStarted)}
+    if isinstance(event, StepStarted | StepFinished | RoundFinished) and event.round not in started:
+        found.append(f"round {event.round} has not started: emit round_started for it first")
+    if isinstance(event, StepStarted | StepFinished):
+        declared = [step.id for step in manifest.steps]
+        if declared and event.step not in declared:
+            found.append(f"step {event.step!r} is not in loop.json, which has {', '.join(declared)}")
+    if isinstance(event, StepFinished) and event.artifact and not (repo / event.artifact).exists():
+        found.append(f"artifact {event.artifact} does not exist: write the file, then report it")
+    if isinstance(event, RoundFinished):
+        settled = set(verdict_problems(events))
+        found += [line for line in verdict_problems([*events, event]) if line not in settled]
+    return found
+
+
 def future_events(events: list[AnyEvent], at: datetime) -> list[str]:
     """Lines stamped later than this machine's clock: they are no sign of life until their time comes."""
     ahead = [number for number, event in enumerate(events, start=1) if event.ts > at + CLOCK_SKEW]

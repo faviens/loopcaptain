@@ -18,6 +18,9 @@ Rules here:
 3. Tool docstrings are the interface an agent reads: say what to pass and
    when to call, in the words of the standard.
 4. A bad call is refused with one line that names the field. An event for
-   a loop that is not registered is refused with the way out.
+   a loop that is not registered is refused with the way out. An event
+   `validate` would call a problem for good (`before_writing` in
+   `protocol/validate.py`) is refused before it is written: a line cannot
+   be taken back.
 5. The server reads and writes only inside the `repo` it is given, by
    default the folder it was started in.

@@ -60,6 +60,14 @@ happened, if that was earlier than now:
 - loop_stopped: stop_reason, summary
 - heartbeat: text, next_at
 - check: item, kind, result (pass|partly|fail|blocked), who, finding, evidence
+- inbox_read: ids. Only for entries you read from inbox.jsonl yourself; the `inbox_read` tool
+  marks what it returns.
+
+An event that would stay a problem in the log is refused and nothing is written: a step or a
+verdict for a round that has not started, a step loop.json does not list, an artifact that is
+not there, a second verdict for a round that differs from its first. Where the log cannot be read,
+or an `inbox_read` names an entry this version cannot read, the event is written and the answer
+adds a warning.
 
 ## `inbox_read`
 

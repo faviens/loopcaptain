@@ -572,3 +572,33 @@ for itself, and its call must keep returning what it returned (version 1
 only grows). Raising an error without a key: a loop on a machine where no
 board has run yet would not start. A new event for the case: boards
 installed before unknown events were skipped would call it a problem.
+
+## 27. A door refuses an event that would stay a problem, and no more
+
+**Decision.** `before_writing` in `protocol/validate.py` holds what the
+two doors that write on a loop's behalf check, the MCP `emit` and
+`loopcaptain emit`. `refusals` (the round has started, the step is in
+`loop.json`, the artifact exists, the verdict agrees with the round's
+first) refuses an event: the door writes nothing. An `inbox_read` naming
+an entry the models cannot read is written with a warning; where
+`loop.json` or the log cannot be read (over the size the reader takes,
+unreadable), the event is written without the checks against the log,
+with a warning. The MCP `emit` adds the warning to its answer,
+`loopcaptain emit` writes it to standard error. Both take `inbox_read`.
+
+**Why.** The log is append-only, so a line `validate` refuses is refused
+for good; a writer that hears `recorded` never learns it. A door that
+refuses more than `validate` calls a problem stops a loop for nothing.
+The standard has a loop append `inbox_read` after acting on entries, and
+a loop that reads the inbox file itself has no other way to mark them;
+an inbox line a later release writes, or one with a mistake, is not read
+by this version's models, yet the loop must be able to mark it read. A
+log the reader no longer takes in full is still the loop's log, and the
+loop still has to report.
+
+**Rejected.** Writing the line and returning the problems with it: the
+problem is then permanent, and the caller can only add to it. Refusing
+`inbox_read` on both doors: a shell loop would have to write the line by
+hand, without any check of its ids. Refusing an unreadable entry or an
+unreadable log: the loop could not report at all. Writing such a line
+silently: the writer would not know its line went unchecked.

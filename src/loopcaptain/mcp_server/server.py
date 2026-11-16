@@ -22,6 +22,7 @@ from loopcaptain.protocol.models import EVENT_NAMES, Manifest, Question, now
 from loopcaptain.protocol.signing import is_signed, read_key, untrusted_ids
 from loopcaptain.protocol.state import fold
 from loopcaptain.protocol.store import StoreError
+from loopcaptain.protocol.validate import before_writing
 
 INSTRUCTIONS = (
     "Report an agent loop to Loopcaptain. Call `protocol` once to read the format. Then: "
@@ -119,17 +120,27 @@ def emit(loop_id: str, event: str, fields: dict[str, Any] | None = None, repo: s
     - loop_stopped: stop_reason, summary
     - heartbeat: text, next_at
     - check: item, kind, result (pass|partly|fail|blocked), who, finding, evidence
+    - inbox_read: ids. Only for entries you read from inbox.jsonl yourself; the `inbox_read` tool
+      marks what it returns.
+
+    An event that would stay a problem in the log is refused and nothing is written: a step or a
+    verdict for a round that has not started, a step loop.json does not list, an artifact that is
+    not there, a second verdict for a round that differs from its first. Where the log cannot be read,
+    or an `inbox_read` names an entry this version cannot read, the event is written and the answer
+    adds a warning.
     """
-    if event not in EVENT_NAMES or event == "inbox_read":
-        allowed = ", ".join(name for name in EVENT_NAMES if name != "inbox_read")
-        raise ToolError(f"{event!r} is not an event to emit. One of: {allowed}")
+    if event not in EVENT_NAMES:
+        raise ToolError(f"{event!r} is not an event to emit. One of: {', '.join(EVENT_NAMES)}")
     path = known_loop(repo, loop_id)
     try:
         parsed = store.parse_event({**(fields or {}), "ts": now().isoformat(), "event": event})
     except ValidationError as error:
         raise explain(error) from error
+    report = before_writing(path, loop_id, parsed)
+    if report.problems:
+        raise ToolError(f"not recorded: {'; '.join(report.problems)}")
     store.append_event(path, loop_id, parsed)
-    return f"{event} recorded"
+    return "; warning: ".join([f"{event} recorded", *report.warnings])
 
 
 @server.tool()

@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from loopcaptain.cli import main, write_schemas
 from loopcaptain.protocol import store
-from loopcaptain.protocol.models import Manifest, Step
+from loopcaptain.protocol.models import Manifest, Question, Step
 from loopcaptain.protocol.state import STALE_AFTER, fold
 from loopcaptain.protocol.validate import validate_repo
 
@@ -521,3 +521,55 @@ def test_the_command_line_says_its_version(capsys: pytest.CaptureFixture[str]) -
         main(["--version"])
 
     assert capsys.readouterr().out.startswith("loopcaptain 0.")
+
+
+def test_emit_command_takes_a_value_of_digits_as_text_where_the_field_is_text(
+    scan: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    codes = [
+        main(["emit", "scan", "question", "text=true", "round=2", "blocks=true", "--repo", str(scan)]),
+        main(["emit", "scan", "heartbeat", "text=42", "--repo", str(scan)]),
+        main(
+            [
+                "emit",
+                "scan",
+                "round_finished",
+                "round=2",
+                "verdict=done",
+                "commit=1234567",
+                "--repo",
+                str(scan),
+            ]
+        ),
+        main(["emit", "scan", "round_finished", "round=two", "verdict=done", "--repo", str(scan)]),
+        main(["emit", "scan", "check", "item=7", "kind=null", "result=1", "--repo", str(scan)]),
+    ]
+
+    question, heartbeat, finished = store.read_events(scan, "scan")[0][-3:]
+    assert codes == [0, 0, 0, 1, 1]
+    assert isinstance(question, Question) and (question.text, question.round, question.blocks) == (
+        "true",
+        2,
+        True,
+    )
+    assert getattr(heartbeat, "text", None) == "42" and getattr(finished, "commit", None) == "1234567"
+    errors = capsys.readouterr().err
+    assert "round_finished.round" in errors and "check.result: Input should be 'pass'" in errors
+
+
+def test_emit_command_refuses_an_event_that_would_stay_a_problem(
+    scan: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    before = len(store.read_events(scan, "scan")[0])
+
+    code = main(["emit", "scan", "step_finished", "round=9", "step=plan", "--repo", str(scan)])
+
+    assert code == 1 and len(store.read_events(scan, "scan")[0]) == before
+    assert "not recorded: round 9 has not started" in capsys.readouterr().err
+
+
+def test_emit_command_says_how_values_are_read(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["emit", "--help"])
+
+    assert "a value is read as JSON where it parses" in " ".join(capsys.readouterr().out.split())

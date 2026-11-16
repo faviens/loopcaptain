@@ -16,7 +16,7 @@ from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.doctor import examine
 from loopcaptain.protocol.models import EVENT_NAMES, AnyEvent, InboxEntry, Manifest, now
 from loopcaptain.protocol.store import StoreError
-from loopcaptain.protocol.validate import validate_report
+from loopcaptain.protocol.validate import before_writing, validate_report
 
 #: This repository's folder, for the MCP command a checkout prints; an installed package has none.
 CHECKOUT = Path(__file__).resolve().parents[2]
@@ -38,23 +38,48 @@ def write_schemas(target: Path) -> list[Path]:
     return written
 
 
-def emit(repo: Path, loop_id: str, event: str, fields: list[str]) -> None:
-    """Append one event from `key=value` pairs; a value that parses as JSON is taken as JSON."""
-    data: dict[str, object] = {"ts": now().isoformat(), "event": event}
+#: What a `key=value` of `emit` may parse to and still have been meant as text: `commit=1234567`.
+SCALARS = (bool, int, float, type(None))
+
+
+def emit(repo: Path, loop_id: str, event: str, fields: list[str]) -> list[str]:
+    """Append one event from `key=value` pairs; what it returns are warnings, the line is written.
+
+    A value that parses as JSON is taken as JSON (`round=2`, `blocks=true`, `ids=["a"]`). Where the
+    event wants text and the value parsed as a number, true, false or null, it is taken as written:
+    a commit id of digits, a summary of "42".
+    """
+    written: dict[str, str] = {}
     for pair in fields:
         key, sep, raw = pair.partition("=")
         if not sep:
             raise StoreError(f"{pair!r}: expected key=value")
-        try:
-            data[key] = json.loads(raw)
-        except json.JSONDecodeError:
-            data[key] = raw
+        written[key] = raw
+    stamp: dict[str, object] = {"ts": now().isoformat(), "event": event}
+    data = {**{key: as_json(raw) for key, raw in written.items()}, **stamp}
     try:
         parsed = store.parse_event(data)
     except ValidationError as error:
-        raise StoreError(store.short_error(error)) from error
-    store.read_manifest(repo, loop_id)
+        refused = {str(item["loc"][1]) for item in error.errors() if len(item["loc"]) > 1}
+        as_text = {key: written[key] for key in refused & set(written) if isinstance(data[key], SCALARS)}
+        if not as_text:
+            raise StoreError(store.short_error(error)) from error
+        try:
+            parsed = store.parse_event({**data, **as_text})
+        except ValidationError:
+            raise StoreError(store.short_error(error)) from error
+    report = before_writing(repo, loop_id, parsed)
+    if report.problems:
+        raise StoreError(f"not recorded: {'; '.join(report.problems)}")
     store.append_event(repo, loop_id, parsed)
+    return report.warnings
+
+
+def as_json(raw: str) -> object:
+    try:
+        return json.loads(raw)
+    except (ValueError, RecursionError):
+        return raw
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,7 +101,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     emit_cmd.add_argument("loop")
     emit_cmd.add_argument("event", choices=EVENT_NAMES)
-    emit_cmd.add_argument("fields", nargs="*")
+    emit_cmd.add_argument(
+        "fields",
+        nargs="*",
+        help="key=value; a value is read as JSON where it parses (round=2, blocks=true, "
+        "ids='[\"a\"]'), and as text where the field is text (commit=1234567)",
+    )
     emit_cmd.add_argument("--repo", type=Path, default=Path("."))
 
     schema = commands.add_parser("schema", help="write the protocol as JSON Schema")
@@ -137,7 +167,8 @@ def run(args: argparse.Namespace) -> int:
             sys.stdout.write(f"ok, {len(warnings)} warning(s)\n" if warnings else "ok\n")
         return 1 if problems else 0
     if args.command == "emit":
-        emit(args.repo.expanduser().resolve(), args.loop, args.event, args.fields)
+        for line in emit(args.repo.expanduser().resolve(), args.loop, args.event, args.fields):
+            sys.stderr.write(f"warning: {line}\n")
         return 0
     if args.command == "schema":
         for path in write_schemas(args.target):
