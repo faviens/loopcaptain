@@ -26,7 +26,9 @@ ignored is the repository's choice.
 
 ## 1. `loop.json`: what the loop is
 
-Written when the loop starts; writing it again replaces it.
+Written when the loop starts; writing it again replaces it. A `loop.json`
+that is not valid JSON is still a loop: a board lists it as unreadable and
+says what the parser said.
 
 ```json
 {
@@ -85,13 +87,23 @@ Every path in the protocol is relative to the repository root.
 
 ## 2. `events.jsonl`: what happened
 
-One JSON object per line, appended, never rewritten. Every line has `ts`
+One JSON object per line, appended, never rewritten. A line ends at the
+newline character (`\n`) and at nothing else: split on that alone, since a
+text may hold other characters that some languages also call a line break
+(U+2028, U+2029, U+0085). Every line has `ts`
 (UTC, `2026-11-14T21:03:00Z`, fractions of a second allowed:
 `2026-11-14T21:03:00.250Z`), the time the line was written, and
 `event`. Any line may carry `at`: the time the thing really happened, for
 a loop that reports later than it works. Durations are measured on `at`
 where it is given, so a round written after the fact keeps its real
-times.
+times. A time without a zone is read as UTC. Any year is read, `9999`
+for "never" included; a `next_at` holds at most a week after its line.
+A number that is not finite (`Infinity`; `NaN` where the field has no
+lower bound) is read too, and counted as absent: a cost of it adds nothing, a measure of it is not
+drawn, a cost cap of it is no cap. `validate` warns of both. A line
+stamped more than a few minutes ahead of the reader's clock is read, but
+is no sign that the loop is alive, and its `next_at` no promise, until
+its time has come.
 
 | `event` | Fields | When |
 |---|---|---|
@@ -106,6 +118,10 @@ times.
 | `heartbeat` | `text`, `next_at` | Alive; when to expect the next line. |
 | `check` | `item`, `kind`, `result`, `who`, `finding`, `evidence`, `round` | One check of one thing the loop evaluates. |
 | `inbox_read` | `ids` | The loop has taken these inbox entries. |
+
+A reader skips a line whose `event` it does not know and reads on: later
+releases add events to this table, and a loop may write its own. Such a
+line still needs `ts`, and still shows that the loop is alive.
 
 1. `round` counts from 1. `step` is a step id from `loop.json`. A
    `round_started` for a round that already ran starts that round again,
@@ -171,6 +187,7 @@ times.
     names for the step: a fallback after the first one refused.
 12. `loop_stopped`: the loop ended between rounds, say after a stop that
     came when no round was open. The last round's verdict stays as it was.
+    While a round is open it ends nothing: finish the round first.
 13. `heartbeat`: a loop that works quietly or sleeps says it is alive and,
     with `next_at`, when its next line comes. Until then it is not
     stalled.
@@ -266,10 +283,11 @@ def lines(path):
     """The JSON objects of a file, one per complete line; a line that is not JSON is skipped."""
     found = []
     if path.exists():
-        for line in path.read_text(errors="replace").splitlines(keepends=True):
+        complete = path.read_text(errors="replace").rpartition("\n")[0]
+        for line in complete.split("\n"):  # a line ends at "\n" only, whatever else the text holds
             try:
-                found.append(json.loads(line) if line.endswith("\n") else None)
-            except ValueError:
+                found.append(json.loads(line))
+            except (ValueError, RecursionError):
                 continue
     return [entry for entry in found if isinstance(entry, dict)]
 
@@ -391,12 +409,14 @@ may add optional fields and events to protocol 1, never break a loop
 written today.
 
 `loopcaptain validate <repository>` checks a folder against this file; the
-same contract as JSON Schema is in `schema/`. It prints problems (a line
-the models refuse, a step before its round, a path that does not exist,
+same contract as JSON Schema is in `schema/`. It prints problems (a
+`loop.json` that cannot be read, a line the models refuse, a step before
+its round, a path that does not exist,
 a time earlier than the line before, a round finished twice with two
 outcomes) and warnings (a round whose steps share one time, so it was
 written after the fact; rounds that never read the inbox; an output not
-there yet; a round count that starts over, a second run in one folder). It exits 1 on problems only, or on warnings too with
+there yet; an event it does not know, which may be a typo; a time in the future; a
+`loop_stopped` while a round is open; a round count that starts over, a second run in one folder). It exits 1 on problems only, or on warnings too with
 `--strict`. `loopcaptain doctor <repository> <loop-id>` checks what files
 cannot show: it sends a running loop a signed `stop` and passes once the
 loop has taken it and ended.

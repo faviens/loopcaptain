@@ -63,12 +63,18 @@ def loop_dir(repo: Path, loop_id: str) -> Path:
 def speaks_protocol(manifest: Path) -> bool:
     """Whether a loop.json is this protocol's: it carries the `protocol` field.
 
-    Other tools keep their own files in a folder called `.loops/`; those are skipped quietly.
+    Other tools keep their own files in a folder called `.loops/`; those are skipped quietly. A
+    loop.json that is not JSON at all counts as a loop: `read_manifest` then says what is wrong
+    with it, where skipping it would let a loop with a typing mistake vanish without a word.
     """
     try:
-        data = json.loads(read_bounded(manifest, MAX_MANIFEST_BYTES))
-    except (FileNotFoundError, StoreError, ValueError):
+        text = read_bounded(manifest, MAX_MANIFEST_BYTES)
+    except (FileNotFoundError, StoreError):
         return False
+    try:
+        data = json.loads(text)
+    except (ValueError, RecursionError):
+        return True
     return isinstance(data, dict) and "protocol" in data
 
 
@@ -179,7 +185,8 @@ def complete_lines(path: Path) -> list[tuple[int, str]]:
     except FileNotFoundError:
         return []
     whole = text if text.endswith("\n") else text[: text.rfind("\n") + 1]
-    return [(n, line) for n, line in enumerate(whole.splitlines(), start=1) if line.strip()]
+    # A line ends at "\n" and nowhere else: a text may hold U+2028 or U+0085, which `splitlines` cuts at.
+    return [(n, line) for n, line in enumerate(whole.split("\n"), start=1) if line.strip()]
 
 
 def parse_event(data: dict[str, Any]) -> AnyEvent:

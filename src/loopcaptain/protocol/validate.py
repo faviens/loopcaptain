@@ -7,6 +7,7 @@ inbox nobody reads). `--strict` counts warnings as problems.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -18,12 +19,17 @@ from loopcaptain.protocol.models import (
     AnyEvent,
     InboxEntry,
     InboxRead,
+    LoopStopped,
     Manifest,
+    Metric,
+    OtherEvent,
     RoundFinished,
     RoundStarted,
     StepFinished,
     StepStarted,
+    now,
 )
+from loopcaptain.protocol.state import CLOCK_SKEW, COUNTS, LARGEST_COUNT
 from loopcaptain.protocol.store import StoreError
 
 
@@ -83,6 +89,10 @@ def validate_loop(repo: Path, loop_id: str) -> Report:
     report.warnings += missing_outputs(repo, manifest)
     report.warnings += unread_inbox(events, inbox)
     report.warnings += restarted_count(events)
+    report.warnings += unknown_events(events)
+    report.warnings += future_events(events, now())
+    report.warnings += stop_in_a_round(events)
+    report.warnings += odd_values(manifest, events)
     return Report(list(dict.fromkeys(report.problems)), list(dict.fromkeys(report.warnings)))
 
 
@@ -197,3 +207,73 @@ def restarted_count(events: list[AnyEvent]) -> list[str]:
             )
         highest = max(highest, event.round)
     return warnings
+
+
+def unknown_events(events: list[AnyEvent]) -> list[str]:
+    """Events this version does not know. They are skipped, as the standard asks; a typo looks the same."""
+    names = list(dict.fromkeys(event.event for event in events if isinstance(event, OtherEvent)))
+    return [
+        f"events.jsonl: event {name!r} is not one this version knows; it is skipped (a newer one, or a typo?)"
+        for name in names
+    ]
+
+
+def future_events(events: list[AnyEvent], at: datetime) -> list[str]:
+    """Lines stamped later than this machine's clock: they are no sign of life until their time comes."""
+    ahead = [number for number, event in enumerate(events, start=1) if event.ts > at + CLOCK_SKEW]
+    if not ahead:
+        return []
+    count = f"{len(ahead)} event{'s are' if len(ahead) != 1 else ' is'}"
+    return [
+        f"events.jsonl: {count} stamped in the future, from event {ahead[0]} on; is the loop's clock right?"
+    ]
+
+
+def stop_in_a_round(events: list[AnyEvent]) -> list[str]:
+    """A `loop_stopped` while a round is open ends nothing: the round still waits for its `round_finished`."""
+    open_rounds: set[int] = set()
+    warnings = []
+    for event in events:
+        if isinstance(event, RoundStarted):
+            open_rounds.add(event.round)
+        elif isinstance(event, RoundFinished):
+            open_rounds.discard(event.round)
+        elif isinstance(event, LoopStopped) and open_rounds:
+            warnings.append(
+                f"events.jsonl: loop_stopped while round {max(open_rounds)} is open; "
+                "finish the round first, with its verdict"
+            )
+    return warnings
+
+
+#: Years a loop's times usually lie in. A time outside is read and counted; `validate` asks about it.
+USUAL_YEARS = range(2000, 2101)
+
+
+def odd_values(manifest: Manifest, events: list[AnyEvent]) -> list[str]:
+    """Values every reader takes but no page can show as written: a far year, a number that is not finite."""
+    warnings = []
+    if manifest.cost_cap_usd is not None and not math.isfinite(manifest.cost_cap_usd):
+        warnings.append("loop.json: cost_cap_usd is not a finite number; the board shows no cost cap")
+    for number, event in enumerate(events, start=1):
+        times = [getattr(event, name, None) for name in ("ts", "at", "next_at")]
+        years = sorted({moment.year for moment in times if moment and moment.year not in USUAL_YEARS})
+        if years:
+            named = ", ".join(str(year) for year in years)
+            warnings.append(f"events.jsonl: event {number} ({event.event}) names the year {named}; meant?")
+        if uncountable(event):
+            warnings.append(
+                f"events.jsonl: event {number} ({event.event}) has a cost or measure that is not a finite "
+                "number, or too large for one; the board counts it as absent"
+            )
+    return warnings
+
+
+def uncountable(event: AnyEvent) -> bool:
+    """Whether a cost or a measure of the event is NaN, infinite, or a count no float can hold."""
+    cost = getattr(event, "cost", None)
+    metrics: list[Metric] = getattr(event, "metrics", [])
+    numbers = [cost.usd] if cost is not None else []
+    numbers += [value for metric in metrics for value in (metric.value, metric.target) if value is not None]
+    too_large = cost is not None and any(getattr(cost, name) > LARGEST_COUNT for name in COUNTS)
+    return too_large or not all(math.isfinite(value) for value in numbers)

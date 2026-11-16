@@ -38,10 +38,11 @@ def lines(path):
     """The JSON objects of a file, one per complete line; a line that is not JSON is skipped."""
     found = []
     if path.exists():
-        for line in path.read_text(errors="replace").splitlines(keepends=True):
+        complete = path.read_text(errors="replace").rpartition("\n")[0]
+        for line in complete.split("\n"):  # a line ends at "\n" only, whatever else the text holds
             try:
-                found.append(json.loads(line) if line.endswith("\n") else None)
-            except ValueError:
+                found.append(json.loads(line))
+            except (ValueError, RecursionError):
                 continue
     return [entry for entry in found if isinstance(entry, dict)]
 

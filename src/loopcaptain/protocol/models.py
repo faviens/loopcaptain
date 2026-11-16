@@ -14,7 +14,16 @@ from collections import Counter
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    Tag,
+    TypeAdapter,
+    field_validator,
+    model_validator,
+)
 
 PROTOCOL = 1
 #: The folder a loop keeps in its repository, one sub-folder per loop.
@@ -57,6 +66,17 @@ def as_slug(value: str) -> str:
     return value
 
 
+def aware_time(value: datetime | None) -> datetime | None:
+    """A time as the readers use it: aware, UTC where the line names no zone.
+
+    Any time the parser takes is read, the year 1 and the year 9999 included: a loop may mean
+    "never" by it. The readers keep their arithmetic within the calendar (`protocol/state.py`).
+    """
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
 def relative_path(value: str | None) -> str | None:
     """Paths in the protocol are relative to the repository root, so an export moves with its clone."""
     if value is None:
@@ -67,6 +87,7 @@ def relative_path(value: str | None) -> str | None:
 
 
 class Record(BaseModel):
+    #: A number that is not finite (`NaN`, `Infinity`) is read; the readers count it as absent.
     model_config = ConfigDict(frozen=True, extra="ignore")
 
 
@@ -235,7 +256,10 @@ class Finding(Record):
 
 
 class Cost(Record):
-    """What a step or round cost. `usd` is optional: an agent on a subscription reports none."""
+    """What a step or round cost. `usd` is optional: an agent on a subscription reports none.
+
+    An infinite figure, or a count larger than a float holds, is read and counted as absent; `NaN` is
+    not a cost and makes the line a problem, as it always did."""
 
     usd: float = Field(default=0.0, ge=0)
     tokens_in: int = Field(default=0, ge=0)
@@ -252,7 +276,9 @@ class Cost(Record):
 
 
 class Metric(Record):
-    """A number a loop optimises, per step or round: a score, a test pass rate, a word count."""
+    """A number a loop optimises, per step or round: a score, a test pass rate, a word count.
+
+    A `value` that is not finite is read and not drawn; such a `target` counts as none."""
 
     name: str
     value: float
@@ -281,15 +307,15 @@ class Option(Record):
 
 class Event(Record):
     """`ts` is when the line was written. `at`, optional, is when the thing really happened, for a loop
-    that reports later than it works: durations are measured on `at` where it is given."""
+    that reports later than it works: durations are measured on `at` where it is given.
+
+    Any year is read; a time without a zone is UTC. A number that is not finite is read and counted as
+    absent."""
 
     ts: datetime
     at: datetime | None = None
 
-    @field_validator("ts", "at")
-    @classmethod
-    def _aware(cls, value: datetime | None) -> datetime | None:
-        return value if value is None or value.tzinfo else value.replace(tzinfo=UTC)
+    _times = field_validator("ts", "at")(aware_time)
 
     @property
     def when(self) -> datetime:
@@ -368,6 +394,7 @@ class RoundFinished(Event):
     next_at: datetime | None = None
 
     _artifact = field_validator("artifact")(relative_path)
+    _next_at = field_validator("next_at")(aware_time)
 
 
 class LoopStopped(Event):
@@ -384,6 +411,8 @@ class Heartbeat(Event):
     event: Literal["heartbeat"] = "heartbeat"
     text: str = ""
     next_at: datetime | None = None
+
+    _next_at = field_validator("next_at")(aware_time)
 
 
 class Question(Event):
@@ -432,21 +461,6 @@ class InboxRead(Event):
     ids: list[str]
 
 
-AnyEvent = Annotated[
-    RoundStarted
-    | StepStarted
-    | StepFinished
-    | FindingClosed
-    | RoundFinished
-    | Question
-    | QuestionClosed
-    | Check
-    | InboxRead
-    | LoopStopped
-    | Heartbeat,
-    Field(discriminator="event"),
-]
-EVENT: TypeAdapter[AnyEvent] = TypeAdapter(AnyEvent)
 EVENT_NAMES = (
     "round_started",
     "step_started",
@@ -460,6 +474,42 @@ EVENT_NAMES = (
     "loop_stopped",
     "heartbeat",
 )
+#: The tag of a line whose `event` this reader does not know.
+OTHER = "other"
+
+
+class OtherEvent(Event):
+    """An event this reader does not know: one a later release of version 1 added, or a loop's own.
+
+    It is read and skipped, never refused, so a board installed today reads a loop written
+    tomorrow. It still counts as a sign of life.
+    """
+
+    event: str = Field(json_schema_extra={"not": {"enum": list(EVENT_NAMES)}})
+
+
+def event_tag(line: object) -> str:
+    """Which model reads a line: the one its `event` names, or `OtherEvent` for a name not known here."""
+    name = line.get("event") if isinstance(line, dict) else getattr(line, "event", None)
+    return name if isinstance(name, str) and name in EVENT_NAMES else OTHER
+
+
+AnyEvent = Annotated[
+    Annotated[RoundStarted, Tag("round_started")]
+    | Annotated[StepStarted, Tag("step_started")]
+    | Annotated[StepFinished, Tag("step_finished")]
+    | Annotated[FindingClosed, Tag("finding_closed")]
+    | Annotated[RoundFinished, Tag("round_finished")]
+    | Annotated[Question, Tag("question")]
+    | Annotated[QuestionClosed, Tag("question_closed")]
+    | Annotated[Check, Tag("check")]
+    | Annotated[InboxRead, Tag("inbox_read")]
+    | Annotated[LoopStopped, Tag("loop_stopped")]
+    | Annotated[Heartbeat, Tag("heartbeat")]
+    | Annotated[OtherEvent, Tag(OTHER)],
+    Discriminator(event_tag),
+]
+EVENT: TypeAdapter[AnyEvent] = TypeAdapter(AnyEvent)
 
 
 # ---- inbox.jsonl: what the person sends, written by the board ----
@@ -483,10 +533,7 @@ class InboxEntry(Record):
         """The line as written, for checking its `sig`."""
         return dict(json.loads(self.model_dump_json(exclude_none=True)))
 
-    @field_validator("ts")
-    @classmethod
-    def _aware(cls, value: datetime) -> datetime:
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
+    _ts = field_validator("ts")(aware_time)
 
 
 def now() -> datetime:

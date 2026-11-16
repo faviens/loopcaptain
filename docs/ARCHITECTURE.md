@@ -492,3 +492,59 @@ a second hook for text the package already reads at run time, and a
 checkout would show other addresses than the package. Leaving them on
 the branch: the agent reads instructions for a newer release than the
 person runs.
+
+## 24. Any time and any number a parser takes is read; the readers count what they can
+
+**Decision.** The models in `protocol/models.py` take every time the
+parser takes (`aware_time` only adds UTC to a time without a zone) and
+every number, `Infinity` included, and `NaN` where the field has no lower
+bound. The fold in `protocol/state.py` keeps its arithmetic inside the
+calendar (`later`), holds a `next_at` to a week after its line
+(`promise`), takes no promise from a line stamped ahead of the clock, and
+counts a cost, a measure or a cost cap that is not finite, or a count no
+float holds, as absent (`countable_cost`, `countable_metrics`,
+`countable_manifest`); a sum of costs stays finite (`finite_sum`). The
+loop page reads the manifest as the fold counted it. `validate` warns of
+a year outside 2000 to 2100 and of such a number (`odd_values`); neither
+is a problem. `speaks_protocol` in `protocol/store.py` counts a
+`loop.json` that is not JSON at all as a loop, so `read_manifest` can say
+what the parser said. `standard/LOOPS.md` sections 1 and 2 state both.
+
+**Why.** "Reading never raises on a loop's bad line" held for lines the
+models refused, not for lines they accepted and the fold then could not
+compute with. Version 1 only grows: the first release read a `next_at` of
+9999 (a loop's word for "no next round"), an `at` of 1970, a measure of
+`NaN` and a cost cap of `Infinity`, so refusing them would make a
+finished loop read as stalled and a loop with such a cap unreadable.
+Keeping the readers from failing on arithmetic is the readers' job, in
+the few places that compute. A `loop.json` with a typing mistake used to
+be skipped as another tool's file, so the loop vanished without a word.
+
+**Rejected.** Bounding the values where they enter and refusing such
+lines: it breaks loops written against the first release. Clamping a
+value into range: the board would show a number the loop never wrote.
+Catching the errors in the fold, or guarding every template: every new
+sum or comparison would need its own guard, while the fold is the one
+place every page, the MCP tools and `validate` read through, and a sum or
+a chart there sees only what it can count. Listing only a broken
+`loop.json` whose text mentions `protocol`: an empty or cut-off file
+would still vanish.
+
+## 25. An event a reader does not know is read as `OtherEvent`
+
+**Decision.** The event union in `protocol/models.py` picks its model by
+the line's `event` (`event_tag`); a name not in `EVENT_NAMES` reads as
+`OtherEvent`, which the fold skips and which still counts as a sign of
+life. `validate` warns (`unknown_events`). The published schema takes any
+other event name with a `ts`. Writing stays strict: both `emit` doors
+take known events only.
+
+**Why.** Version 1 grows by new events, and the standard tells a board to
+ignore what it does not know. A reader that refused them would call the
+first event a later release adds a problem, on every board installed
+before it.
+
+**Rejected.** Dropping such lines in the store without a model: `validate`
+could not warn of a typo, and the line's time would be lost as a sign of
+life. Leaving the union closed and skipping on the error text: a known
+event with a bad field would be hard to tell from an unknown one.

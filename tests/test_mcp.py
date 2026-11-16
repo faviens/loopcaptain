@@ -184,3 +184,27 @@ def test_every_field_the_emit_tool_names_exists_on_its_event() -> None:
         named = re.findall(r"(?:^|, )([a-z_]+)", re.sub(r"[\[{(].*?[\]})]", "", found.group(2)))
         missing = [name for name in named if name not in model.model_fields]
         assert missing == [], f"{found.group(1)} names {missing}"
+
+
+def test_loop_status_reads_a_far_year_and_an_infinite_cost_without_failing(repo: Path) -> None:
+    register(repo)
+    emit(repo, "round_started", {"round": 1})
+    with (repo / ".loops" / "plan-loop" / "events.jsonl").open("a") as log:
+        log.write('{"ts": "9999-12-31T23:00:00Z", "event": "heartbeat", "next_at": "9999-12-31T23:00:00Z"}\n')
+        log.write('{"ts": "2026-11-15T08:00:00Z", "event": "step_finished", "round": 1, "step": "facts",')
+        log.write(' "cost": {"usd": 1e309}}\n')
+        log.write('{"ts": "2026-11-15T08:00:00Z", "event": "heartbeat", "next_at": ')
+        log.write("[" * 100_000 + "]" * 100_000 + "}\n")
+
+    status = mcp.loop_status("plan-loop", repo=str(repo))
+
+    assert status["status"] in ("running", "stalled") and status["cost_usd"] == 0
+    assert [line.split(":")[1] for line in status["unreadable_lines"]] == ["4"]
+
+
+def test_a_tool_says_how_to_repair_a_loop_json_it_cannot_read(repo: Path) -> None:
+    register(repo)
+    (repo / ".loops" / "plan-loop" / "loop.json").write_text('{"protocol": 1,', encoding="utf-8")
+
+    with pytest.raises(ToolError, match=r"Invalid JSON.*Call loop_register again"):
+        mcp.loop_status("plan-loop", repo=str(repo))

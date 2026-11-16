@@ -234,6 +234,7 @@ def create_app(
         if state is None:
             context = {"repo": repo, "loop_id": loop_id, "problems": [view.error]}
             return templates.TemplateResponse(request, "unreadable.html", context)
+        manifest = state.manifest  # as the fold counts it: a cost cap that is not finite is none
         shown = next((r for r in state.rounds if r.number == round), state.last_round)
         process = steer.process(repo, loop_id)
         context = {
