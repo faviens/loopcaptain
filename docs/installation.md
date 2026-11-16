@@ -86,7 +86,7 @@ Restart the board after an upgrade: a running board does not reload.
 |---|---|---|
 | `~/.config/loopcaptain/config.yaml` | the folders the board watches | deleting the file |
 | `~/.config/loopcaptain/inbox.key` | the key the board signs your answers with | deleting the file; a new one is made |
-| `.state/` where the board starts | records and logs of loops the board started | deleting the folder |
+| `~/.local/state/loopcaptain/` (`$XDG_STATE_HOME/loopcaptain/` where that is set) | records and logs of loops the board started, the confirmed start commands | deleting the folder |
 | `~/.local/share/loopcaptain/demo/` | the example loop, after `loopcaptain demo` | deleting the folder |
 
 Nothing else is written, nothing runs in the background, and nothing is

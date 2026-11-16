@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import types
@@ -17,7 +18,7 @@ from fastapi.testclient import TestClient
 
 from loopcaptain.board import steer, trend
 from loopcaptain.board.app import STATUS_ORDER, create_app
-from loopcaptain.board.discover import Config, find_repos, load_config, parse_config
+from loopcaptain.board.discover import Config, Repo, find_repos, load_config, parse_config
 from loopcaptain.board.graph import columns, layout
 from loopcaptain.board.steer import Runner
 from loopcaptain.cli import main as cli_main
@@ -358,6 +359,18 @@ def test_a_started_loop_gets_a_minimal_environment(
     assert "LOOPCAPTAIN_INBOX_KEY" in names  # a loop must find the key the board signs with
 
 
+def test_a_started_loop_is_told_the_key_path_even_where_the_board_was_not(
+    scan: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("LOOPCAPTAIN_INBOX_KEY")
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+    env = steer.minimal_env()
+
+    assert env["LOOPCAPTAIN_INBOX_KEY"] == str(tmp_path / "home" / ".config" / "loopcaptain" / "inbox.key")
+    assert env["LOOPCAPTAIN_INBOX_KEY"] == str(signing.key_path())
+
+
 def test_the_start_command_runs_without_a_shell(
     client: TestClient, scan: Path, helper: types.ModuleType
 ) -> None:
@@ -519,10 +532,16 @@ def test_a_path_with_a_null_byte_is_404_not_an_error(client: TestClient) -> None
 def test_a_process_record_with_an_impossible_pid_is_ignored(
     client: TestClient, scan: Path, tmp_path: Path, pid: int
 ) -> None:
-    state = tmp_path / "state"
-    state.mkdir(exist_ok=True)
-    record = f'{{"pid": {pid}, "command": "x", "started": "2026-11-14T21:00:00+00:00"}}'
-    (state / "some-repo~scan.json").write_text(record)
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    runner.state_dir.mkdir(exist_ok=True)
+    record = {
+        "pid": pid,
+        "command": "x",
+        "started": "2026-11-14T21:00:00+00:00",
+        "repo": steer.identity(repo),
+    }
+    runner.record_path(repo, "scan").write_text(json.dumps(record))
 
     page = client.get("/loop/some-repo/scan")
     ended = client.post("/loop/some-repo/scan/kill", data={"token": token_of(client)})
@@ -571,6 +590,7 @@ def test_a_pid_recorded_before_a_reboot_is_not_taken_for_alive(scan: Path, tmp_p
     runner = Runner(tmp_path / "state")
     repo = find_repos(Config(repos=(scan,)))[0]
     record = {"pid": os.getpid(), "command": "x", "started": "2026-11-14T10:00:00+00:00"}
+    record["repo"] = steer.identity(repo)
     runner.state_dir.mkdir(parents=True)
     path = runner.record_path(repo, "scan")
 
@@ -900,3 +920,150 @@ def test_a_trail_keeps_the_latest_rounds_and_caps_the_shade() -> None:
     assert [cell.number for cell in cells] == list(range(3, 15))
     assert cells[0].look == "h4" and cells[0].label == "round 3: 6 open findings"
     assert cells[5].look == "h1" and cells[-1].look == "clear"
+
+
+# ---- where the board keeps its own records ----
+
+
+def test_the_state_folder_is_the_users_own_unless_named(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("LOOPCAPTAIN_STATE", raising=False)
+    monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+    plain = steer.state_home()
+    monkeypatch.setenv("XDG_STATE_HOME", "relative/ignored")
+    relative = steer.state_home()
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg"))
+    xdg = Runner().state_dir
+    monkeypatch.setenv("LOOPCAPTAIN_STATE", str(tmp_path / "named"))
+    named = Runner().state_dir
+
+    assert plain == relative == tmp_path / "home" / ".local" / "state" / "loopcaptain"
+    assert (xdg, named) == (tmp_path / "xdg" / "loopcaptain", tmp_path / "named")
+
+
+def test_records_in_the_folder_the_board_is_started_in_are_not_read(
+    scan: Path, tmp_path: Path, helper: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    start_command(scan, helper, "run-me")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    planted = Runner(scan / ".state")
+    planted.confirm(repo, "run-me")
+    record = {"pid": os.getpid(), "command": "run-me", "started": "2026-11-14T21:00:00+00:00"}
+    record["repo"] = steer.identity(repo)
+    planted.record_path(repo, "scan").write_text(json.dumps(record))
+    monkeypatch.chdir(scan)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("LOOPCAPTAIN_STATE", raising=False)
+    monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+
+    runner = Runner()
+
+    assert planted.is_confirmed(repo, "run-me") and planted.process(repo, "scan") is not None
+    assert not runner.is_confirmed(repo, "run-me") and runner.process(repo, "scan") is None
+
+
+def test_the_state_folder_and_its_files_are_the_users_alone(
+    scan: Path, tmp_path: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    runner = Runner(tmp_path / "fresh" / "state")
+
+    runner.start(repo, store.read_manifest(scan, "scan"))
+    runner.confirm(repo, "x")
+
+    modes = {path.name: path.stat().st_mode & 0o777 for path in runner.state_dir.iterdir()}
+    assert runner.state_dir.stat().st_mode & 0o777 == 0o700
+    assert set(modes.values()) == {0o600} and len(modes) == 3
+
+
+def test_the_state_folder_is_made_the_users_alone_by_whichever_write_comes_first(
+    scan: Path, tmp_path: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    confirmed_first, started_first = Runner(tmp_path / "a" / "state"), Runner(tmp_path / "b" / "state")
+
+    confirmed_first.confirm(repo, "x")
+    started_first.start(repo, store.read_manifest(scan, "scan"))
+
+    for runner in (confirmed_first, started_first):
+        assert runner.state_dir.stat().st_mode & 0o777 == 0o700, runner.state_dir
+
+
+def test_a_record_made_for_a_repository_of_the_same_name_elsewhere_is_not_this_loops(
+    scan: Path, tmp_path: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    runner = Runner(tmp_path / "state")
+    runner.start(repo, store.read_manifest(scan, "scan"))
+    path = runner.record_path(repo, "scan")
+    own = runner.process(repo, "scan")
+
+    path.write_text(json.dumps({**json.loads(path.read_text()), "repo": str(tmp_path / "elsewhere")}))
+
+    assert own is not None and runner.process(repo, "scan") is None
+
+
+def test_two_repositories_of_one_name_keep_their_own_process_and_log(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    runner, other_board = Runner(tmp_path / "state"), Runner(tmp_path / "state")
+    repos = []
+    for parent, word in (("x", "first"), ("y", "second")):
+        path = tmp_path / parent / "app"
+        helper.register("scan", {"title": "Scan"}, path)
+        start_command(path, helper, f"{sys.executable} -c \"print('{word}')\"")
+        repos.append(Repo("app", path))
+
+    runner.start(repos[0], store.read_manifest(repos[0].path, "scan"))
+    other_board.start(repos[1], store.read_manifest(repos[1].path, "scan"))
+    for child in (*runner.children.values(), *other_board.children.values()):
+        child.wait(timeout=10)
+
+    assert runner.record_path(repos[0], "scan") != runner.record_path(repos[1], "scan")
+    assert runner.record_path(repos[0], "scan").name.startswith("app-")
+    assert "first" in runner.log_tail(repos[0], "scan") and "second" not in runner.log_tail(repos[0], "scan")
+    first, second = runner.process(repos[0], "scan"), runner.process(repos[1], "scan")
+    assert first is not None and second is not None and first.pid != second.pid
+
+
+def test_the_board_keeps_its_process_when_it_reads_the_loop_from_another_worktree(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    root = tmp_path / "work"
+    main_checkout, worktree = root / "tool", root / "tool-loop"
+    (main_checkout / ".git" / "worktrees" / "tool-loop").mkdir(parents=True)
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {main_checkout}/.git/worktrees/tool-loop\n")
+    (main_checkout / ".git" / "worktrees" / "tool-loop" / "gitdir").write_text(f"{worktree}/.git\n")
+    for path in (main_checkout, worktree):
+        helper.register("scan", {"title": "Scan"}, path)
+        start_command(path, helper, f"{sys.executable} -c 'import time; time.sleep(30)'")
+    runner = Runner(tmp_path / "state")
+    started = runner.start(Repo("tool", main_checkout), store.read_manifest(main_checkout, "scan"))
+    try:
+        flipped = runner.process(Repo("tool", worktree), "scan")
+        assert flipped is not None and flipped.pid == started.pid and flipped.alive
+    finally:
+        runner.kill(Repo("tool", worktree), "scan")
+
+
+def git(*args: str, cwd: Path) -> None:
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+
+def test_a_record_keeps_its_name_when_the_board_reads_another_worktree(tmp_path: Path) -> None:
+    main = tmp_path / "tool"
+    main.mkdir()
+    git("init", "-q", cwd=main)
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x", cwd=main)
+    git("worktree", "add", "-q", str(tmp_path / "tool-loop"), cwd=main)
+    runner = Runner(tmp_path / "state")
+    before = runner.name(Repo("tool", main), "scan")
+    after = runner.name(Repo("tool-loop", tmp_path / "tool-loop"), "scan")
+    assert before == after
+    assert before.startswith("tool-")

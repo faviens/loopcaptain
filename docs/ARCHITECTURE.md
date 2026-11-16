@@ -638,3 +638,26 @@ forwards to the board.
    and nothing to gain over a key that ends with the process.
 4. A key that works once: a second browser, or a phone, would need a
    restart of the board. The key works for as long as the board runs.
+
+## 29. The board's records are named by what a repository is, not by its folder's name
+
+**Decision.** A record and a log of a started loop in the state folder
+are named `<folder name>-<digest>~<loop id>` (`Runner.name` in
+`board/steer.py`). The digest is of `identity`: the `.git` a repository
+shares with its worktrees (`git_common_dir`), else its resolved folder.
+The record names the same identity and is read only where it matches.
+Records named the earlier way are no longer read.
+
+**Why.** The state folder is the user's own and serves every board of
+that user. Named by folder name alone, two repositories called `app` in
+different folders, or two boards watching them, wrote one record and one
+log, so one board took the other's process for its own and showed its
+output. The shared `.git` keeps worktrees of one repository together, as
+the board shows them as one: when the board reads the loop from another
+worktree, the process it started is still found.
+
+**Rejected.** The resolved folder for every repository: a worktree that
+is written to last would lose the process started from the other. A
+digest alone: a person looking in the folder could not tell which file is
+which. A state folder per board: a second board would not see what the
+first started.

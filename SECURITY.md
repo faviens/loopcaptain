@@ -4,7 +4,11 @@
 
 1. **Trusted:** the person at the board, the board's own config
    (`loopcaptain.local.yaml` or `~/.config/loopcaptain/config.yaml`) and its
-   state folder.
+   state folder. The state folder holds which start commands were ticked
+   and which processes the board started; it is the person's own
+   (`$XDG_STATE_HOME/loopcaptain`, else `~/.local/state/loopcaptain`, or
+   the folder `LOOPCAPTAIN_STATE` names), never a folder inside the place
+   the board is started from, and its files are readable by the user only.
 2. **Not trusted:** every file in a watched repository. A loop's
    `loop.json`, `events.jsonl` and any file a loop links to may be written
    by an agent. The board reads them bounded, follows no symbolic link in
@@ -12,7 +16,8 @@
    content only as escaped text or Markdown without HTML.
 3. **The one command it runs:** `commands.start` of a loop's `loop.json`,
    when the person presses Start, split into arguments with no shell, with
-   only `PATH`, `HOME`, `LANG`, `TERM` and `LOOPCAPTAIN_INBOX_KEY` from the board's environment. The
+   only `PATH`, `HOME`, `LANG` and `TERM` from the board's environment,
+   and `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs with. The
    first start of a command in a repository needs a tick. Do not put a
    folder of repositories you have not read under `roots:`.
 4. **The inbox:** the board signs every line it writes with a key in

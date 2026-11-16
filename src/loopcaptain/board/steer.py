@@ -4,7 +4,9 @@ The board runs nothing a browser typed. `start` runs `commands.start` from the l
 `loop.json`, split into arguments and run without a shell, in the repository root, with a
 minimal environment: the board's own variables (keys, tokens) do not travel to a command a
 watched repository wrote. The first start of a given command in a given repository needs the
-person's tick; the hash of what they confirmed is kept in the state folder.
+person's tick; the hash of what they confirmed is kept in the state folder. That folder is the
+person's own (`state_home`), never one inside the folder the board happens to be started in: what
+it holds decides which command runs without a tick and which process "End" signals.
 """
 
 from __future__ import annotations
@@ -21,22 +23,29 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from loopcaptain.board.discover import Repo
+from loopcaptain.board.discover import Repo, git_common_dir, safe_key
 from loopcaptain.protocol.models import Manifest, now
+from loopcaptain.protocol.signing import KEY_ENV, key_path
 from loopcaptain.protocol.store import StoreError
 
 log = logging.getLogger("loopcaptain.steer")
 
 STATE_ENV = "LOOPCAPTAIN_STATE"
+XDG_STATE_ENV = "XDG_STATE_HOME"
+STATE_FOLDER = "loopcaptain"
+USER_STATE = Path("~/.local/state")
 MAX_PID = 2**31
 LOG_TAIL_LINES = 30
 LOG_TAIL_BYTES = 20_000
-#: The only variables a started loop inherits from the board.
-PASSED_ENV = ("PATH", "HOME", "LANG", "TERM", "LOOPCAPTAIN_INBOX_KEY")
+#: The only variables a started loop inherits from the board, beside the key's path (`minimal_env`).
+PASSED_ENV = ("PATH", "HOME", "LANG", "TERM")
 CONFIRMED_FILE = "confirmed.json"
 PRIVATE_MODE = 0o600
+PRIVATE_FOLDER_MODE = 0o700
 #: How far two readings of the boot time may differ and still be the same boot.
 BOOT_TOLERANCE_S = 120.0
+#: How many hex digits of a repository's digest name its records: enough that two never meet.
+DIGEST_CHARS = 16
 
 
 def boot_time() -> float:
@@ -49,9 +58,32 @@ def boot_time() -> float:
     return time.time() - time.clock_gettime(clock)
 
 
+def state_home() -> Path:
+    """Where the board keeps its records: the folder `LOOPCAPTAIN_STATE` names, else the user's own
+    state folder (`$XDG_STATE_HOME/loopcaptain`, else `~/.local/state/loopcaptain`)."""
+    named = os.environ.get(STATE_ENV)
+    if named:
+        return Path(named).expanduser()
+    base = os.environ.get(XDG_STATE_ENV)
+    # The XDG text says a relative path there is to be ignored.
+    root = Path(base) if base and Path(base).is_absolute() else USER_STATE.expanduser()
+    return root / STATE_FOLDER
+
+
 def minimal_env() -> dict[str, str]:
-    """The environment a started loop gets: enough to find programs and its home, nothing else."""
-    return {name: os.environ[name] for name in PASSED_ENV if name in os.environ}
+    """The environment a started loop gets: enough to find programs and its home, and the path of the
+    key the board signs with, whether or not the board's own environment names it."""
+    passed = {name: os.environ[name] for name in PASSED_ENV if name in os.environ}
+    return {**passed, KEY_ENV: str(key_path())}
+
+
+def identity(repo: Repo) -> str:
+    """What a repository is, for the board's records: the `.git` its worktrees share, else its folder.
+
+    Two repositories of one name in different folders differ; worktrees of one repository, which
+    the board shows as one, do not, so a record survives the board reading from another worktree.
+    """
+    return str(git_common_dir(repo.path))
 
 
 def command_hash(repo: Repo, command: str) -> str:
@@ -60,7 +92,7 @@ def command_hash(repo: Repo, command: str) -> str:
 
 def write_private(path: Path, text: str) -> None:
     """Write a file only this user can read: the board's state names repositories and commands."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=PRIVATE_FOLDER_MODE)
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, PRIVATE_MODE)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         handle.write(text)
@@ -78,11 +110,17 @@ class Runner:
     """Starts loops and remembers them: in memory while the board runs, in a small file across restarts."""
 
     def __init__(self, state_dir: Path | None = None) -> None:
-        self.state_dir = state_dir or Path(os.environ.get(STATE_ENV, ".state"))
+        self.state_dir = state_dir or state_home()
         self.children: dict[str, subprocess.Popen[bytes]] = {}
 
     def name(self, repo: Repo, loop_id: str) -> str:
-        return f"{repo.key}~{loop_id}"
+        """The file name of a loop's record and log: readable, and one per repository and loop."""
+        # Both halves follow the identity, not `repo.key`: the key changes with the worktree the
+        # board last read, and the record must not.
+        shared = Path(identity(repo))
+        label = safe_key(shared.parent.name if shared.name == ".git" else shared.name)
+        digest = hashlib.sha256(str(shared).encode()).hexdigest()[:DIGEST_CHARS]
+        return f"{label}-{digest}~{loop_id}"
 
     def record_path(self, repo: Repo, loop_id: str) -> Path:
         return self.state_dir / f"{self.name(repo, loop_id)}.json"
@@ -113,6 +151,10 @@ class Runner:
         try:
             record = json.loads(self.record_path(repo, loop_id).read_text(encoding="utf-8"))
             pid, command = int(record["pid"]), str(record["command"])
+            if record.get("repo") != identity(repo):
+                # One state folder serves every board of this user: a record made for another
+                # repository is not this loop's.
+                return None
             started = datetime.fromisoformat(str(record["started"]))
             if not 1 < pid < MAX_PID:
                 # 0 and negative numbers name process groups, the board's own among them.
@@ -151,7 +193,7 @@ class Runner:
             raise StoreError(f"start command cannot be read: {error}") from error
         if not argv:
             raise StoreError("start command is empty")
-        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.state_dir.mkdir(parents=True, exist_ok=True, mode=PRIVATE_FOLDER_MODE)
         started = now()
         descriptor = os.open(
             self.log_path(repo, manifest.id), os.O_WRONLY | os.O_CREAT | os.O_APPEND, PRIVATE_MODE
@@ -173,7 +215,13 @@ class Runner:
                 raise StoreError(f"could not start {argv[0]!r}: {error.strerror or error}") from error
         name = self.name(repo, manifest.id)
         self.children[name] = child
-        record = {"pid": child.pid, "command": command, "started": started.isoformat(), "boot": boot_time()}
+        record = {
+            "pid": child.pid,
+            "command": command,
+            "started": started.isoformat(),
+            "boot": boot_time(),
+            "repo": identity(repo),
+        }
         write_private(self.record_path(repo, manifest.id), json.dumps(record) + "\n")
         log.info("started %s: %s (pid %d)", name, command, child.pid)
         return Process(child.pid, command, started, True)

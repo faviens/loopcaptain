@@ -94,8 +94,9 @@ stdio: `loopcaptain mcp-config <agent>` prints the line for it,
 1. **Steering.** An answer, a note or "Stop" append a signed line to the
    loop's `inbox.jsonl`. "Start" runs `commands.start` from the loop's own
    `loop.json` in its repository, without a shell and with only `PATH`,
-   `HOME`, `LANG`, `TERM` and `LOOPCAPTAIN_INBOX_KEY` from the board's environment; the first start
-   of a command asks for a tick. The board runs nothing else, and nothing
+   `HOME`, `LANG` and `TERM` from the board's environment, and
+   `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs with; the first
+   start of a command asks for a tick. The board runs nothing else, and nothing
    typed in a browser.
 2. **What it reads.** Only files inside a watched repository, never `.git`,
    `.env*`, key or credential files, and the content of text files only.
@@ -110,7 +111,10 @@ stdio: `loopcaptain mcp-config <agent>` prints the line for it,
 
 1. **Branch.** Off `main`, one branch and one worktree per writer. A
    running board (`make serve`) reads templates and static files from the
-   checkout it was started in; restart it after a Python change.
+   checkout it was started in; restart it after a Python change, then open
+   the new address it prints. Its records of started loops live in the
+   user's state folder, shared by every checkout; a second board for a
+   worktree takes its own `LOOPCAPTAIN_STATE`.
 2. **One milestone.** One logical change, a test that fails without it,
    `make check`, one commit.
 3. **Show it.** Run the change for real once: `make demo`, `make serve`,
@@ -258,8 +262,11 @@ and no model.
    compare them byte for byte.
 4. **A running board does not reload Python.** Restart `make serve` after a
    change under `src/`.
-5. **`demo/` and `.state/` are local.** `make demo` rewrites `.loops/`,
-   `work/` and `out/` in `demo/` where it finds the example's `loop.py`.
+5. **`demo/` is local, and the board's state is not in the checkout.**
+   `make demo` rewrites `.loops/`, `work/` and `out/` in `demo/` where it
+   finds the example's `loop.py`. The board keeps its records in
+   `$XDG_STATE_HOME/loopcaptain`, else `~/.local/state/loopcaptain`, unless
+   `LOOPCAPTAIN_STATE` names a folder.
    Never point `--target` at a real repository. The example loop is the
    only loop in this repository; no real loop's folder is ever committed.
 6. **Status is derived, never stored.** "running" means a round is open
