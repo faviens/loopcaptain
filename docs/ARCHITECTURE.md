@@ -661,3 +661,23 @@ is written to last would lose the process started from the other. A
 digest alone: a person looking in the folder could not tell which file is
 which. A state folder per board: a second board would not see what the
 first started.
+
+## 30. A worktree counts only when its repository lists it back
+
+**Decision.** `git_common_dir` in `board/discover.py` groups a folder with
+a repository as its worktree only when the folder's `.git` file names
+`<common>/worktrees/<name>` and that folder's `gitdir` file points back
+at this folder's `.git`. A claim that is not returned, and any other
+`gitdir:` line, makes the folder stand for itself. This refines section
+13; it does not replace it.
+
+**Why.** Section 13 shows worktrees of one repository once, from the one
+written last. The `.git` file lives inside the watched folder, so it is
+content of that folder like any other. Read alone, it would let one
+folder take the place of another repository on the board. The
+back-pointer lives in the repository that is named, which the claiming
+folder does not own.
+
+**Rejected.** Asking git (`git worktree list`): a second command the
+board runs in a watched repository, on every request. Dropping the
+grouping: the reason for section 13 stands.

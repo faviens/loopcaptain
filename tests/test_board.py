@@ -613,6 +613,7 @@ def test_worktrees_of_one_repository_show_once_from_the_last_written(
     (main_checkout / ".git" / "worktrees" / "tool-loop").mkdir(parents=True)
     worktree.mkdir()
     (worktree / ".git").write_text(f"gitdir: {main_checkout}/.git/worktrees/tool-loop\n")
+    (main_checkout / ".git" / "worktrees" / "tool-loop" / "gitdir").write_text(f"{worktree}/.git\n")
     helper.register("scan", {"title": "Old copy"}, worktree)
     time.sleep(0.01)
     helper.register("scan", {"title": "Fresh copy"}, main_checkout)
@@ -628,6 +629,7 @@ def test_the_loop_page_says_which_worktree_it_reads(tmp_path: Path, helper: type
     (main_checkout / ".git" / "worktrees" / "tool-loop").mkdir(parents=True)
     worktree.mkdir()
     (worktree / ".git").write_text(f"gitdir: {main_checkout}/.git/worktrees/tool-loop\n")
+    (main_checkout / ".git" / "worktrees" / "tool-loop" / "gitdir").write_text(f"{worktree}/.git\n")
     helper.register("scan", {"title": "Old copy"}, worktree)
     time.sleep(0.01)
     helper.register("scan", {"title": "Fresh copy"}, main_checkout)
@@ -1069,3 +1071,35 @@ def test_a_record_keeps_its_name_when_the_board_reads_another_worktree(tmp_path:
     after = runner.name(Repo("tool-loop", tmp_path / "tool-loop"), "scan")
     assert before == after
     assert before.startswith("tool-")
+
+
+# ---- a folder that says it is another repository's worktree ----
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "{other}/.git/worktrees/mine",
+        "{other}/.git/worktrees/theirs",
+        "{other}/.git",
+        "{other}/.git/modules/x",
+    ],
+)
+def test_a_folder_that_only_claims_to_be_a_worktree_of_another_repository_stands_for_itself(
+    tmp_path: Path, helper: types.ModuleType, claim: str
+) -> None:
+    root = tmp_path / "work"
+    other, claimant = root / "tool", root / "claimant"
+    (other / ".git" / "worktrees" / "theirs").mkdir(parents=True)
+    (other / ".git" / "worktrees" / "theirs" / "gitdir").write_text(f"{root}/tool-loop/.git\n")
+    (other / ".git" / "modules" / "x").mkdir(parents=True)
+    claimant.mkdir()
+    (claimant / ".git").write_text(f"gitdir: {claim.format(other=other)}\n")
+    helper.register("scan", {"title": "The real one"}, other)
+    time.sleep(0.01)
+    helper.register("decoy", {"title": "Written last"}, claimant)
+
+    repos = find_repos(Config(roots=(root,)))
+
+    assert sorted((repo.key, repo.others) for repo in repos) == [("claimant", ()), ("tool", ())]
+    assert store.loop_ids(next(repo.path for repo in repos if repo.key == "tool")) == ["scan"]

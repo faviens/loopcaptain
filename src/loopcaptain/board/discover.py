@@ -52,19 +52,24 @@ def git_common_dir(path: Path) -> Path:
     """The `.git` folder a checkout shares with its worktrees, read from disk without running git.
 
     A worktree's `.git` is a file, `gitdir: <common>/worktrees/<name>`; a main checkout's is the folder
-    itself. Anything else (no git, an unreadable file) stands for itself.
+    itself. The file is only a claim, written inside the watched folder: it counts when the
+    repository it names lists this folder back, in `<common>/worktrees/<name>/gitdir`. Anything
+    else (no git, an unreadable file, a claim that is not returned) stands for itself, so one
+    folder cannot put itself in another repository's place on the board.
     """
     dot_git = path / ".git"
     if dot_git.is_dir():
         return dot_git.resolve()
     try:
         first = dot_git.read_text(encoding="utf-8").splitlines()[0]
-    except (OSError, IndexError, UnicodeDecodeError):
+        if not first.startswith("gitdir:"):
+            return path.resolve()
+        gitdir = (path / first.removeprefix("gitdir:").strip()).resolve()
+        back = (gitdir / "gitdir").read_text(encoding="utf-8").strip()
+        returned = gitdir.parent.name == "worktrees" and (gitdir / back).resolve() == dot_git.resolve()
+    except (OSError, IndexError, UnicodeDecodeError, ValueError):
         return path.resolve()
-    if not first.startswith("gitdir:"):
-        return path.resolve()
-    gitdir = (path / first.removeprefix("gitdir:").strip()).resolve()
-    return gitdir.parent.parent if gitdir.parent.name == "worktrees" else gitdir
+    return gitdir.parent.parent if returned else path.resolve()
 
 
 def last_written(path: Path) -> int:

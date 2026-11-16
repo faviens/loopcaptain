@@ -11,31 +11,102 @@ from fastapi import HTTPException
 MAX_FILE_BYTES = 400_000
 
 
-#: Never shown, though inside the repository: git's own folder and files that hold secrets.
+#: Never shown, though inside the repository: git's own folder and the folders and files tools keep
+#: keys, tokens and passwords in. A part of a path that equals one of these refuses the whole path.
 PRIVATE_PARTS = frozenset(
-    {".git", ".ssh", ".aws", ".gnupg", ".netrc", ".npmrc", ".pypirc", ".git-credentials", ".docker", ".kube"}
+    {
+        ".git",
+        ".ssh",
+        ".aws",
+        ".azure",
+        ".gcloud",
+        ".gnupg",
+        ".password-store",
+        ".docker",
+        ".dockercfg",
+        ".kube",
+        "kubeconfig",
+        ".terraform",
+        ".vault-token",
+        ".netrc",
+        "_netrc",
+        ".npmrc",
+        ".yarnrc",
+        ".yarnrc.yml",
+        ".pypirc",
+        ".git-credentials",
+        ".boto",
+        ".s3cfg",
+        ".pgpass",
+        ".my.cnf",
+        ".mylogin.cnf",
+        ".htpasswd",
+        "htpasswd",
+        "token.json",
+        "token.pickle",
+        "auth.json",
+        "secret",
+        "secrets",
+    }
 )
 
 
 #: Name patterns of files that hold keys or credentials, matched against every part of the path.
+#: This is a block-list of names: it knows nothing of what a file holds (see SECURITY.md).
 PRIVATE_PATTERNS = (
+    # environment files
     ".env*",
+    "*.env",
+    "*.env.*",
+    # keys, certificates with keys, key stores, password stores
     "*.pem",
+    "*.pem.*",
     "*.key",
+    "*.key.*",
+    "*.ppk",
     "*.p12",
     "*.pfx",
     "*.keystore",
     "*.jks",
+    "*.keytab",
+    "*.kdbx",
+    "*.kdb",
+    "*.gpg",
+    "*.pgp",
+    "*.ovpn",
+    "id_rsa*",
+    "id_dsa*",
+    "id_ecdsa*",
+    "id_ed25519*",
+    "id_xmss*",
+    "*_rsa",
+    "*_dsa",
+    "*_ecdsa",
+    "*_ed25519",
+    # infrastructure state and variables
     "*.tfstate",
     "*.tfstate.*",
-    ".htpasswd",
-    "id_rsa*",
-    "id_ed25519*",
-    "id_ecdsa*",
-    "credentials*.json",
+    "*.tfvars",
+    "*.tfvars.json",
+    # credentials and secrets by name
+    "credentials*",
+    "*credentials.*",
+    "*-credentials*",
+    "*_credentials*",
+    "secrets*",
+    "secret.*",
+    "*.secret",
+    "*.secrets",
+    "*-secret.*",
+    "*_secret.*",
+    "*-secrets.*",
+    "*_secrets.*",
+    "client_secret*",
     "service-account*.json",
+    "service_account*.json",
+    "serviceaccount*.json",
     "*-sa-key*.json",
-    "secrets.*",
+    "*_sa_key*.json",
 )
 
 
