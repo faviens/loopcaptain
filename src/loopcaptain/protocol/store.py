@@ -31,6 +31,7 @@ from loopcaptain.protocol.models import (
     now,
 )
 from loopcaptain.protocol.signing import sign
+from loopcaptain.protocol.state import STALE_AFTER
 
 #: The most the board reads of one file. A summary log of a long loop is a few hundred kilobytes.
 MAX_LOG_BYTES = 20_000_000
@@ -267,15 +268,20 @@ def take_inbox(repo: Path, loop_id: str) -> list[InboxEntry]:
 
 
 def fingerprint(repo: Path, loop_id: str) -> str:
-    """Changes whenever any of the loop's files does; the page polls it to know when to reload."""
+    """Changes whenever any of the loop's files does, and once more when the loop has written
+    nothing for so long that a round under way reads as stalled; the page polls it to know when
+    to reload. From file stats alone: the poll comes every few seconds and must not read a loop."""
     parts = []
+    written = 0.0
     for name in (MANIFEST_FILE, EVENTS_FILE, INBOX_FILE):
         try:
             stat = (loop_dir(repo, loop_id) / name).stat()
             parts.append(f"{stat.st_mtime_ns}-{stat.st_size}")
+            written = stat.st_mtime if name == EVENTS_FILE else written
         except OSError:
             parts.append("0")
-    return ".".join(parts)
+    quiet = now().timestamp() - written > STALE_AFTER.total_seconds()
+    return ".".join([*parts, "quiet" if quiet else "fresh"])
 
 
 def dump(data: object) -> str:

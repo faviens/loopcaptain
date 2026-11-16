@@ -283,6 +283,7 @@
           <code>{{ manifest.commands.get('start') }}</code>
           <p class="grey">This command comes from this repository's <code>loop.json</code>, not from the board. It runs here with your rights.</p>
           {% if not confirmed %}<label class="tick"><input type="checkbox" name="confirm" value="yes" required> I have read the command and want it run</label>{% endif %}
+          {% if runs_elsewhere %}<label class="tick"><input type="checkbox" name="again" value="yes" required> This loop is {{ state.status }} and the board did not start it: start a second copy anyway</label>{% endif %}
         </form>
         {% endif %}
       {% else %}

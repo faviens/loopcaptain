@@ -13,7 +13,17 @@ from pydantic import TypeAdapter, ValidationError
 
 from loopcaptain.agents import agent, agents, checkout_of, markdown
 from loopcaptain.board.access import HOST
-from loopcaptain.board.discover import as_written, edit_config, find_repos, load_config
+from loopcaptain.board.discover import (
+    CONFIG_ENV,
+    Config,
+    as_written,
+    config_in_use,
+    config_target,
+    edit_config,
+    find_repos,
+    load_config,
+    survey,
+)
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.doctor import examine
 from loopcaptain.protocol.models import EVENT_NAMES, AnyEvent, InboxEntry, Manifest, now
@@ -99,6 +109,49 @@ def watched_line() -> str:
     source = as_written(config.source) if config.source else "no config file"
     noun = "repository" if count == 1 else "repositories"
     return f"{count} {noun} with loops, config: {source}"
+
+
+def other_config_warnings() -> list[str]:
+    """A warning where a board started in this folder reads another config than `watch` writes."""
+    written = config_target()
+    try:
+        read = config_in_use()
+    except StoreError as error:
+        return [f"warning: {error}"]
+    if read is None or read.resolve() == written.resolve():
+        return []
+    return [
+        f"warning: a board started in this folder reads {as_written(read)}, not {as_written(written)}; "
+        f"set {CONFIG_ENV} to the one you mean, or edit that file"
+    ]
+
+
+def watch_warnings(path: Path, *, root: bool) -> list[str]:
+    """What `watch` says beyond what it wrote: a folder that shows nothing yet, a config nobody reads."""
+    config = Config(roots=(path.resolve(),)) if root else Config(repos=(path.resolve(),))
+    found, unreadable = survey(config)
+    lines = [f"warning: {as_written(item.path)} cannot be read: {item.message}" for item in unreadable]
+    if not found and not unreadable:
+        where = "no sub-folder of it has" if root else "it has no"
+        lines.append(
+            f"warning: {where} `.loops/` folder with a loop yet; the board shows it once a loop is registered"
+        )
+    return lines + other_config_warnings()
+
+
+def unwatched_warnings(target: Path) -> list[str]:
+    """After `demo --no-watch`: say so where the board started here would not show the example."""
+    try:
+        config = load_config()
+    except StoreError as error:
+        return [f"warning: {error}"]
+    listed = target.resolve() in config.repos or target.resolve().parent in config.roots
+    if config.source is None or listed:
+        return []
+    return [
+        f"warning: a board started in this folder reads {as_written(config.source)}, which does not list "
+        f"{as_written(target)}; `loopcaptain watch {target}` adds it"
+    ]
 
 
 def port_is_free(port: int) -> bool:
@@ -229,8 +282,9 @@ def run(args: argparse.Namespace) -> int:
         entry = as_written(args.path)
         if args.command == "watch":
             if not args.path.expanduser().is_dir():
-                raise StoreError(f"{args.path} is not a folder")
+                raise StoreError(f"{args.path} is not a folder; nothing was written")
             changes = edit_config(args.path, add=("roots" if args.root else "repos", entry))
+            changes += watch_warnings(args.path.expanduser(), root=args.root)
         else:
             changes = edit_config(args.path, remove=entry)
         sys.stdout.write("".join(f"{line}\n" for line in changes))
@@ -244,10 +298,11 @@ def run(args: argparse.Namespace) -> int:
         except DemoError as error:
             raise StoreError(str(error)) from error
         sys.stdout.write(f"the example loop is in {target}\n")
-        if not args.no_watch:
-            sys.stdout.write(
-                "".join(f"{line}\n" for line in edit_config(target, add=("repos", as_written(target))))
-            )
+        if args.no_watch:
+            lines = unwatched_warnings(target)
+        else:
+            lines = edit_config(target, add=("repos", as_written(target))) + other_config_warnings()
+        sys.stdout.write("".join(f"{line}\n" for line in lines))
         sys.stdout.write(f"start the board with `{serve_command()}` and open the address it prints\n")
         return 0
     if args.command == "mcp-config":

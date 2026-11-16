@@ -112,16 +112,31 @@ class LoopView:
         return (self.state.manifest.title if self.state else "") or self.loop_id
 
 
+def config_in_use(cwd: Path | None = None) -> Path | None:
+    """The config file a board started in `cwd` reads, or None where there is none yet.
+
+    The file `LOOPCAPTAIN_CONFIG` names must exist: a mistyped path is an error, not a quiet
+    fall back to another list of repositories.
+    """
+    named = os.environ.get(CONFIG_ENV)
+    if named:
+        path = Path(named).expanduser()
+        if not path.is_file():
+            raise StoreError(
+                f"{CONFIG_ENV} names {path}, which is not a file. "
+                f"Correct the path, unset the variable, or let `loopcaptain watch <folder>` create it"
+            )
+        return path
+    candidates = [(cwd or Path.cwd()) / name for name in CONFIG_NAMES] + [USER_CONFIG.expanduser()]
+    return next((path for path in candidates if path.is_file()), None)
+
+
 def load_config(cwd: Path | None = None) -> Config:
-    base = cwd or Path.cwd()
-    candidates = [Path(os.environ[CONFIG_ENV])] if os.environ.get(CONFIG_ENV) else []
-    candidates += [base / name for name in CONFIG_NAMES]
-    candidates.append(USER_CONFIG.expanduser())
-    for path in candidates:
-        if path.is_file():
-            return parse_config(path)
+    path = config_in_use(cwd)
+    if path is not None:
+        return parse_config(path)
     # No config yet: show the example loop if `make demo` has written it, so a fresh clone shows something.
-    demo = base / DEMO_FOLDER
+    demo = (cwd or Path.cwd()) / DEMO_FOLDER
     return Config(repos=(demo.resolve(),) if demo.is_dir() else ())
 
 

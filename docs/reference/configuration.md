@@ -5,7 +5,8 @@
 A YAML file with two lists. The first found wins: the file
 `LOOPCAPTAIN_CONFIG` names, `loopcaptain.local.yaml` in the folder the board
 starts in, `~/.config/loopcaptain/config.yaml`. `loopcaptain watch` and
-`unwatch` edit it.
+`unwatch` edit it. A `LOOPCAPTAIN_CONFIG` that names no file is an error,
+not a fall-back to the next place.
 
 ```yaml
 roots:       # every direct sub-folder that has a .loops/ folder is a repository

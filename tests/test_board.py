@@ -273,10 +273,13 @@ def start_command(repo: Path, helper: types.ModuleType, command: str | None) -> 
     helper.register("scan", {"title": "Market scan", "commands": commands}, repo)
 
 
-def start_form(client: TestClient, repo: Path, *, confirm: bool = True) -> dict[str, str]:
-    """What the Start button sends: the token, the command the page showed and, the first time, the tick."""
+def start_form(client: TestClient, repo: Path, *, confirm: bool = True, again: bool = True) -> dict[str, str]:
+    """What the Start button sends: the token, the command the page showed and, the first time, the tick.
+
+    The loop of these tests has a round under way that the board did not start, so the form also
+    carries the tick for a second copy unless a test leaves it out."""
     form = {"token": token_of(client), "command": store.read_manifest(repo, "scan").commands.get("start", "")}
-    return form | ({"confirm": "yes"} if confirm else {})
+    return form | ({"confirm": "yes"} if confirm else {}) | ({"again": "yes"} if again else {})
 
 
 def wait_until_ended(client: TestClient) -> None:
@@ -532,8 +535,12 @@ def test_a_path_with_a_null_byte_is_404_not_an_error(client: TestClient) -> None
 
 @pytest.mark.parametrize("pid", [0, -1, 1, 99999999999])
 def test_a_process_record_with_an_impossible_pid_is_ignored(
-    client: TestClient, scan: Path, tmp_path: Path, pid: int
+    client: TestClient, scan: Path, tmp_path: Path, pid: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    signalled: list[tuple[str, int, int]] = []
+    # Were the guard broken, the real calls would signal process groups, this test run's among them.
+    monkeypatch.setattr(os, "kill", lambda pid, sig: signalled.append(("kill", pid, sig)))
+    monkeypatch.setattr(os, "killpg", lambda pid, sig: signalled.append(("killpg", pid, sig)))
     runner = Runner(tmp_path / "state")
     repo = find_repos(Config(repos=(scan,)))[0]
     runner.state_dir.mkdir(exist_ok=True)
@@ -550,6 +557,7 @@ def test_a_process_record_with_an_impossible_pid_is_ignored(
 
     assert page.status_code == 200 and "Running since" not in page.text
     assert "nothing%20the%20board%20started" in ended.headers["location"].lower()
+    assert signalled == []
 
 
 def test_the_board_signs_what_it_sends_and_a_forged_line_reads_as_not_from_it(
@@ -1071,6 +1079,167 @@ def test_a_record_keeps_its_name_when_the_board_reads_another_worktree(tmp_path:
     after = runner.name(Repo("tool-loop", tmp_path / "tool-loop"), "scan")
     assert before == after
     assert before.startswith("tool-")
+
+
+# ---- a page that is left open ----
+
+
+def test_an_open_page_learns_that_its_loop_went_quiet_without_any_file_changing(
+    client: TestClient, scan: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def later(minutes: int) -> datetime:
+        return datetime.now(UTC) + timedelta(minutes=minutes)
+
+    drawn = client.get("/loop/some-repo/scan").text
+    pulses = []
+    for minutes in (1, 44, 46, 600):
+        monkeypatch.setattr(store, "now", lambda minutes=minutes: later(minutes))
+        pulses.append((client.get("/loop/some-repo/scan/pulse").json(), client.get("/pulse").json()))
+    monkeypatch.setattr("loopcaptain.board.discover.now", lambda: later(46))
+    reloaded = client.get("/loop/some-repo/scan").text
+
+    assert pulses[0] == pulses[1] and pulses[2] == pulses[3]
+    assert pulses[1][0] != pulses[2][0] and pulses[1][1] != pulses[2][1]
+    assert f'data-pulse="{pulses[0][0]["pulse"]}"' in drawn
+    assert 'class="pill running"' in drawn and 'class="pill stalled"' in reloaded
+
+
+# ---- a Stop nothing would read, a Start beside a loop that runs ----
+
+
+@pytest.mark.parametrize("verdict", ["done", "failed", "stopped"])
+def test_a_stop_for_a_loop_that_starts_no_further_round_is_not_taken(
+    client: TestClient, scan: Path, helper: types.ModuleType, verdict: str
+) -> None:
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": verdict}, scan)
+
+    sent = client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+    page = client.get(sent.headers["location"]).text
+
+    assert f"No stop was sent: this loop is {verdict}" in page and 'class="flash bad"' in page
+    assert store.read_inbox(scan, "scan") == ([], [])
+
+
+def test_a_stop_for_a_loop_between_rounds_is_still_taken(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "continue"}, scan)
+
+    sent = client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+
+    assert "note=Stop%20sent" in sent.headers["location"]
+    assert [entry.kind for entry in store.read_inbox(scan, "scan")[0]] == ["stop"]
+
+
+def test_start_beside_a_loop_that_runs_without_the_board_needs_its_own_tick(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c \"open('started','w').write('x')\"")
+    page = client.get("/loop/some-repo/scan").text
+
+    refused = client.post("/loop/some-repo/scan/start", data=start_form(client, scan, again=False))
+    untouched = not (scan / "started").exists()
+    started = client.post("/loop/some-repo/scan/start", data=start_form(client, scan))
+    wait_until_ended(client)
+
+    assert 'name="again"' in page and "the board did not start it" in page
+    assert "did%20not%20start%20it" in refused.headers["location"] and untouched
+    assert "note=Started" in started.headers["location"] and (scan / "started").exists()
+
+
+def test_start_of_a_loop_that_is_not_under_way_asks_for_no_second_tick(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "done"}, scan)
+
+    page = client.get("/loop/some-repo/scan").text
+    started = client.post("/loop/some-repo/scan/start", data=start_form(client, scan, again=False))
+    wait_until_ended(client)
+
+    assert 'name="again"' not in page and "note=Started" in started.headers["location"]
+
+
+# ---- the stylesheet's rules for a phone and for links ----
+
+
+def test_the_stylesheet_wraps_long_labels_and_underlines_links_in_text(client: TestClient) -> None:
+    sheet = client.get("/static/style.css").text
+    choices = re.findall(r"form\.choices button \{[^}]*\}", sheet)
+    wrapped = re.search(r"main p, main li,[^{]*\{ overflow-wrap: anywhere; \}", sheet)
+    underlined = re.search(r"main p a, main li a,[^{]*\.card a[^{]*\{ text-decoration: underline;", sheet)
+
+    assert any("white-space: normal" in rule and "max-width: 100%" in rule for rule in choices)
+    assert wrapped is not None and "table.loops td.goal" in wrapped.group(0)
+    assert underlined is not None and ".note a" in underlined.group(0)
+
+
+# ---- guards that each need a test of their own ----
+
+
+def test_every_page_tells_the_browser_not_to_guess_refer_or_keep(client: TestClient) -> None:
+    for path in ("/", "/loop/some-repo/scan", "/connect", "/pulse", "/loop/some-repo/ghost"):
+        headers = client.get(path).headers
+
+        assert headers["x-content-type-options"] == "nosniff", path
+        assert headers["referrer-policy"] == "no-referrer", path
+        assert headers["cache-control"] == "no-store", path
+        assert "frame-ancestors 'none'" in headers["content-security-policy"], path
+
+
+def test_a_file_over_the_size_the_board_renders_is_named_not_read(client: TestClient, scan: Path) -> None:
+    from loopcaptain.board.files import MAX_FILE_BYTES
+
+    (scan / "huge.md").write_text("# Marker of the huge file\n" + "x" * MAX_FILE_BYTES)
+    (scan / "fits.md").write_text("# Marker of the small file\n" + "x" * (MAX_FILE_BYTES - 100))
+
+    huge = client.get("/loop/some-repo/scan/file", params={"path": "huge.md"}).text
+    fits = client.get("/loop/some-repo/scan/file", params={"path": "fits.md"}).text
+
+    assert "too large to show here" in huge and "Marker of the huge file" not in huge
+    assert "Marker of the small file" in fits
+
+
+def test_a_reply_over_the_longest_the_board_sends_is_not_sent(client: TestClient, scan: Path) -> None:
+    from loopcaptain.board.app import MAX_REPLY_CHARS
+
+    form = {"token": token_of(client), "text": "x" * (MAX_REPLY_CHARS + 1)}
+    refused = client.post("/loop/some-repo/scan/reply", data=form)
+    inbox_after_refusal = store.read_inbox(scan, "scan")[0]
+    sent = client.post("/loop/some-repo/scan/reply", data=form | {"text": "x" * MAX_REPLY_CHARS})
+
+    assert f"over%20{MAX_REPLY_CHARS}%20characters" in refused.headers["location"]
+    assert inbox_after_refusal == [] and "note=Sent" in sent.headers["location"]
+
+
+def test_a_remembered_pid_that_is_someone_elses_process_now_is_not_alive(
+    scan: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def not_yours(pid: int, sig: int) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    record = {"pid": 4242, "command": "x", "started": "2026-11-14T21:00:00+00:00", "boot": steer.boot_time()}
+    record["repo"] = steer.identity(repo)
+    steer.write_private(runner.record_path(repo, "scan"), json.dumps(record))
+    monkeypatch.setattr(os, "kill", not_yours)
+
+    process = runner.process(repo, "scan")
+
+    assert process is not None and process.pid == 4242 and not process.alive
+    with pytest.raises(StoreError, match="nothing the board started"):
+        runner.kill(repo, "scan")
+
+
+def test_the_pulse_of_a_loop_without_files_is_steady_and_changes_when_one_appears(scan: Path) -> None:
+    (scan / ".loops" / "bare").mkdir()
+
+    before = store.fingerprint(scan, "bare")
+    again = store.fingerprint(scan, "bare")
+    (scan / ".loops" / "bare" / "events.jsonl").write_text("{}\n")
+
+    assert before == again == "0.0.0.quiet" and store.fingerprint(scan, "bare") != before
 
 
 # ---- a folder that says it is another repository's worktree ----

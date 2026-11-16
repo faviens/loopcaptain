@@ -63,6 +63,8 @@ TABS = ("overview", "rounds", "findings", "items", "inbox")
 OVERVIEW_TABS = ("loops", "waiting")
 #: The statuses where "Stop after this round" means something: the loop may still start a round.
 STOPPABLE = frozenset({"running", "sleeping", "stalled", "waiting", "idle"})
+#: The statuses in which a loop is under way or has said when it is back.
+STARTED_ELSEWHERE = frozenset({"running", "sleeping"})
 #: Overview order: what needs the person first, then what moves, then the rest.
 STATUS_ORDER = (
     "waiting",
@@ -290,6 +292,7 @@ def create_app(
             "process": process,
             "log_tail": steer.log_tail(repo, loop_id) if process else "",
             "confirmed": steer.is_confirmed(repo, manifest.commands.get("start", "")),
+            "runs_elsewhere": runs_elsewhere(view, steer),
             "signed": inbox_marks(state),
             "charts": charts_of(state),
             "stuck": no_progress_signs(state),
@@ -381,6 +384,14 @@ def create_app(
         repo, _, view = view_of(repo_key, loop_id)
         if view.state and view.state.stop_requested:
             return back(repo_key, loop_id, note="A stop is already waiting for the loop.")
+        if view.state and view.state.status not in STOPPABLE:
+            # Nothing would read it now, and the next start would read it and end at once.
+            status = view.state.status
+            return back(
+                repo_key,
+                loop_id,
+                error=f"No stop was sent: this loop is {status} and starts no further round by itself.",
+            )
         try:
             store.append_inbox(repo.path, loop_id, "stop", key=board_key())
         except StoreError as problem:
@@ -394,13 +405,21 @@ def create_app(
         token: Annotated[str, Form()],
         command: Annotated[str, Form()] = "",
         confirm: Annotated[str, Form()] = "",
+        again: Annotated[str, Form()] = "",
     ) -> Response:
         check_token(token, repo_key, loop_id)
-        repo, manifest, _ = view_of(repo_key, loop_id)
+        repo, manifest, view = view_of(repo_key, loop_id)
         if command != manifest.commands.get("start", ""):
             # The loop rewrote its command after the page was drawn: run only what the person saw.
             return back(
                 repo_key, loop_id, error="Not started: the start command changed. Check it and press again."
+            )
+        if command and runs_elsewhere(view, steer) and again != "yes":
+            return back(
+                repo_key,
+                loop_id,
+                error="Not started: this loop is under way and the board did not start it. "
+                "A second copy would write the same files. Tick the box to start one anyway.",
             )
         first = not steer.is_confirmed(repo, command)
         if first and confirm != "yes":
@@ -446,6 +465,15 @@ def create_app(
         return PlainTextResponse(spec_text(), media_type="text/markdown; charset=utf-8")
 
     return app
+
+
+def runs_elsewhere(view: LoopView, steer: Runner) -> bool:
+    """Whether a loop reads as under way although no process the board started is alive: someone
+    started it from a terminal or a schedule, and a Start here would run a second copy beside it."""
+    if view.state is None or view.state.status not in STARTED_ELSEWHERE:
+        return False
+    process = steer.process(view.repo, view.loop_id)
+    return not (process and process.alive)
 
 
 def inbox_marks(state: LoopState) -> dict[str, bool | None]:
