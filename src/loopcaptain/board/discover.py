@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import stat
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
@@ -179,7 +180,13 @@ def reason(error: BaseException) -> str:
 
 def has_loops(path: Path) -> bool:
     """Whether a folder holds a `.loops` folder whose loops can be listed; raises if it cannot be told."""
-    if not (path / FOLDER).is_dir():
+    try:
+        # `stat`, not `is_dir`: from Python 3.14 `is_dir` answers False for a folder it may not
+        # enter, and such a folder must be named, not passed over.
+        mode = (path / FOLDER).stat().st_mode
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    if not stat.S_ISDIR(mode):
         return False
     store.loop_ids(path)
     return True

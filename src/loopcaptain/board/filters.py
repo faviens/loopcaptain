@@ -40,7 +40,9 @@ def stamp(value: datetime | None) -> str:
     if value is None:
         return ""
     try:
-        return value.astimezone().strftime("%Y-%m-%d %H:%M")
+        local = value.astimezone()
+        # The year is padded by hand: strftime leaves years before 1000 unpadded on some C libraries.
+        return f"{local.year:04d}-{local:%m-%d %H:%M}"
     except (OverflowError, ValueError, OSError):
         # A time at the edge of the calendar has no local form: show it as the loop wrote it.
         return f"{value.isoformat(sep=' ', timespec='minutes')}"
