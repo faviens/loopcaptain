@@ -60,6 +60,11 @@ loopcaptain serve                   # prints the address to open, port 8484
 loopcaptain serve --port 9000
 ```
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/entry-dark.svg">
+  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it sets a cookie made from the key and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="assets/entry-light.svg">
+</picture>
+
 1. The board binds to 127.0.0.1 and accepts requests only for that host.
    It has no login: `serve` prints one line with the address to open,
    the number of repositories it watches and the config it read. Opening
@@ -82,6 +87,11 @@ the same key can refuse a stop or an answer the board did not write. A
 loop the board starts gets the key's path as `LOOPCAPTAIN_INBOX_KEY`,
 whether or not the board's own environment sets it; a loop you start
 yourself finds it in the default place.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/steer-dark.svg">
+  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with the inbox key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that names the key's path, and keeps its records in the state folder." src="assets/steer-light.svg">
+</picture>
 
 ## When a loop does not show
 

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="555" viewBox="0 0 1200 555" role="img" aria-label="How a browser gets into the board. loopcaptain serve makes a new key at every start, keeps it in memory only, and prints the address 127.0.0.1, its port, /enter with the key. Opening it checks the key in constant time, sets the cookie loopcaptain-port, HttpOnly and SameSite=Strict, holding a value made from the key, not the key, and leads on to the page. Every request after passes three gates in order: the host must be this server's, the cookie the one this start set, else the locked page with 401, and a form that steers must carry this process's token. Only /enter and the static files are open without the cookie.">
+  <title>How a browser gets into the board</title>
+  <g font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="1200" height="555" fill="#F6F5F2"/>
+  <defs><marker id="tip" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#646469"/></marker><marker id="tip-red" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#4A3FE0"/></marker><filter id="lift" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#1D1D1F" flood-opacity="0.16"/></filter></defs>
+  <rect x="40" y="66" width="1112" height="155" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="40" y="60" width="1112" height="155" rx="20" fill="#ECEAE5" stroke="#DAD9D5"/>
+  <text x="58" y="86" font-size="11" font-weight="600" fill="#646469" letter-spacing="1.4">ONCE PER START: THE PRINTED ADDRESS LETS A BROWSER IN</text>
+  <rect x="62" y="100" width="196" height="101" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="76" y="125" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">loopcaptain serve</text>
+  <text x="76" y="147" font-size="12.5" font-weight="400" fill="#646469" >makes a new key at every</text>
+  <text x="76" y="164" font-size="12.5" font-weight="400" fill="#646469" >start, kept in memory only</text>
+  <rect x="280" y="100" width="196" height="101" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="294" y="125" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">/enter?key=…</text>
+  <text x="294" y="147" font-size="12.5" font-weight="400" fill="#646469" >on 127.0.0.1:&lt;port&gt;, the</text>
+  <text x="294" y="164" font-size="12.5" font-weight="400" fill="#646469" >address it prints</text>
+  <path d="M 260 150 H 276" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <rect x="498" y="100" width="196" height="101" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="512" y="125" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">The key</text>
+  <text x="512" y="147" font-size="12.5" font-weight="400" fill="#646469" >checked in constant time;</text>
+  <text x="512" y="164" font-size="12.5" font-weight="400" fill="#646469" >a wrong one: 401</text>
+  <path d="M 478 150 H 494" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <rect x="716" y="100" width="196" height="101" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="730" y="125" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="ui-monospace, SF Mono, Menlo, monospace">loopcaptain-&lt;port&gt;</text>
+  <text x="730" y="147" font-size="12.5" font-weight="400" fill="#646469" >a cookie: HttpOnly,</text>
+  <text x="730" y="164" font-size="12.5" font-weight="400" fill="#646469" >SameSite=Strict, a value</text>
+  <text x="730" y="181" font-size="12.5" font-weight="400" fill="#646469" >made from the key</text>
+  <path d="M 696 150 H 712" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <rect x="934" y="100" width="196" height="101" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="948" y="125" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">303 to the page</text>
+  <text x="948" y="147" font-size="12.5" font-weight="400" fill="#646469" >the address without</text>
+  <text x="948" y="164" font-size="12.5" font-weight="400" fill="#646469" >the key in it</text>
+  <path d="M 914 150 H 930" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <rect x="40" y="291" width="1112" height="138" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="40" y="285" width="1112" height="138" rx="20" fill="#ECEAE5" stroke="#DAD9D5"/>
+  <text x="58" y="311" font-size="11" font-weight="600" fill="#646469" letter-spacing="1.4">EVERY REQUEST AFTER: THREE GATES, IN ORDER</text>
+  <rect x="62" y="325" width="196" height="84" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="76" y="350" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">Any later request</text>
+  <text x="76" y="372" font-size="12.5" font-weight="400" fill="#646469" >a page, the pulse, a file;</text>
+  <text x="76" y="389" font-size="12.5" font-weight="400" fill="#646469" >or a form that steers</text>
+  <rect x="280" y="325" width="196" height="84" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="294" y="350" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">1  Host</text>
+  <text x="294" y="372" font-size="12.5" font-weight="400" fill="#646469" >127.0.0.1:&lt;port&gt; or</text>
+  <text x="294" y="389" font-size="12.5" font-weight="400" fill="#646469" >localhost:&lt;port&gt;, else 400</text>
+  <path d="M 260 367 H 276" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <rect x="498" y="325" width="196" height="84" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="512" y="350" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">2  Cookie</text>
+  <text x="512" y="372" font-size="12.5" font-weight="400" fill="#646469" >the one this start set,</text>
+  <text x="512" y="389" font-size="12.5" font-weight="400" fill="#646469" >else the locked page, 401</text>
+  <path d="M 478 367 H 494" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <rect x="716" y="325" width="196" height="84" rx="12" fill="#FFFFFF" stroke="#DAD9D5" stroke-width="1.2"/>
+  <text x="730" y="350" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">3  Form token</text>
+  <text x="730" y="372" font-size="12.5" font-weight="400" fill="#646469" >on a POST: this process's</text>
+  <text x="730" y="389" font-size="12.5" font-weight="400" fill="#646469" >token, else nothing is sent</text>
+  <path d="M 696 367 H 712" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <rect x="934" y="325" width="196" height="84" rx="12" fill="#FFFFFF" stroke="#4A3FE0" stroke-width="2"/>
+  <text x="948" y="350" font-size="13.5" font-weight="600" fill="#1D1D1F" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">The route</text>
+  <text x="948" y="372" font-size="12.5" font-weight="400" fill="#646469" >reads the loop's files,</text>
+  <text x="948" y="389" font-size="12.5" font-weight="400" fill="#646469" >or steers it</text>
+  <path d="M 914 367 H 930" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <path d="M 1032 221 V 247 H 160 V 280" fill="none" stroke="#646469" stroke-width="1.6" marker-end="url(#tip)"/>
+  <text x="596" y="238" font-size="12.5" font-weight="400" fill="#646469" text-anchor="middle">the browser sends the cookie with every request</text>
+  <text x="40" y="463" font-size="13" font-weight="400" fill="#646469" >Open without the cookie: /enter itself and /static/, the stylesheet, the script and the font.</text>
+  <rect x="40" y="497" width="1120" height="1" fill="#DAD9D5"/><text x="40" y="529" font-size="14" font-weight="400" fill="#646469" >A restart makes a new key: an address or a cookie from an earlier start is refused.</text>
+  </g>
+</svg>

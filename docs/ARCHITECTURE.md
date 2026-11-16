@@ -357,6 +357,11 @@ with its real verdict: `done` if the goal was met, else `stopped`; a stop
 read between rounds is `loop_stopped`. `doctor` accepts all three. The
 helper writes `ts` to the millisecond.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/steer-dark.svg">
+  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with the inbox key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that names the key's path, and keeps its records in the state folder." src="assets/steer-light.svg">
+</picture>
+
 **Why.** A first loop built from nothing by a fresh agent, given only the
 first prompt, stumbled here: with a key at a custom path the started
 loop could not check a signature and acted on any line; the spec's own
@@ -617,6 +622,11 @@ restart makes a new one, and a page left open turns to that same page.
 The cookie holds a value made from the key, not the key, and is named
 after the port. The host check and the form token of section 5 stay. This
 adds to sections 4 and 5; it replaces neither.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/entry-dark.svg">
+  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it sets a cookie made from the key and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="assets/entry-light.svg">
+</picture>
 
 **Why.** Binding to 127.0.0.1 says which machine may ask, not who on it.
 The board shows files of every watched repository, writes signed inbox

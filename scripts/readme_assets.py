@@ -1,4 +1,4 @@
-"""Draw the README's banner, the how-it-works picture and the architecture's pictures, light and dark: `make readme`.
+"""Draw the README's banner and the pictures of the architecture and security pages, light and dark: `make readme`.
 
 Plain SVG in the board's own palette (warm canvas, ink, one iris accent), written to docs/assets/.
 No dependency, so the pictures are redrawn the same on any machine.
@@ -623,6 +623,116 @@ def request_picture(theme: str) -> str:
     return picture("How one page comes about", label, height, body, t)
 
 
+def entry_picture(theme: str) -> str:
+    """How a browser gets into the board: once through the printed address, then three gates a request."""
+    t = THEMES[theme]
+    once: list[Step] = [
+        ("loopcaptain serve", ("makes a new key at every", "start, kept in memory only"), "mono"),
+        ("/enter?key=…", ("on 127.0.0.1:&lt;port&gt;, the", "address it prints"), "mono"),
+        ("The key", ("checked in constant time;", "a wrong one: 401"), "plain"),
+        (
+            "loopcaptain-&lt;port&gt;",
+            ("a cookie: HttpOnly,", "SameSite=Strict, a value", "made from the key"),
+            "mono",
+        ),
+        ("303 to the page", ("the address without", "the key in it"), "plain"),
+    ]
+    gates: list[Step] = [
+        ("Any later request", ("a page, the pulse, a file;", "or a form that steers"), "plain"),
+        ("1  Host", ("127.0.0.1:&lt;port&gt; or", "localhost:&lt;port&gt;, else 400"), "plain"),
+        ("2  Cookie", ("the one this start set,", "else the locked page, 401"), "plain"),
+        ("3  Form token", ("on a POST: this process's", "token, else nothing is sent"), "plain"),
+        ("The route", ("reads the loop's files,", "or steers it"), "key-plain"),
+    ]
+    top = 60
+    low = top + band_height(once) + 70
+    open_y = low + band_height(gates) + LIFT + 34
+    height = open_y + 92
+    body = [
+        *band(top, "ONCE PER START: THE PRINTED ADDRESS LETS A BROWSER IN", once, t),
+        *band(low, "EVERY REQUEST AFTER: THREE GATES, IN ORDER", gates, t),
+        *turn(4, 0, top + band_height(once), low, "the browser sends the cookie with every request", t),
+        text(
+            BAND_LEFT,
+            open_y,
+            "Open without the cookie: /enter itself and /static/, the stylesheet, the script and the font.",
+            13,
+            t["grey"],
+        ),
+        footer(
+            height,
+            "A restart makes a new key: an address or a cookie from an earlier start is refused.",
+            t,
+        ),
+    ]
+    label = (
+        "How a browser gets into the board. loopcaptain serve makes a new key at every start, keeps it "
+        "in memory only, and prints the address 127.0.0.1, its port, /enter with the key. Opening it "
+        "checks the key in constant time, sets the cookie loopcaptain-port, HttpOnly and "
+        "SameSite=Strict, holding a value made from the key, not the key, and leads on to the page. "
+        "Every request after passes three gates in order: the host must be this server's, the cookie "
+        "the one this start set, else the locked page with 401, and a form that steers must carry this "
+        "process's token. Only /enter and the static files are open without the cookie."
+    )
+    return picture("How a browser gets into the board", label, height, body, t)
+
+
+def steer_picture(theme: str) -> str:
+    """How steering reaches a loop: a signed line in its inbox, and the one command it declared."""
+    t = THEMES[theme]
+    wide = 252
+    answer: list[Step] = [
+        ("Answer or Stop", ("a form on the loop's page,", "past the three gates"), "plain"),
+        (
+            "Signed with inbox.key",
+            ("~/.config/loopcaptain/, or the", "file LOOPCAPTAIN_INBOX_KEY", "names"),
+            "plain",
+        ),
+        (
+            "inbox.jsonl",
+            ("one line appended; it names", "its loop, and sig is an HMAC", "over the rest"),
+            "mono",
+        ),
+        (
+            "The loop's helper",
+            ("checks sig with the same key", "and acts only on", "signed is True"),
+            "key-plain",
+        ),
+    ]
+    start: list[Step] = [
+        ("Start", ("the first start of a command", "in a repository needs a tick"), "plain"),
+        ("commands.start", ("from the loop's loop.json,", "split, run without a shell"), "mono"),
+        (
+            "A minimal environment",
+            ("PATH, HOME, LANG, TERM, and", "LOOPCAPTAIN_INBOX_KEY:", "the key's path"),
+            "plain",
+        ),
+        ("~/.local/state/loopcaptain", ("the tick, the pid, the log,", "readable by this user only"), "mono"),
+    ]
+    top = 60
+    low = top + band_height(answer) + 40
+    height = low + band_height(start) + LIFT + 92
+    body = [
+        *band(top, "AN ANSWER OR A STOP: ONE SIGNED LINE IN THE LOOP'S INBOX", answer, t, wide),
+        *band(low, "START: THE ONE COMMAND THE LOOP DECLARED", start, t, wide),
+        footer(
+            height,
+            "A line the board did not sign, or signed for another loop, reaches the loop as signed False.",
+            t,
+        ),
+    ]
+    label = (
+        "How steering reaches a loop. An answer or a stop, sent from the loop's page past the three "
+        "gates, is appended to the loop's inbox.jsonl as one line that names its loop, signed with an "
+        "HMAC under the key in ~/.config/loopcaptain/inbox.key or the file LOOPCAPTAIN_INBOX_KEY names. "
+        "The loop's helper checks the signature with the same key and acts only on signed is True. "
+        "Start runs commands.start from the loop's loop.json, after a tick the first time, split into "
+        "arguments without a shell, with only PATH, HOME, LANG, TERM and the key's path in its "
+        "environment; the tick, the pid and the log are kept in ~/.local/state/loopcaptain."
+    )
+    return picture("How steering reaches a loop", label, height, body, t)
+
+
 def main() -> int:
     ASSETS.mkdir(parents=True, exist_ok=True)
     for theme in THEMES:
@@ -632,6 +742,8 @@ def main() -> int:
             ("parts", parts_picture),
             ("trust", trust_picture),
             ("request", request_picture),
+            ("entry", entry_picture),
+            ("steer", steer_picture),
         ):
             path = ASSETS / f"{name}-{theme}.svg"
             path.write_text(draw(theme), encoding="utf-8")

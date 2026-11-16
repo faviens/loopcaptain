@@ -50,7 +50,7 @@ def readme_assets() -> types.ModuleType:
     return module
 
 
-PICTURES = ("parts_picture", "trust_picture", "request_picture")
+PICTURES = ("parts_picture", "trust_picture", "request_picture", "entry_picture", "steer_picture")
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
@@ -83,15 +83,24 @@ def test_the_first_screen_says_what_it_is_in_the_words_people_search() -> None:
 
 def test_every_picture_a_page_shows_exists() -> None:
     missing = []
-    for page in [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]:
-        base = ROOT if page.name == "README.md" else ROOT / "docs"
-        prefix = "docs/assets/" if page.name == "README.md" else "assets/"
+    for page in [ROOT / "README.md", ROOT / "SECURITY.md", *sorted((ROOT / "docs").rglob("*.md"))]:
+        base = ROOT if page.parent == ROOT else ROOT / "docs"
+        prefix = "docs/assets/" if page.parent == ROOT else "assets/"
         for name in re.findall(rf"{prefix}([\w.-]+\.(?:webp|svg))", page.read_text(encoding="utf-8")):
             if not (base / prefix / name).is_file():
                 missing.append(f"{page.name}: {name}")
 
     assert missing == []
     assert "assets/screenshot-connect.webp" in (ROOT / "docs" / "setup.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("name", ["entry", "steer"])
+def test_the_security_pages_show_how_a_browser_gets_in_and_steering_reaches_a_loop(name: str) -> None:
+    on_the_code_host = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    on_the_site = (ROOT / "docs" / "security.md").read_text(encoding="utf-8")
+
+    assert f'srcset="docs/assets/{name}-dark.svg"' in on_the_code_host
+    assert f'srcset="assets/{name}-dark.svg"' in on_the_site
 
 
 INSTALL_PAGES = ("README.md", "AGENTS.md", "docs/installation.md", "standard/AGENTS.md")
