@@ -153,13 +153,34 @@ def missing_outputs(repo: Path, manifest: Manifest) -> list[str]:
 
 
 def time_problems(events: list[AnyEvent]) -> list[str]:
-    problems = []
+    """Lines stamped earlier than a line before them, one problem per run of them.
+
+    A clock that jumps back once puts every following line below the latest time until it catches
+    up: that is one fault, said once with how many lines it covers, not once per line.
+    """
+    runs: list[tuple[int, int, AnyEvent]] = []  # first and last line of each run, and its first event
     latest: datetime | None = None
+    open_run = False
     for number, event in enumerate(events, start=1):
-        if latest and event.ts < latest:
-            problems.append(f"events.jsonl: event {number} ({event.event}) is earlier than the one before it")
-        latest = max(latest, event.ts) if latest else event.ts
-    return problems
+        if latest is not None and event.ts < latest:
+            if open_run:
+                first, _, opening = runs[-1]
+                runs[-1] = (first, number, opening)
+            else:
+                runs.append((number, number, event))
+            open_run = True
+            continue
+        latest, open_run = event.ts, False
+    return [time_problem(first, last, opening) for first, last, opening in runs]
+
+
+def time_problem(first: int, last: int, opening: AnyEvent) -> str:
+    if first == last:
+        return f"events.jsonl: event {first} ({opening.event}) is earlier than the one before it"
+    return (
+        f"events.jsonl: events {first} to {last} ({last - first + 1} lines) "
+        f"are earlier than event {first - 1} before them"
+    )
 
 
 def verdict_problems(events: list[AnyEvent]) -> list[str]:

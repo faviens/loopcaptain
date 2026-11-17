@@ -155,3 +155,21 @@ def test_a_round_names_its_mode_and_what_it_leaves_out_reads_as_meant(
     assert 'title="skipped, as a breadth round does"' in shown
     assert 'title="not in a breadth round"' in shown  # the gate, never reported
     assert "<title>deep: skipped, as a breadth round does</title>" in picture
+
+
+def test_a_clock_that_jumps_back_once_is_one_problem_with_a_count(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    line(repo, "round_started", round=1, ts="2026-11-15T10:00:00Z")
+    for minute in range(10, 15):  # five lines written with a clock an hour behind
+        line(repo, "heartbeat", ts=f"2026-11-15T09:{minute}:00Z")
+    line(repo, "heartbeat", ts="2026-11-15T11:00:00Z")
+    line(repo, "heartbeat", ts="2026-11-15T10:30:00Z")
+
+    times = [problem for problem in validate_report(repo).problems if "earlier than" in problem]
+
+    assert times == [
+        "scan/events.jsonl: events 2 to 6 (5 lines) are earlier than event 1 before them",
+        "scan/events.jsonl: event 8 (heartbeat) is earlier than the one before it",
+    ]
