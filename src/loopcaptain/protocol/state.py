@@ -112,6 +112,7 @@ class RoundState:
     finished: datetime | None = None
     plan: str = ""
     plan_artifact: str | None = None
+    mode: str = ""
     runs: tuple[StepRun, ...] = ()
     verdict: str | None = None
     stop_reason: str | None = None
@@ -346,7 +347,11 @@ def fold(
                 last_question = None
             # A round that starts again starts clean: its earlier runs and verdict are history.
             rounds[event.round] = RoundState(
-                event.round, started=event.when, plan=event.plan, plan_artifact=event.artifact
+                event.round,
+                started=event.when,
+                plan=event.plan,
+                plan_artifact=event.artifact,
+                mode=event.mode,
             )
         elif isinstance(event, StepStarted | StepFinished | FindingClosed | RoundFinished):
             current = rounds.get(event.round, RoundState(event.round, started=event.when))

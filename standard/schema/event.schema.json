@@ -901,6 +901,11 @@
           "title": "Event",
           "type": "string"
         },
+        "mode": {
+          "default": "",
+          "title": "Mode",
+          "type": "string"
+        },
         "plan": {
           "default": "",
           "title": "Plan",

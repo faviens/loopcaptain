@@ -326,6 +326,9 @@ class RoundStarted(Event):
     event: Literal["round_started"] = "round_started"
     round: int = Field(ge=1)
     plan: str = ""
+    #: The kind of round, for a loop that alternates (breadth and depth, research and write): a step
+    #: such a round leaves out by design is skipped, not missing.
+    mode: str = ""
     artifact: str | None = None
 
     _artifact = field_validator("artifact")(relative_path)

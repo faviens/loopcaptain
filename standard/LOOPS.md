@@ -107,7 +107,7 @@ its time has come.
 
 | `event` | Fields | When |
 |---|---|---|
-| `round_started` | `round`, `plan`, `artifact` | A round begins. `plan` is a few lines. |
+| `round_started` | `round`, `plan`, `artifact`, `mode` | A round begins. `plan` is a few lines. |
 | `step_started` | `round`, `step`, `label` | Optional: shows the step as running. |
 | `step_finished` | `round`, `step`, `label`, `status`, `passed`, `summary`, `artifact`, `findings`, `cost`, `metrics`, `attempt`, `error`, `session`, `model` | A step ends. |
 | `finding_closed` | `round`, `step`, `id`, `label`, `resolution`, `reason` | A finding of this round is settled. |
@@ -126,7 +126,9 @@ line still needs `ts`, and still shows that the loop is alive.
 
 1. `round` counts from 1. `step` is a step id from `loop.json`. A
    `round_started` for a round that already ran starts that round again,
-   clean.
+   clean. `mode` names the kind of round, for a loop that alternates
+   (`breadth` and `depth`, `research` and `write`): the board shows it,
+   and reads a step such a round skips, or leaves out, as meant.
 2. `label` tells runs of one step apart within a round: a research step
    with eight agents sends eight `step_finished`, each with its angle as
    `label`.

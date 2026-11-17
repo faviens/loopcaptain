@@ -137,3 +137,21 @@ def test_a_question_says_what_the_loop_goes_on_with_and_when(
 
     assert "goes on with: <b>The team leads.</b>" in page(repo, tmp_path)
     assert "Without an answer by" in page(repo, tmp_path)
+
+
+def test_a_round_names_its_mode_and_what_it_leaves_out_reads_as_meant(
+    repo: Path, helper: types.ModuleType, tmp_path: Path
+) -> None:
+    fresh_loop(repo, helper)
+    line(repo, "round_started", round=1, mode="breadth")
+    line(repo, "step_finished", round=1, step="work")
+    line(repo, "step_finished", round=1, step="deep", status="skipped")
+    picture = page(repo, tmp_path)
+
+    shown = page(repo, tmp_path, "?tab=rounds&round=1")
+
+    assert state_of(repo).rounds[0].mode == "breadth"
+    assert "breadth round · " in shown and 'title="a breadth round"' in shown
+    assert 'title="skipped, as a breadth round does"' in shown
+    assert 'title="not in a breadth round"' in shown  # the gate, never reported
+    assert "<title>deep: skipped, as a breadth round does</title>" in picture

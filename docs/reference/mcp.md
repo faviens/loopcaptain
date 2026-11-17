@@ -45,7 +45,7 @@ Append one event to the loop's log; the time is set here.
 
 event and its fields (see `protocol` for all of them); any event may carry `at`, when it really
 happened, if that was earlier than now:
-- round_started: round, plan
+- round_started: round, plan, mode (the kind of round, for a loop that alternates)
 - step_started: round, step, label
 - step_finished: round, step, label, status (ok|failed|skipped), passed (a gate's yes or no),
   summary, artifact (a path),
