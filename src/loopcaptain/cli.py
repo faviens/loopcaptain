@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import socket
 import sys
 from importlib.metadata import version as package_version
@@ -94,9 +95,23 @@ def as_json(raw: str) -> object:
         return raw
 
 
+#: The folder uv keeps the temporary environments of `uvx` in, one sub-folder each.
+UVX_CACHE_PREFIX = "archive-v"
+
+
+def run_through_uvx() -> bool:
+    """Whether this process came from `uvx`: uv started it, from an environment in uv's cache.
+
+    `uvx` puts its environment's `bin` on `PATH` for this process only, so `PATH` cannot tell."""
+    return "UV" in os.environ and Path(sys.prefix).parent.name.startswith(UVX_CACHE_PREFIX)
+
+
 def serve_command() -> str:
-    """How the board is started from here: the Makefile's target in a checkout, the command when installed."""
-    return "make serve" if checkout_of(CHECKOUT) and Path("Makefile").is_file() else "loopcaptain serve"
+    """How the board is started from here: the Makefile's target in a checkout, `uvx` when this came
+    from `uvx`, else the installed command."""
+    if checkout_of(CHECKOUT) and Path("Makefile").is_file():
+        return "make serve"
+    return "uvx loopcaptain serve" if run_through_uvx() else "loopcaptain serve"
 
 
 def watched_line() -> str:
