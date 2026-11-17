@@ -126,7 +126,7 @@ line still needs `ts`, and still shows that the loop is alive.
 
 1. `round` counts from 1. `step` is a step id from `loop.json`. A
    `round_started` for a round that already ran starts that round again,
-   clean. `mode` names the kind of round, for a loop that alternates
+   clean; what its earlier try spent still counts in the round's cost. `mode` names the kind of round, for a loop that alternates
    (`breadth` and `depth`, `research` and `write`): the board shows it,
    and reads a step such a round skips, or leaves out, as meant.
 2. `label` tells runs of one step apart within a round: a research step

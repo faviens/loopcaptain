@@ -192,3 +192,20 @@ def test_the_helper_stamps_the_time_itself_and_takes_when_it_happened_as_at(
     assert "give when it happened as `at`" in refused
     assert [event.event for event in events] == ["round_started"]
     assert events[0].at == T0 and events[0].ts > T0
+
+
+def test_a_round_started_again_keeps_what_its_dead_try_spent(
+    repo: Path, helper: types.ModuleType, tmp_path: Path
+) -> None:
+    fresh_loop(repo, helper)
+    line(repo, "round_started", round=1)
+    line(repo, "step_finished", round=1, step="work", cost={"usd": 2.71, "tokens_in": 100})
+    line(repo, "round_started", round=1)  # the first try died; the round starts again, clean
+    line(repo, "step_finished", round=1, step="work", cost={"usd": 19.39, "tokens_in": 900})
+    line(repo, "round_finished", round=1, verdict="continue")
+
+    state = state_of(repo)
+
+    assert [run.cost.usd for run in state.rounds[0].runs if run.cost] == [19.39]
+    assert round(state.cost_usd, 2) == 22.10 and state.tokens == 1000
+    assert "$2.71 of it in an earlier try" in page(repo, tmp_path, "?tab=rounds&round=1")

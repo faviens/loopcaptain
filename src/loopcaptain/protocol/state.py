@@ -126,16 +126,28 @@ class RoundState:
     metrics: tuple[Metric, ...] = ()
     outcome: str | None = None
     next_at: datetime | None = None
+    #: What earlier tries of this round spent before it started again: gone from the page, not
+    #: from the bill.
+    earlier_costs: tuple[Cost, ...] = ()
 
     @property
     def running(self) -> bool:
         return self.verdict is None
 
     @property
-    def costs(self) -> tuple[Cost, ...]:
+    def own_costs(self) -> tuple[Cost, ...]:
+        """What this try of the round spent."""
         if self.round_cost is not None:
             return (self.round_cost,)
         return tuple(run.cost for run in self.runs if run.cost)
+
+    @property
+    def costs(self) -> tuple[Cost, ...]:
+        return (*self.earlier_costs, *self.own_costs)
+
+    @property
+    def earlier_usd(self) -> float:
+        return finite_sum(cost.usd for cost in self.earlier_costs)
 
     @property
     def cost_usd(self) -> float:
@@ -345,9 +357,12 @@ def fold(
                 # The loop stood still for this question and has now started a round: it went on,
                 # with an answer or without one.
                 last_question = None
-            # A round that starts again starts clean: its earlier runs and verdict are history.
+            # A round that starts again starts clean: its earlier runs and verdict are history, and
+            # what they spent still counts.
+            before = rounds.get(event.round)
             rounds[event.round] = RoundState(
                 event.round,
+                earlier_costs=before.costs if before else (),
                 started=event.when,
                 plan=event.plan,
                 plan_artifact=event.artifact,
