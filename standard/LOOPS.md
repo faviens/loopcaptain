@@ -112,7 +112,7 @@ its time has come.
 | `step_finished` | `round`, `step`, `label`, `status`, `passed`, `summary`, `artifact`, `findings`, `cost`, `metrics`, `attempt`, `error`, `session`, `model` | A step ends. |
 | `finding_closed` | `round`, `step`, `id`, `label`, `resolution`, `reason` | A finding of this round is settled. |
 | `round_finished` | `round`, `verdict`, `stop_reason`, `summary`, `next`, `commit`, `artifact`, `cost`, `metrics`, `outcome`, `next_at` | A round ends. |
-| `question` | `text`, `round`, `blocks`, `timeout_s`, `id`, `options` | The loop needs the person. |
+| `question` | `text`, `round`, `blocks`, `timeout_s`, `id`, `options`, `default` | The loop needs the person. |
 | `question_closed` | `question`, `reason`, `answer` | The loop ends its own question. |
 | `loop_started` | `rounds` | The loop's process starts. |
 | `loop_stopped` | `stop_reason`, `summary` | The loop ends between rounds. |
@@ -171,7 +171,10 @@ line still needs `ts`, and still shows that the loop is alive.
    also over once its `timeout_s` has passed or the loop starts another
    round: it went on. `id` names the question; `options`,
    `[{"id": "a", "label": "Forty people"}]`, become buttons, and the reply
-   carries `question` and `choice`. `question_closed` ends a question the
+   carries `question` and `choice`. `default` is what the loop goes on
+   with if no answer comes: the `id` of one of the options, or a
+   sentence; the board shows it beside the question, with the time the
+   loop stops waiting. `question_closed` ends a question the
    loop settled itself: `reason` is `answered` (elsewhere, `answer` says
    how), `superseded` (it went on with a default) or `withdrawn`;
    `question` is the id, left out the last open question.

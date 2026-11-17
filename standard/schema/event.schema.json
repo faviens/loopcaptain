@@ -580,6 +580,11 @@
           "title": "Blocks",
           "type": "boolean"
         },
+        "default": {
+          "default": "",
+          "title": "Default",
+          "type": "string"
+        },
         "event": {
           "const": "question",
           "default": "question",

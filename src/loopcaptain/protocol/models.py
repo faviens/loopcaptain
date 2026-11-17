@@ -440,6 +440,8 @@ class Question(Event):
     #: Lets a reply or a `question_closed` name this question; `options` become buttons.
     id: str | None = None
     options: list[Option] = Field(default_factory=list)
+    #: What the loop goes on with if no answer comes: the id of one of `options`, or a sentence.
+    default: str = ""
 
 
 class QuestionClosed(Event):

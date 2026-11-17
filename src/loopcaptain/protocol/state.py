@@ -180,6 +180,13 @@ class OpenQuestion:
     options: tuple[Option, ...] = ()
     #: Not a question the loop asked but a step that failed in a way only the person can fix.
     needs_person: bool = False
+    #: What the loop goes on with without an answer: an option's id, or a sentence.
+    default: str = ""
+
+    @property
+    def default_text(self) -> str:
+        """The default as the person reads it: the label of the option it names, else as written."""
+        return next((option.label for option in self.options if option.id == self.default), self.default)
 
     @property
     def gives_up(self) -> datetime | None:
@@ -600,7 +607,14 @@ def open_question(last: Question | None, inbox: list[InboxEntry], at: datetime) 
     if any(entry.kind == "reply" and entry.ts >= last.ts for entry in inbox):
         return None
     question = OpenQuestion(
-        last.text, last.ts, last.round, last.blocks, last.timeout_s, last.id, tuple(last.options)
+        last.text,
+        last.ts,
+        last.round,
+        last.blocks,
+        last.timeout_s,
+        last.id,
+        tuple(last.options),
+        default=last.default,
     )
     return None if question.gives_up and question.gives_up < at else question
 

@@ -111,3 +111,29 @@ def test_a_gate_that_says_no_reads_apart_from_a_step_that_broke(
     assert '<span class="cell" title="said no"><i class="mark no"></i>' in shown
     assert '<g class="node no">' in picture and "<title>gate: said no</title>" in picture
     assert '<i class="mark ok"></i>passed</span>' in page(repo, tmp_path, "?tab=rounds&round=2")
+
+
+def test_a_question_says_what_the_loop_goes_on_with_and_when(
+    repo: Path, helper: types.ModuleType, tmp_path: Path
+) -> None:
+    fresh_loop(repo, helper)
+    options = [{"id": "seat", "label": "Per seat"}, {"id": "site", "label": "Per site"}]
+    line(repo, "question", id="price", text="Per seat or per site?", options=options, default="seat")
+
+    assert state_of(repo).question is not None
+    assert state_of(repo).question.default_text == "Per seat"  # type: ignore[union-attr]
+    assert "Until you answer, it goes on with: <b>Per seat</b>" in page(repo, tmp_path)
+
+    asked = iso(datetime.now(UTC))  # the page reads the real clock: a timeout from T0 is long over
+    line(
+        repo,
+        "question",
+        ts=asked,
+        text="Which audience?",
+        blocks=True,
+        timeout_s=600,
+        default="The team leads.",
+    )
+
+    assert "goes on with: <b>The team leads.</b>" in page(repo, tmp_path)
+    assert "Without an answer by" in page(repo, tmp_path)

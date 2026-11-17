@@ -116,7 +116,8 @@ def emit(loop_id: str, event: str, fields: dict[str, Any] | None = None, repo: s
     - finding_closed: round, step, id, label, resolution, reason
     - round_finished: round, verdict (continue|done|wait|stopped|failed), stop_reason, summary, next,
       commit, cost, metrics, outcome (kept|discarded), next_at
-    - question: text, round, blocks, timeout_s, id, options [{"id", "label"}]
+    - question: text, round, blocks, timeout_s, id, options [{"id", "label"}], default (an option's
+      id or a sentence: what the loop goes on with without an answer)
     - question_closed: question (its id), reason (answered|superseded|withdrawn), answer
     - loop_started: rounds (how many this start may run)
     - loop_stopped: stop_reason, summary

@@ -17,6 +17,7 @@
 <section class="ask" aria-label="{{ 'A step needs you' if q.needs_person else 'The loop' ~ "'s question" }}">
   <p class="eyebrow">{{ 'A step needs you' if q.needs_person else 'The loop asks' }}{% if q.round %}, round {{ q.round }}{% endif %} · {{ q.asked|ago }}{% if q.blocks %} · it stands still until you answer{% if q.gives_up %}, at most until {{ q.gives_up|stamp }}{% endif %}{% endif %}</p>
   <p class="q">{{ q.text }}</p>
+  {% if q.default %}<p class="grey">{% if q.gives_up %}Without an answer by {{ q.gives_up|stamp }} it goes on with{% elif q.blocks %}If it goes on without an answer, it goes on with{% else %}Until you answer, it goes on with{% endif %}: <b>{{ q.default_text }}</b></p>{% endif %}
   {% if q.options %}
   <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
     <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
