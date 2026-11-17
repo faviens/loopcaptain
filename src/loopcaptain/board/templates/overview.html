@@ -58,7 +58,9 @@
   <label><span class="sr">Find</span><input type="search" name="q" value="{{ filters.q }}" placeholder="Find a loop, a project, a goal"></label>
   <label><span class="sr">Status</span><select name="status">
     <option value="">every status</option>
-    {% for name in statuses %}<option value="{{ name }}"{% if name in filters.statuses %} selected{% endif %}>{{ name }}</option>{% endfor %}
+    {% set together = filters.together %}
+    {% if together %}<option value="{{ together|join(',') }}" selected>{{ together|join(' or ') }}</option>{% endif %}
+    {% for name in statuses %}<option value="{{ name }}"{% if not together and name in filters.statuses %} selected{% endif %}>{{ name }}</option>{% endfor %}
   </select></label>
   <label class="tick"><input type="checkbox" name="finished" value="1"{% if filters.finished %} checked{% endif %}> show finished loops</label>
   <button type="submit" class="quiet">Filter</button>

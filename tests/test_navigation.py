@@ -187,3 +187,19 @@ def test_the_script_sends_a_form_again_only_when_the_board_refused_it() -> None:
 
     assert "response.status >= 400 && response.status < 500" in script
     assert ".catch(function () { sendTheOldWay" not in script
+
+
+def test_the_status_menu_keeps_the_statuses_a_figure_asked_for(client: TestClient) -> None:
+    page = client.get("/?status=stalled&status=failed").text
+
+    menu = page.split('<select name="status">', 1)[1].split("</select>", 1)[0]
+    assert '<option value="failed,stalled" selected>failed or stalled</option>' in menu
+    assert menu.count(" selected") == 1
+
+
+def test_a_menu_choice_of_two_statuses_filters_by_both(client: TestClient) -> None:
+    neither = client.get("/?status=stalled,failed").text
+    one = client.get("/?status=failed,running").text
+
+    assert "Market scan" not in neither.split('<table class="loops">')[-1], "the loop runs"
+    assert "Market scan" in one.split('<table class="loops">')[-1]

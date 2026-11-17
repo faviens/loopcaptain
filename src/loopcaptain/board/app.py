@@ -237,8 +237,10 @@ def create_app(
             return STATUS_ORDER.index(status), -(last.timestamp() if last else 0.0)
 
         views.sort(key=rank)
-        # A tile asks for more than one status at once, the menu for one; an unknown one is dropped.
-        statuses = frozenset(status or ()) & frozenset(STATUS_ORDER)
+        # A figure asks for more than one status as the status given twice, the menu as one value
+        # joined by commas, so Filter keeps them; an unknown one is dropped.
+        asked = {part for value in status or () for part in value.split(",")}
+        statuses = frozenset(asked) & frozenset(STATUS_ORDER)
         shown, hidden = filter_views(views, q, statuses, show_finished=finished == "1")
         context = {
             "views": views,
@@ -248,6 +250,7 @@ def create_app(
             "filters": {
                 "q": q,
                 "statuses": statuses,
+                "together": [name for name in STATUS_ORDER if name in statuses] if len(statuses) > 1 else [],
                 "finished": finished == "1",
             },
             "statuses": STATUS_ORDER,
