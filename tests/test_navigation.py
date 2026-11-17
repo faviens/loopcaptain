@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import types
 from pathlib import Path
 
 import pytest
@@ -70,3 +71,37 @@ def test_the_way_back_above_a_heading_is_a_target_as_tall_as_any_control() -> No
     assert "min-height: 44px" in crumb
     assert "text-decoration: none" not in crumb, "a link that does not look like one"
     assert "var(--accent)" in crumb, "links are the one action colour"
+
+
+@pytest.mark.parametrize("tab", ["overview", "findings"])
+def test_every_form_on_a_loop_page_carries_the_tab_it_was_drawn_on(
+    client: TestClient, scan: Path, helper: types.ModuleType, tab: str
+) -> None:
+    helper.emit("scan", "question", {"round": 2, "text": "Per seat or per site?"}, scan)
+
+    page = client.get(f"/loop/some-repo/scan?tab={tab}").text
+
+    forms = re.findall(r'<form [^>]*method="post".*?</form>', page, re.S)
+    assert forms
+    for form in forms:
+        assert f'<input type="hidden" name="tab" value="{tab}">' in form, form[:80]
+
+
+@pytest.mark.parametrize(
+    ("given", "lands"),
+    [("rounds", "/loop/some-repo/scan?tab=rounds&note=Sent"), ("overview", "/loop/some-repo/scan?note=Sent")],
+)
+def test_an_answer_leads_back_to_the_tab_it_was_sent_from(client: TestClient, given: str, lands: str) -> None:
+    form = {"token": str(client.app.state.token), "text": "Per seat.", "tab": given}  # type: ignore[attr-defined]
+
+    sent = client.post("/loop/some-repo/scan/reply", data=form)
+
+    assert sent.headers["location"].startswith(lands)
+
+
+def test_a_tab_the_page_does_not_have_leads_to_the_bare_page(client: TestClient) -> None:
+    form = {"token": str(client.app.state.token), "tab": "x\r\nSet-Cookie: a=b"}  # type: ignore[attr-defined]
+
+    sent = client.post("/loop/some-repo/scan/stop", data=form)
+
+    assert sent.headers["location"].startswith("/loop/some-repo/scan?note=Stop")

@@ -19,12 +19,12 @@
   <p class="q">{{ q.text }}</p>
   {% if q.options %}
   <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
     {% for option in q.options %}<button type="submit" name="choice" value="{{ option.id }}">{{ option.label }}</button>{% endfor %}
   </form>
   {% endif %}
   <form class="say" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
     <textarea name="text" required aria-label="Your answer" placeholder="{{ 'Or answer in your own words.' if q.options else ('What you did, or what the loop should do instead.' if q.needs_person else 'Your answer. The loop reads it at its next round.') }}"></textarea>
     <button type="submit">Send answer</button>
   </form>
@@ -256,7 +256,7 @@
     <p class="eyebrow">{{ 'What you sent' if state.question else 'Tell the loop' }}</p>
     {% if not state.question %}
     <form class="say" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
       <textarea name="text" required aria-label="A note for the loop" placeholder="A note for the next round: what to change, drop or look at."></textarea>
       <button type="submit">Send</button>
     </form>
@@ -278,7 +278,7 @@
         <span>Running since {{ process.started|stamp }}, pid {{ process.pid }}</span>
         {% else %}
         <form class="start" method="post" action="{{ url_for('loop_start', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-          <input type="hidden" name="token" value="{{ token }}">
+          <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
           <input type="hidden" name="command" value="{{ manifest.commands.get('start') }}">
           <button type="submit">Start</button>
           <code>{{ manifest.commands.get('start') }}</code>
@@ -294,13 +294,13 @@
     <div class="row">
       {% if state.status in stoppable or state.stop_requested %}
       <form method="post" action="{{ url_for('loop_stop', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-        <input type="hidden" name="token" value="{{ token }}">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
         <button type="submit" class="quiet"{% if state.stop_requested %} disabled{% endif %}>{{ 'Stop is waiting for the loop' if state.stop_requested else ('Stop after this round' if state.status in ('running', 'stalled', 'waiting') else 'Stop before the next round') }}</button>
       </form>
       {% endif %}
       {% if process and process.alive %}
       <form method="post" action="{{ url_for('loop_kill', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-        <input type="hidden" name="token" value="{{ token }}">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
         <button type="submit" class="danger">End the process now</button>
       </form>
       {% endif %}
