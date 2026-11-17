@@ -34,7 +34,7 @@ def client(scan: Path, runner: Runner) -> TestClient:
     )
     session = app.state.session
     browser = TestClient(app, base_url=f"http://{HOST}", follow_redirects=False)
-    browser.cookies.set(session.cookie_name, session.cookie_value)
+    browser.cookies.set(session.cookie_name, session.issue() or "")
     return browser
 
 

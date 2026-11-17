@@ -51,7 +51,7 @@ def test_the_overview_marks_what_waits_what_runs_and_what_is_stuck(repos: list[P
     )
 
     client = TestClient(app, base_url=f"http://{HOST}")
-    client.cookies.set(app.state.session.cookie_name, app.state.session.cookie_value)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
 
     page = client.get("/?finished=1").text
 

@@ -6,7 +6,7 @@ description: "What the board reads, runs and writes: how a browser gets in, how 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/entry-dark.svg">
-  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it sets a cookie made from the key and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="assets/entry-light.svg">
+  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it once sets a cookie of its own and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="assets/entry-light.svg">
 </picture>
 
 <picture>

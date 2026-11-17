@@ -213,7 +213,7 @@ def test_the_board_says_on_its_first_page_that_the_named_config_is_missing(
     monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(tmp_path / "mistyped.yaml"))
     app = create_app(runner=Runner(tmp_path / "state"), allowed_hosts=frozenset({"board.test"}))
     client = TestClient(app, base_url="http://board.test")
-    client.cookies.set(app.state.session.cookie_name, app.state.session.cookie_value)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
 
     page = client.get("/")
 
@@ -294,7 +294,7 @@ def test_the_empty_board_names_the_config_it_read(home: Path, tmp_path: Path) ->
     Path("loopcaptain.local.yaml").write_text(f"repos:\n  - {tmp_path / 'empty'}\n")
     app = create_app(runner=Runner(tmp_path / "state"), allowed_hosts=frozenset({"board.test"}))
     client = TestClient(app, base_url="http://board.test")
-    client.cookies.set(app.state.session.cookie_name, app.state.session.cookie_value)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
 
     listed = client.get("/").text
     Path("loopcaptain.local.yaml").unlink()

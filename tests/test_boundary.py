@@ -28,7 +28,7 @@ NO_ROOT = pytest.mark.skipif(os.geteuid() == 0, reason="root may enter every fol
 def board(config: Config, state: Path) -> TestClient:
     app = create_app(config=lambda: config, runner=Runner(state), allowed_hosts=frozenset({HOST}))
     client = TestClient(app, base_url=f"http://{HOST}", follow_redirects=False, raise_server_exceptions=False)
-    client.cookies.set(app.state.session.cookie_name, app.state.session.cookie_value)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
     return client
 
 
@@ -221,7 +221,7 @@ def test_a_config_of_bytes_that_are_not_text_or_a_path_with_a_null_is_named_not_
         allowed_hosts=frozenset({HOST}),
     )
     client = TestClient(app, base_url=f"http://{HOST}", raise_server_exceptions=False)
-    client.cookies.set(app.state.session.cookie_name, app.state.session.cookie_value)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
 
     overview = client.get("/", headers={"accept": "text/html"})
     loop = client.get("/loop/some-repo/scan", headers={"accept": "text/html"})
@@ -245,7 +245,7 @@ def test_a_config_that_cannot_be_read_gives_a_page_that_says_so(
         allowed_hosts=frozenset({HOST}),
     )
     client = TestClient(app, base_url=f"http://{HOST}", raise_server_exceptions=False)
-    client.cookies.set(app.state.session.cookie_name, app.state.session.cookie_value)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
 
     answer = client.get(path, headers={"accept": "text/html"})
     fetched = client.get(path)

@@ -632,7 +632,7 @@ def entry_picture(theme: str) -> str:
         ("The key", ("checked in constant time;", "a wrong one: 401"), "plain"),
         (
             "loopcaptain-&lt;port&gt;",
-            ("a cookie: HttpOnly,", "SameSite=Strict, a value", "made from the key"),
+            ("a cookie: HttpOnly,", "SameSite=Strict, a random", "value, issued once"),
             "mono",
         ),
         ("303 to the page", ("the address without", "the key in it"), "plain"),
@@ -669,7 +669,8 @@ def entry_picture(theme: str) -> str:
         "How a browser gets into the board. loopcaptain serve makes a new key at every start, keeps it "
         "in memory only, and prints the address 127.0.0.1, its port, /enter with the key. Opening it "
         "checks the key in constant time, sets the cookie loopcaptain-port, HttpOnly and "
-        "SameSite=Strict, holding a value made from the key, not the key, and leads on to the page. "
+        "SameSite=Strict, holding a random value of its own, issued to the first browser only, and leads "
+        "on to the page; a later use of the address is refused. "
         "Every request after passes three gates in order: the host must be this server's, the cookie "
         "the one this start set, else the locked page with 401, and a form that steers must carry this "
         "process's token. Only /enter and the static files are open without the cookie."

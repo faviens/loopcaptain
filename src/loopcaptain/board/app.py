@@ -11,7 +11,6 @@ from __future__ import annotations
 import hmac
 import logging
 import secrets
-import threading
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Annotated
@@ -127,10 +126,6 @@ def create_app(
     app.state.token = token
     door = session or Session()
     app.state.session = door
-    # The printed address lets one browser in: the first use spends it, under a lock, since two
-    # requests can arrive at once on the server's threads.
-    entry_lock = threading.Lock()
-    app.state.entered = False
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     add_error_pages(app, templates)
 
@@ -158,12 +153,11 @@ def create_app(
             return RedirectResponse(local_path(next), status_code=303)
         if not door.opens(key):
             return locked(request)
-        with entry_lock:
-            if app.state.entered:
-                return locked(request, spent=True)
-            app.state.entered = True
+        cookie = door.issue()
+        if cookie is None:
+            return locked(request, spent=True)
         response = RedirectResponse(local_path(next), status_code=303)
-        response.set_cookie(door.cookie_name, door.cookie_value, httponly=True, samesite="strict", path="/")
+        response.set_cookie(door.cookie_name, cookie, httponly=True, samesite="strict", path="/")
         return response
 
     def problems_of(repo: Repo, loop_id: str) -> list[str]:

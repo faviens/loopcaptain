@@ -66,7 +66,7 @@ loopcaptain serve --port 9000
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/entry-dark.svg">
-  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it sets a cookie made from the key and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="assets/entry-light.svg">
+  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it once sets a cookie of its own and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="assets/entry-light.svg">
 </picture>
 
 1. The board binds to 127.0.0.1 and accepts requests only for that host.

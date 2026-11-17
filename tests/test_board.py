@@ -44,7 +44,7 @@ def client(scan: Path, tmp_path: Path) -> TestClient:
 def let_in(client: TestClient) -> TestClient:
     """The client as a browser that opened the address `serve` printed."""
     session = client.app.state.session  # type: ignore[attr-defined]
-    client.cookies.set(session.cookie_name, session.cookie_value)
+    client.cookies.set(session.cookie_name, session.issue() or "")
     return client
 
 

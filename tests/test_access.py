@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import re
 from pathlib import Path
 
@@ -126,7 +127,7 @@ def test_a_wrong_key_lets_nobody_in(stranger: TestClient, key: str) -> None:
 
 def test_a_cookie_from_an_earlier_start_is_refused(stranger: TestClient) -> None:
     earlier = Session()
-    stranger.cookies.set(earlier.cookie_name, earlier.cookie_value)
+    stranger.cookies.set(earlier.cookie_name, earlier.issue() or "")
 
     refused = stranger.get("/")
 
@@ -141,9 +142,12 @@ def test_the_key_is_not_the_cookie_and_appears_on_no_page(stranger: TestClient) 
         stranger.request(method, path, params={"path": "notes.md"}) for method, path in routes_of(stranger)
     ]
 
-    assert session.key != session.cookie_value and session.key not in repr(session)
+    cookie = session.cookie or ""
+    assert (
+        cookie and session.key != cookie and session.key not in repr(session) and cookie not in repr(session)
+    )
     for page in [*pages, stranger.get("/static/board.js")]:
-        assert session.key not in page.text and session.cookie_value not in page.text
+        assert session.key not in page.text and cookie not in page.text
         assert session.key not in str(page.headers)
     assert session.key not in refusal
 
@@ -167,7 +171,7 @@ def test_two_boards_on_one_machine_keep_their_cookies_apart() -> None:
 
     assert first.cookie_name != second.cookie_name and first.key != second.key
     assert entry_address(8484, first) == f"http://127.0.0.1:8484/enter?key={first.key}"
-    assert not second.admits({first.cookie_name: first.cookie_value})
+    assert not second.admits({first.cookie_name: first.issue() or ""})
 
 
 def test_the_security_text_says_another_server_on_the_address_gets_the_cookie() -> None:
@@ -197,3 +201,13 @@ def test_the_browser_let_in_may_open_the_address_again(stranger: TestClient) -> 
     again = stranger.get(f"{path}&next=/connect")
 
     assert again.status_code == 303 and again.headers["location"] == "/connect"
+
+
+def test_the_key_alone_cannot_make_the_cookie(stranger: TestClient) -> None:
+    """The cookie is issued at the first use of the address, not derived from it: a copy of the
+    address, even one never opened, does not let a second browser in by setting a cookie by hand."""
+    session = session_of(stranger)
+    derived = hmac.new(session.key.encode(), b"loopcaptain session cookie", "sha256").hexdigest()
+    stranger.cookies.set(session.cookie_name, derived)
+
+    assert stranger.get("/").status_code == 401

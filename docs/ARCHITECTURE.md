@@ -625,13 +625,13 @@ request, the reload pulse and the file viewer included, needs the cookie
 files are served without it. A browser without the cookie gets one page
 that says where the address is. The key lives in the process only: a
 restart makes a new one, and a page left open turns to that same page.
-The cookie holds a value made from the key, not the key, and is named
+The cookie holds a random value of its own (section 31), and is named
 after the port. The host check and the form token of section 5 stay. This
 adds to sections 4 and 5; it replaces neither.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/entry-dark.svg">
-  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it sets a cookie made from the key and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="assets/entry-light.svg">
+  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it once sets a cookie of its own and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="assets/entry-light.svg">
 </picture>
 
 **Why.** Binding to 127.0.0.1 says which machine may ask, not who on it.
@@ -703,8 +703,8 @@ grouping: the reason for section 13 stands.
 Replaces item 4 of "Rejected" in section 28, which kept the address
 working for as long as the board runs.
 
-**Decision.** The first browser that opens the printed address gets the
-cookie and spends the address (`enter` in `board/app.py`, under a lock,
+**Decision.** The first browser that opens the printed address gets a
+cookie of its own random value and spends the address (`enter` in `board/app.py`, under a lock,
 as two requests can arrive at once). A browser that holds the cookie may
 open it again; any other gets the locked page, which says the address
 works once and that a restart of `serve` prints a new one. `make shots`,
@@ -714,7 +714,9 @@ picture (`served_board` in `scripts/shots.py`).
 **Why.** The address carries the key, and it does not stay in the
 terminal: it lands in the browser's history, in the scrollback, and in
 the transcript of any agent session that ran `make serve` for the
-person. Spent at first use, none of those copies lets anyone in.
+person. Spent at first use, none of those copies lets anyone in. The
+cookie is not derived from the key, so a copy cannot be turned into a
+cookie by hand either.
 
 **Rejected.**
 1. Working for as long as the board runs, as notebook servers do: every
