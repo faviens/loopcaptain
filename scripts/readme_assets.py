@@ -1,6 +1,6 @@
 """Draw the README's banner and the pictures of the architecture and security pages, light and dark: `make readme`.
 
-Plain SVG in the board's own palette (warm canvas, ink, one iris accent), written to docs/assets/.
+Plain SVG in the board's own palette (paper, ink, one red), written to docs/assets/.
 No dependency, so the pictures are redrawn the same on any machine.
 """
 
@@ -15,30 +15,30 @@ MONO = "ui-monospace, SF Mono, Menlo, monospace"
 
 THEMES: dict[str, dict[str, str]] = {
     "light": {
-        "paper": "#F6F5F2",
+        "paper": "#FDFDFB",
         "card": "#FFFFFF",
         "sunk": "#EDECE8",
-        "ink": "#1D1D1F",
-        "grey": "#646469",
-        "hair": "#DAD9D5",
-        "accent": "#4A3FE0",
+        "ink": "#0E0E10",
+        "grey": "#71716E",
+        "hair": "#E4E3DE",
+        "accent": "#D6000B",
         "good": "#13804B",
         "blue": "#0B7296",
         "group": "#ECEAE5",
         "edge": "#CBC8C0",
-        "shade": "#1D1D1F",
+        "shade": "#0E0E10",
     },
     "dark": {
-        "paper": "#000000",
-        "card": "#1C1C1E",
+        "paper": "#0E0E10",
+        "card": "#1C1C1F",
         "sunk": "#111113",
-        "ink": "#F5F5F7",
-        "grey": "#A1A1A6",
+        "ink": "#F5F5F3",
+        "grey": "#A0A09C",
         "hair": "#38383A",
-        "accent": "#A8A1FF",
+        "accent": "#FF6B73",
         "good": "#4FBF82",
         "blue": "#5BB8D8",
-        "group": "#1C1C1E",
+        "group": "#1C1C1F",
         "edge": "#0A0A0B",
         "shade": "#000000",
     },
