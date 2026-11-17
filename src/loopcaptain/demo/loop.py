@@ -113,7 +113,12 @@ def run_round(
     number: int, clock: Clock, audience: str = "a team about to run its first loop", steering: str = ""
 ) -> bool:
     """One round, reported as it happens. Returns True when the gate passes and the loop is done."""
-    emit = loops.emit
+
+    def emit(loop_id: str, event: str, fields: dict[str, object]) -> None:
+        """The helper's emit, with the clock's time passed as `at=`, as the helper asks."""
+        rest = {key: value for key, value in fields.items() if key != "at"}
+        loops.emit(loop_id, event, rest, at=fields.get("at"))
+
     plan = f"Add sources to the claims that lack one; {len(PRACTICES) - sourced_in(number - 1)} to go."
     plan_file = write(f"work/rounds/{number}-plan.md", f"# Round {number}\n\n{plan}\n{steering}\n")
     emit(LOOP, "round_started", {"round": number, "plan": plan, "artifact": plan_file, **clock.tick(0)})

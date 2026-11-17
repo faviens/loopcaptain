@@ -119,7 +119,8 @@ def test_a_time_in_the_year_9999_does_not_break_a_page(
 def test_a_far_year_or_a_number_that_is_not_finite_reads_as_a_done_loop_on_every_page(
     scan: Path, other: Path, tmp_path: Path, helper: types.ModuleType, extra: dict[str, object]
 ) -> None:
-    helper.emit("odd", "round_finished", {"round": 1, "verdict": "done", **extra}, other)
+    fields = {key: value for key, value in extra.items() if key != "at"}
+    helper.emit("odd", "round_finished", {"round": 1, "verdict": "done", **fields}, other, at=extra.get("at"))
     manifest = other / ".loops" / "odd" / "loop.json"
     manifest.write_text(manifest.read_text().replace('"id"', '"cost_cap_usd": Infinity, "id"', 1))
     client = board(Config(repos=(scan, other)), tmp_path / "state")

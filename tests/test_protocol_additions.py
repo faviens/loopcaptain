@@ -188,10 +188,12 @@ def test_the_helper_stamps_the_time_itself_and_takes_when_it_happened_as_at(
         refused = str(error)
     else:
         refused = ""
+    with pytest.raises(ValueError, match="not a field"):
+        helper.emit("scan", "heartbeat", {"at": "2020-01-01T00:00:00Z"}, repo)
     helper.emit("scan", "round_started", {"round": 1}, repo, at=T0)
 
     events, _ = store.read_events(repo, "scan")
-    assert "give when it happened as `at`" in refused
+    assert "pass when it happened as `at=`" in refused
     assert [event.event for event in events] == ["round_started"]
     assert events[0].at == T0 and events[0].ts > T0
 

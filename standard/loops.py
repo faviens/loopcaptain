@@ -26,8 +26,8 @@ def register(loop_id, manifest, repo="."):
 
 def emit(loop_id, event, fields=None, repo=".", at=None):
     """Append one event line, stamped now; `at` (a datetime or text) is when it really happened."""
-    if "ts" in (fields or {}) or "event" in (fields or {}):
-        raise ValueError("emit sets `ts` and `event` itself; give when it happened as `at`")
+    if {"ts", "event", "at"} & set(fields or {}):
+        raise ValueError("emit sets `ts` and `event`; pass when it happened as `at=`, not a field")
     now = time.time()
     line = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + f".{int(now % 1 * 1000):03d}Z",
