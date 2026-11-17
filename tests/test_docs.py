@@ -142,6 +142,8 @@ def test_the_lines_the_readme_shows_validate_as_one_round(tmp_path: Path) -> Non
     assert len(lines) == 6
     assert (report.problems, report.warnings) == ([], [])
     assert json.loads(lines[-1])["verdict"] == "wait"
+    gate = next(json.loads(line) for line in lines if '"step": "gate"' in line)
+    assert gate["passed"] is False  # the gate says no as a gate does, not as a step that broke
 
 
 def test_the_readme_installs_right_under_its_first_paragraph_and_before_the_prompts() -> None:

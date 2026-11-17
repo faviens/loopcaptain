@@ -47,7 +47,7 @@ reviewer finds a fault and the loop asks you what to do:
 {"ts": "2026-11-14T21:03:00Z", "event": "round_started", "round": 1, "plan": "Draft the memo"}
 {"ts": "2026-11-14T21:09:40Z", "event": "step_finished", "round": 1, "step": "build", "cost": {"usd": 0.34}}
 {"ts": "2026-11-14T21:12:10Z", "event": "step_finished", "round": 1, "step": "facts", "findings": [{"id": "1", "text": "The 40 percent has no source", "severity": "material"}]}
-{"ts": "2026-11-14T21:12:30Z", "event": "step_finished", "round": 1, "step": "gate", "summary": "One material finding is open"}
+{"ts": "2026-11-14T21:12:30Z", "event": "step_finished", "round": 1, "step": "gate", "passed": false, "summary": "One material finding is open"}
 {"ts": "2026-11-14T21:12:31Z", "event": "question", "id": "q1", "text": "Drop the figure?", "options": [{"id": "yes", "label": "Drop it"}, {"id": "no", "label": "Find a source"}]}
 {"ts": "2026-11-14T21:12:32Z", "event": "round_finished", "round": 1, "verdict": "wait"}
 ```
