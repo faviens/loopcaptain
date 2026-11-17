@@ -105,3 +105,26 @@ def test_a_tab_the_page_does_not_have_leads_to_the_bare_page(client: TestClient)
     sent = client.post("/loop/some-repo/scan/stop", data=form)
 
     assert sent.headers["location"].startswith("/loop/some-repo/scan?note=Stop")
+
+
+def tile(page: str, words: str) -> str:
+    """The key figure on the overview whose caption reads `words`, from its opening tag."""
+    found = re.search(rf'<(a|div) [^>]*class="kpi[^"]*"[^>]*><b>[^<]*</b><span>{words}</span>', page)
+    assert found, words
+    return found.group(0)
+
+
+def test_the_figures_that_ask_for_a_look_lead_to_what_they_count(client: TestClient) -> None:
+    page = client.get("/").text
+
+    assert '/?tab=waiting"' in tile(page, "wait[s]? for your answer")
+    assert '/?status=running"' in tile(page, "running now")
+    assert '/?status=stalled&amp;status=failed"' in tile(page, "stalled or failed")
+
+
+def test_the_status_filter_takes_more_than_one_status(client: TestClient, scan: Path) -> None:
+    both = client.get("/?status=running&status=stalled").text
+    other = client.get("/?status=stalled&status=failed").text
+
+    assert "Market scan" in both, "the loop runs, which is one of the two"
+    assert "Market scan" not in other.split('<table class="loops">')[-1]

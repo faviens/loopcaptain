@@ -139,6 +139,10 @@ nav.tabs .n.hot::before { content: ""; display: inline-block; width: 6px; height
 .kpi b { display: block; font: 700 var(--t36)/1 var(--font-display); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .kpi b sup { font-size: 15px; letter-spacing: 0; vertical-align: top; margin-left: 3px; color: var(--text-2); font-weight: 500; line-height: 1.5; }
 .kpi span { display: block; color: var(--text-2); font-size: 13px; line-height: 1.4; margin-top: var(--s1); }
+/* a figure that counts something leads to it */
+a.kpi { display: block; color: var(--text); }
+a.kpi:hover { text-decoration: none; }
+a.kpi:hover span { color: var(--text); text-decoration: underline; }
 .kpi.hot { background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .kpi.hot b { color: var(--accent); }
 /* the two other tiles that ask for a look: something runs, something is stuck */

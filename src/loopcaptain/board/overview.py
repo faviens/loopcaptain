@@ -38,9 +38,9 @@ FINISHED = frozenset({"done", "stopped"})
 
 
 def filter_views(
-    views: list[LoopView], text: str, status: str, *, show_finished: bool
+    views: list[LoopView], text: str, statuses: frozenset[str], *, show_finished: bool
 ) -> tuple[list[LoopView], int]:
-    """The loops the table shows, and how many finished ones were folded away."""
+    """The loops the table shows, and how many finished ones were folded away. No status is every status."""
     needle = text.strip().lower()
 
     def status_of(view: LoopView) -> str:
@@ -50,10 +50,10 @@ def filter_views(
         haystack = f"{view.title} {view.loop_id} {view.repo.key}".lower()
         if view.state:
             haystack += " " + view.state.manifest.brief.goal.lower()
-        return (not needle or needle in haystack) and (not status or status_of(view) == status)
+        return (not needle or needle in haystack) and (not statuses or status_of(view) in statuses)
 
     picked = [view for view in views if matches(view)]
-    if show_finished or status in FINISHED:
+    if show_finished or statuses & FINISHED:
         return picked, 0
     kept = [view for view in picked if status_of(view) not in FINISHED]
     return kept, len(picked) - len(kept)

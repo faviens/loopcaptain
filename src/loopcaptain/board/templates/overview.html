@@ -19,9 +19,9 @@
 {% set here = url_for('overview') %}
 <section class="kpis" aria-label="Totals">
   <div class="kpi"><b>{{ views|length }}</b><span>loop{{ 's' if views|length != 1 }} in {{ project_count }} project{{ 's' if project_count != 1 }}</span></div>
-  <div class="kpi{{ ' hot' if waiting }}"><b>{{ waiting|length }}</b><span>wait{{ 's' if waiting|length == 1 }} for your answer</span></div>
-  <div class="kpi{{ ' live' if running }}"><b>{{ running|length }}</b><span>running now</span></div>
-  <div class="kpi{{ ' alarm' if troubled }}"><b>{{ troubled|length }}</b><span>stalled or failed</span></div>
+  <a href="{{ here }}?tab=waiting" class="kpi{{ ' hot' if waiting }}"><b>{{ waiting|length }}</b><span>wait{{ 's' if waiting|length == 1 }} for your answer</span></a>
+  <a href="{{ here }}?status=running" class="kpi{{ ' live' if running }}"><b>{{ running|length }}</b><span>running now</span></a>
+  <a href="{{ here }}?status=stalled&amp;status=failed" class="kpi{{ ' alarm' if troubled }}"><b>{{ troubled|length }}</b><span>stalled or failed</span></a>
   <div class="kpi"><b>{{ total_usd|usd or '$0' }}</b><span>reported cost of all rounds</span></div>
 </section>
 
@@ -58,11 +58,11 @@
   <label><span class="sr">Find</span><input type="search" name="q" value="{{ filters.q }}" placeholder="Find a loop, a project, a goal"></label>
   <label><span class="sr">Status</span><select name="status">
     <option value="">every status</option>
-    {% for name in statuses %}<option value="{{ name }}"{% if filters.status == name %} selected{% endif %}>{{ name }}</option>{% endfor %}
+    {% for name in statuses %}<option value="{{ name }}"{% if name in filters.statuses %} selected{% endif %}>{{ name }}</option>{% endfor %}
   </select></label>
   <label class="tick"><input type="checkbox" name="finished" value="1"{% if filters.finished %} checked{% endif %}> show finished loops</label>
   <button type="submit" class="quiet">Filter</button>
-  {% if filters.q or filters.status or filters.finished %}<a href="{{ here }}">clear</a>{% endif %}
+  {% if filters.q or filters.statuses or filters.finished %}<a href="{{ here }}">clear</a>{% endif %}
 </form>
 {% if not projects %}<p class="empty tabbed">No loop matches{% if hidden %}; {{ hidden }} finished loop{{ 's' if hidden != 1 }} folded away{% endif %}.</p>{% else %}
 <div class="card flush tabbed">

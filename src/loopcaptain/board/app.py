@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -217,7 +217,11 @@ def create_app(
 
     @app.get("/", response_class=HTMLResponse, name="overview")
     def overview(
-        request: Request, tab: str = "", q: str = "", status: str = "", finished: str = ""
+        request: Request,
+        tab: str = "",
+        q: str = "",
+        status: Annotated[list[str] | None, Query()] = None,
+        finished: str = "",
     ) -> Response:
         try:
             cfg = config()
@@ -233,7 +237,9 @@ def create_app(
             return STATUS_ORDER.index(status), -(last.timestamp() if last else 0.0)
 
         views.sort(key=rank)
-        shown, hidden = filter_views(views, q, status, show_finished=finished == "1")
+        # A tile asks for more than one status at once, the menu for one; an unknown one is dropped.
+        statuses = frozenset(status or ()) & frozenset(STATUS_ORDER)
+        shown, hidden = filter_views(views, q, statuses, show_finished=finished == "1")
         context = {
             "views": views,
             "projects": projects_of(shown),
@@ -241,7 +247,7 @@ def create_app(
             "hidden": hidden,
             "filters": {
                 "q": q,
-                "status": status if status in STATUS_ORDER else "",
+                "statuses": statuses,
                 "finished": finished == "1",
             },
             "statuses": STATUS_ORDER,
