@@ -1,3 +1,7 @@
+---
+description: "Why Loopcaptain is built the way it is: each design decision, the reason for it and the alternatives it beat."
+---
+
 # Architecture
 
 Why Loopcaptain is built the way it is. One section per decision; a changed

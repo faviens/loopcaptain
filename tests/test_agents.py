@@ -27,7 +27,9 @@ VENDOR_COMMAND = re.compile(
 
 
 def test_the_agents_page_is_current() -> None:
-    assert (ROOT / "docs" / "agents.md").read_text() == markdown(), "run make docs-pages"
+    page = (ROOT / "docs" / "agents.md").read_text()
+
+    assert page.startswith("---\ndescription: ") and page.endswith(markdown()), "run make docs-pages"
 
 
 def test_every_agent_has_a_way_in_and_a_way_to_run_unattended() -> None:

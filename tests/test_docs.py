@@ -204,6 +204,17 @@ def test_the_link_check_names_a_missing_page_a_missing_anchor_and_a_wrong_case(
     assert site_links.main([str(tmp_path / "setup" / "none")]) == 2
 
 
+def test_a_link_through_the_sites_own_path_is_a_file_of_the_site(
+    site_links: types.ModuleType, tmp_path: Path
+) -> None:
+    (tmp_path / "setup").mkdir()
+    (tmp_path / "setup" / "index.html").write_text("")
+    (tmp_path / "404.html").write_text('<a href="/thing/setup/">ok</a> <a href="/thing/gone/">dead</a>')
+    (tmp_path / "index.html").write_text("")
+
+    assert site_links.dead_links(tmp_path, "/thing/") == ["404.html: /thing/gone/: no such file"]
+
+
 #: Files a page of the site includes from outside docs/: a relative link in them leads nowhere there.
 INCLUDED = ("standard/AGENTS.md", "CONTRIBUTING.md")
 
@@ -288,3 +299,30 @@ def test_every_variable_the_code_reads_is_on_the_configuration_page() -> None:
 
     assert read and [name for name in sorted(read) if f"`{name}`" not in page] == []
     assert not (ROOT / ".env.example").exists(), "nothing reads a .env file: the page lists the variables"
+
+
+def test_the_site_knows_its_own_address_so_its_sitemap_and_canonical_links_are_filled() -> None:
+    site = tomllib.loads((ROOT / "zensical.toml").read_text())["project"]
+    documentation = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["urls"]["Documentation"]
+
+    assert site.get("site_url") == documentation
+
+
+def front_matter(page: Path) -> dict[str, str]:
+    """The `key: "value"` lines between a page's opening `---` lines, if it has them."""
+    text = page.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        return {}
+    head = text.split("---\n", 2)[1]
+    return dict(re.findall(r'^(\w+): "([^"]*)"$', head, re.MULTILINE))
+
+
+def test_every_written_page_tells_a_search_engine_what_it_is_about_in_its_own_words() -> None:
+    written = [page for page in sorted((ROOT / "docs").rglob("*.md")) if page.parent.name != "reference"]
+    descriptions = {
+        page.name: front_matter(page).get("description", "") for page in written if page.name != "index.md"
+    }
+
+    assert front_matter(ROOT / "docs" / "index.md").get("title", "Home") != "Home"
+    assert [name for name, text in descriptions.items() if not 40 <= len(text) <= 160] == []
+    assert len(set(descriptions.values())) == len(descriptions)

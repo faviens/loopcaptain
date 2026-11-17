@@ -1,3 +1,7 @@
+---
+description: "Install Loopcaptain from PyPI with uv, pipx or pip, run it once through uvx, or install a tagged release from the repository."
+---
+
 # Installation
 
 Loopcaptain is one Python package with one command, `loopcaptain`. It runs

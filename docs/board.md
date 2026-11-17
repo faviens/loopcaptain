@@ -1,3 +1,7 @@
+---
+description: "The local dashboard: its pages, where to look first, how to answer, stop and start a loop, and what each status means."
+---
+
 # The board
 
 A local web page, on 127.0.0.1 only, that reads every watched loop's files
