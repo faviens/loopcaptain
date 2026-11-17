@@ -33,7 +33,7 @@ def emit(loop_id, event, fields=None, repo=".", at=None):
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + f".{int(now % 1 * 1000):03d}Z",
         "event": event,
     }
-    stamp = at.isoformat() if isinstance(at, datetime) else at
+    stamp = at.astimezone(timezone.utc).isoformat() if isinstance(at, datetime) else at
     line.update({key: value for key, value in {"at": stamp, **(fields or {})}.items() if value is not None})
     with open(folder(loop_id, repo) / "events.jsonl", "a") as log:
         log.write(json.dumps(line) + "\n")

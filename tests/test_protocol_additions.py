@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import time
 import types
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from loopcaptain.board.app import create_app
@@ -209,3 +211,18 @@ def test_a_round_started_again_keeps_what_its_dead_try_spent(
     assert [run.cost.usd for run in state.rounds[0].runs if run.cost] == [19.39]
     assert round(state.cost_usd, 2) == 22.10 and state.tokens == 1000
     assert "$2.71 of it in an earlier try" in page(repo, tmp_path, "?tab=rounds&round=1")
+
+
+def test_the_helper_reads_a_time_without_a_zone_as_this_machines_local_time(
+    repo: Path, helper: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TZ", "Etc/GMT-2")  # two hours ahead of UTC
+    time.tzset()
+    fresh_loop(repo, helper)
+
+    helper.emit("scan", "heartbeat", {}, repo, at=datetime(2026, 11, 15, 12, 0))
+    monkeypatch.delenv("TZ")
+    time.tzset()
+
+    events, _ = store.read_events(repo, "scan")
+    assert events[0].at == datetime(2026, 11, 15, 10, 0, tzinfo=UTC)
