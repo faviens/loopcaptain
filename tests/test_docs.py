@@ -141,12 +141,24 @@ def test_the_lines_the_readme_shows_validate_as_one_round(tmp_path: Path) -> Non
     assert json.loads(lines[-1])["verdict"] == "wait"
 
 
-def test_the_readme_offers_the_free_example_before_the_prompts() -> None:
+def test_the_readme_installs_right_under_its_first_paragraph_and_before_the_prompts() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    start = readme.index("## Get started")
+    blocks = readme.split("\n\n")
+    first = next(number for number, block in enumerate(blocks) if block.startswith("**Loopcaptain is"))
 
-    assert start < readme.index("loopcaptain demo") < readme.index("Paste this into your coding agent")
-    assert readme.index("```json") < start
+    assert blocks[first + 1].startswith("```bash\nuv tool install loopcaptain")
+    assert "loopcaptain demo" in blocks[first + 1] and "loopcaptain serve" in blocks[first + 1]
+    assert readme.index("loopcaptain demo") < readme.index("```json") < readme.index("## Get started")
+    assert readme.index("## Get started") < readme.index("Paste this into your coding agent")
+
+
+def test_the_readme_badges_say_what_a_user_needs_and_that_it_is_alpha() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    badges = re.findall(r"^\[!\[([^\]]+)\]", readme, re.MULTILINE)
+    opening = readme.split("## Get started")[0]
+
+    assert badges == ["CI", "Docs", "PyPI", "Python", "License"]
+    assert "Alpha:" in opening and "protocol 1 only grows" in opening
 
 
 def test_the_helper_is_as_short_as_the_pages_say() -> None:

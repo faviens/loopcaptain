@@ -7,15 +7,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/faviens/loopcaptain/ci.yml?branch=main&label=CI)](https://github.com/faviens/loopcaptain/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/github/actions/workflow/status/faviens/loopcaptain/docs.yml?branch=main&label=docs)](https://faviens.github.io/loopcaptain/)
 [![PyPI](https://img.shields.io/pypi/v/loopcaptain?color=0E0E10)](https://pypi.org/project/loopcaptain/)
-[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-0E0E10.svg)](Makefile#L46)
-[![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-0E0E10.svg)](https://www.python.org/downloads/)
-[![uv](https://img.shields.io/badge/deps-uv-0E0E10.svg)](https://docs.astral.sh/uv/)
-[![Ruff](https://img.shields.io/badge/lint-ruff-0E0E10.svg)](https://docs.astral.sh/ruff/)
-[![mypy](https://img.shields.io/badge/types-strict-0E0E10.svg)](https://mypy-lang.org/)
-[![MCP](https://img.shields.io/badge/MCP-server-0E0E10.svg)](standard/LOOPS.md#5-the-same-through-mcp)
-[![pre-commit](https://img.shields.io/badge/hooks-pre--commit-0E0E10.svg)](https://pre-commit.com/)
-[![gitleaks](https://img.shields.io/badge/secrets-gitleaks-0E0E10.svg)](https://github.com/gitleaks/gitleaks)
+[![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE)
 
 **Loopcaptain is an open protocol for agent loops and a local dashboard to
 monitor and steer them.** You run agent loops in many repositories, each
@@ -23,6 +16,15 @@ built its own way. Here is the one place to see them: what each loop is
 for, where it stands, what every round and every reviewer found, what it
 cost, and what waits for you. You answer, stop and start a loop from the
 board: a human in the loop without a chat window.
+
+```bash
+uv tool install loopcaptain    # or put uvx in front of the two lines below
+loopcaptain demo               # writes the example loop and puts it on the board
+loopcaptain serve              # the board, on this machine only
+```
+
+Alpha: protocol 1 only grows, so a loop written today keeps working; the
+board may change.
 
 It works with any loop that can write a file: a script, a Ralph loop, a
 long-running session of a coding agent (Claude Code's `/loop`, Codex's
@@ -59,13 +61,8 @@ the cost, and a question with two buttons:
 
 ## Get started
 
-**Look first.** The example loop costs nothing: no model, no network.
-
-```bash
-uv tool install loopcaptain    # or put uvx in front of the two lines below
-loopcaptain demo               # writes the example loop and puts it on the board
-loopcaptain serve              # the board, on this machine only
-```
+**Look first.** The three lines at the top run the example loop. It costs
+nothing: no model, no network.
 
 Open the address `serve` prints in a browser: it lets that browser in.
 Open the example loop, press Start, answer its
