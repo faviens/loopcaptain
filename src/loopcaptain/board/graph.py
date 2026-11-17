@@ -27,7 +27,8 @@ class Node:
     kind: str
     x: int
     y: int
-    #: pending, running, ok, failed, skipped: the step in the round the picture shows.
+    #: pending, running, ok, no, failed, skipped: the step in the round the picture shows; `no` is
+    #: a gate that ran and did not let the work through.
     state: str = "pending"
     runs: int = 0
     findings: int = 0
@@ -81,8 +82,10 @@ def step_state(round_: RoundState | None, step_id: str) -> tuple[str, int, int]:
     if not runs:
         return "pending", 0, 0
     findings = sum(run.material_open for run in runs)
-    statuses = {run.status for run in runs}
-    for state in ("running", "failed", "ok"):
+    statuses: set[str] = {run.status for run in runs}
+    if any(run.passed is False and run.status == "ok" for run in runs):
+        statuses.add("no")
+    for state in ("running", "failed", "no", "ok"):
         if state in statuses:
             return state, len(runs), findings
     return "skipped", len(runs), findings

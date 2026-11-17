@@ -47,7 +47,8 @@ event and its fields (see `protocol` for all of them); any event may carry `at`,
 happened, if that was earlier than now:
 - round_started: round, plan
 - step_started: round, step, label
-- step_finished: round, step, label, status (ok|failed|skipped), summary, artifact (a path),
+- step_finished: round, step, label, status (ok|failed|skipped), passed (a gate's yes or no),
+  summary, artifact (a path),
   findings [{"id", "text", "severity": material|minor}], cost {"usd", "tokens_in", "tokens_out",
   "tokens_cache_read", "tokens_cache_write", "turns", "estimated"}, metrics [{"name", "value",
   "target", "better": higher|lower, "unit"}], attempt, error {"kind": transient|needs_person,

@@ -109,7 +109,7 @@ its time has come.
 |---|---|---|
 | `round_started` | `round`, `plan`, `artifact` | A round begins. `plan` is a few lines. |
 | `step_started` | `round`, `step`, `label` | Optional: shows the step as running. |
-| `step_finished` | `round`, `step`, `label`, `status`, `summary`, `artifact`, `findings`, `cost`, `metrics`, `attempt`, `error`, `session`, `model` | A step ends. |
+| `step_finished` | `round`, `step`, `label`, `status`, `passed`, `summary`, `artifact`, `findings`, `cost`, `metrics`, `attempt`, `error`, `session`, `model` | A step ends. |
 | `finding_closed` | `round`, `step`, `id`, `label`, `resolution`, `reason` | A finding of this round is settled. |
 | `round_finished` | `round`, `verdict`, `stop_reason`, `summary`, `next`, `commit`, `artifact`, `cost`, `metrics`, `outcome`, `next_at` | A round ends. |
 | `question` | `text`, `round`, `blocks`, `timeout_s`, `id`, `options` | The loop needs the person. |
@@ -130,7 +130,10 @@ line still needs `ts`, and still shows that the loop is alive.
 2. `label` tells runs of one step apart within a round: a research step
    with eight agents sends eight `step_finished`, each with its angle as
    `label`.
-3. `status`: `ok`, `failed` or `skipped`. Left out, it is `ok`.
+3. `status`: `ok`, `failed` or `skipped`. Left out, it is `ok`. `failed`
+   means the step broke. A gate that ran and said no did not fail: send
+   `status` `ok` and `passed` `false`, and `passed` `true` where it let
+   the work through.
 4. `summary`: one or two sentences. `artifact`: the path of the file the
    step wrote (the plan, the review, the gate report). The board links to it
    and never copies it.

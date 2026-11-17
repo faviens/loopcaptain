@@ -82,6 +82,8 @@ class StepRun:
     step: str
     label: str = ""
     status: RunStatus = "running"
+    #: A gate's answer, where the step gave one: passed or not, apart from a step that broke.
+    passed: bool | None = None
     started: datetime | None = None
     finished: datetime | None = None
     summary: str = ""
@@ -555,6 +557,7 @@ def apply_to_round(
         before,
         label=event.label,
         status=event.status,
+        passed=event.passed,
         finished=event.when,
         summary=event.summary,
         artifact=event.artifact,

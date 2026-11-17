@@ -345,6 +345,9 @@ class StepFinished(Event):
     step: str
     label: str = ""
     status: StepStatus = "ok"
+    #: A gate's answer: true it let the work through, false it said no. A gate that said no ran
+    #: well (`status` ok); `failed` is for a step that broke.
+    passed: bool | None = None
     summary: str = ""
     artifact: str | None = None
     findings: list[Finding] = Field(default_factory=list)

@@ -89,3 +89,25 @@ def test_a_loop_that_never_says_it_started_reads_as_before(repo: Path, helper: t
     state = state_of(repo)
 
     assert state.start is None and state.status == "idle"
+
+
+def test_a_gate_that_says_no_reads_apart_from_a_step_that_broke(
+    repo: Path, helper: types.ModuleType, tmp_path: Path
+) -> None:
+    fresh_loop(repo, helper)
+    line(repo, "round_started", round=1)
+    line(repo, "step_finished", round=1, step="work", status="failed", summary="The build broke.")
+    line(repo, "step_finished", round=1, step="gate", passed=False, summary="Two facts lack a source.")
+    picture = page(repo, tmp_path)
+    line(repo, "round_started", round=2)
+    line(repo, "step_finished", round=2, step="gate", passed=True)
+
+    rounds = state_of(repo).rounds
+    shown = page(repo, tmp_path, "?tab=rounds&round=1")
+
+    assert [run.passed for run in rounds[0].runs] == [None, False] and rounds[1].runs[0].passed is True
+    assert '<span class="st no"><i class="mark no"></i>said no</span>' in shown
+    assert '<span class="st failed"><i class="mark failed"></i>failed</span>' in shown
+    assert '<span class="cell" title="said no"><i class="mark no"></i>' in shown
+    assert '<g class="node no">' in picture and "<title>gate: said no</title>" in picture
+    assert '<i class="mark ok"></i>passed</span>' in page(repo, tmp_path, "?tab=rounds&round=2")

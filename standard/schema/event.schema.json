@@ -1038,6 +1038,18 @@
           "default": null,
           "title": "Model"
         },
+        "passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Passed"
+        },
         "round": {
           "minimum": 1,
           "title": "Round",
