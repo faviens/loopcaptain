@@ -151,15 +151,14 @@ def write_private(path: Path, text: str) -> None:
         handle.write(text)
 
 
-def same_process(pid: int, recorded_start: float | None) -> bool:
-    """Whether `pid` is still the process that began at `recorded_start`. A record from before
-    start times were kept, or a system that cannot tell, answers as the pid alone does."""
+def same_process(pid: int, recorded_start: float | None) -> bool | None:
+    """Whether `pid` is still the process that began at `recorded_start`; None where that cannot
+    be told now. A record from before start times were kept answers as the pid alone does."""
     if recorded_start is None:
         return True
     now_start = process_start_time(pid)
     if now_start is None:
-        # Where start times can be read, none means the process is gone; elsewhere it says nothing.
-        return not reads_start_times()
+        return None
     return abs(now_start - recorded_start) < PROCESS_START_TOLERANCE_S
 
 
@@ -173,6 +172,9 @@ class Process:
     command: str
     started: datetime
     alive: bool
+    #: False where the pid is there but its start time could not be read: it may be another
+    #: process, so it is shown as running and End refuses to signal it.
+    confirmed: bool = True
 
 
 class Runner:
@@ -237,10 +239,10 @@ class Runner:
         except (OSError, ValueError, KeyError, TypeError) as error:
             log.warning("unreadable process record for %s: %s", self.name(repo, loop_id), error)
             return None
-        alive = (
-            same_boot and self.is_alive(self.name(repo, loop_id), pid) and same_process(pid, recorded_start)
-        )
-        return Process(pid, command, started, alive)
+        if not (same_boot and self.is_alive(self.name(repo, loop_id), pid)):
+            return Process(pid, command, started, False)
+        same = same_process(pid, recorded_start)
+        return Process(pid, command, started, same is not False, confirmed=same is True)
 
     def is_alive(self, name: str, pid: int) -> bool:
         child = self.children.get(name)
@@ -308,6 +310,11 @@ class Runner:
         current = self.process(repo, loop_id)
         if not current or not current.alive:
             raise StoreError("nothing the board started is running")
+        if not current.confirmed:
+            raise StoreError(
+                f"could not confirm that pid {current.pid} is still the process the board started; "
+                "nothing was sent. End it from a terminal if it is"
+            )
         try:
             os.killpg(current.pid, signal.SIGTERM)
         except ProcessLookupError:

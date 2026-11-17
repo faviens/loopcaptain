@@ -1331,3 +1331,28 @@ def test_a_proc_stat_line_that_cannot_be_read_gives_no_start_time(stat: str) -> 
 def test_a_proc_stat_line_gives_the_ticks_after_boot_even_with_a_bracket_in_the_name() -> None:
     fields = ["S"] + [str(number) for number in range(4, 60)]  # field 3 onwards; field 22 is 22
     assert steer.start_ticks("4242 (odd) name) " + " ".join(fields)) == 22
+
+
+def test_a_process_whose_start_time_cannot_be_read_is_not_called_ended_nor_signalled(
+    scan: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    signalled: list[int] = []
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    record = {
+        "pid": os.getpid(),
+        "command": "x",
+        "started": "2026-11-14T10:00:00+00:00",
+        "boot": steer.boot_time(),
+    }
+    record |= {"repo": steer.identity(repo), "process_start": 1_000_000.0}
+    steer.write_private(runner.record_path(repo, "scan"), json.dumps(record))
+    monkeypatch.setattr(steer, "process_start_time", lambda pid: None)
+    monkeypatch.setattr(os, "killpg", lambda pid, sig: signalled.append(pid))
+
+    process = runner.process(repo, "scan")
+
+    assert process is not None and process.alive and not process.confirmed
+    with pytest.raises(StoreError, match="could not confirm"):
+        runner.kill(repo, "scan")
+    assert signalled == []
