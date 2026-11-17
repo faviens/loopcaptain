@@ -726,3 +726,35 @@ cookie by hand either.
    explain.
 3. A command that prints a fresh address to a running board: a second
    way in to build and to guard, for the rare second browser.
+
+## 32. The look: paper, ink and one red
+
+Replaces the colours and the logo of section 9; its type, spacing and
+status shapes stay.
+
+**Decision.** The light page is a warm white paper (`253 253 251`) with
+near-black ink (`14 14 16`) and one red (`214 0 11`) for links, focus and
+the answer button. Dark mode takes the ink as its ground and a lighter
+red (`255 107 115`). Status keeps its own colours; open findings stay an
+ink ramp. The logo, `board/static/mark.svg`, is a captain's cap over two
+lenses whose rims are loop arrows, without a tile; its dark form is a
+media query inside the same file, so the board, the favicon and the
+drawn pictures use one source. `scripts/readme_assets.py` draws in the
+same palette, and `tests/test_look.py` holds the two together.
+
+**Why.** The red marks one thing per page, so the eye goes there first;
+everything else is paper and ink and reads calm. The palette names no
+one and belongs to no product category, so the board looks at home next
+to any team's tools. A logo without a tile is the lightest thing in the
+header, and the red of its loops is the same signal as on the page.
+
+**Rejected.**
+1. The iris accent of section 9: it coloured links, focus and the mark
+   alike, so nothing stood out from the rest.
+2. Nine other palettes tried as mock-ups of the real pages: an ink top
+   bar, a cream ground, a deep red, a red heat ramp for the grid, black
+   with a full red, a hairline style without shadows, another typeface,
+   and two where red alone marks what needs the person. The last lost
+   the colour difference between running, done and stalled.
+3. The logo on a red or a black tile: the tile was the loudest thing in
+   the header.

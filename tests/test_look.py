@@ -9,6 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STYLE = ROOT / "src" / "loopcaptain" / "board" / "static" / "style.css"
+#: The accent the look replaced, in every spelling it had.
+OLD_ACCENT = ("4A3FE0", "A8A1FF", "74 63 224", "168 161 255", "0E0A3A")
 ROLES = ("paper", "ink", "grey", "accent")
 
 
@@ -41,3 +43,14 @@ def test_the_board_and_the_pictures_share_paper_ink_and_one_red() -> None:
     for theme in ("light", "dark"):
         assert {role: drawn[theme][role].upper() for role in ROLES} == board[theme], theme
     assert board["light"]["accent"] == "#D6000B" and board["dark"]["accent"] == "#FF6B73"
+
+
+def test_no_trace_of_the_old_accent_is_left() -> None:
+    places = [STYLE, ROOT / "scripts" / "readme_assets.py", *sorted((ROOT / "docs" / "assets").glob("*.svg"))]
+    places += sorted((ROOT / "src" / "loopcaptain" / "board").rglob("*.svg"))
+
+    left = [
+        path.name for path in places if any(old in path.read_text(encoding="utf-8") for old in OLD_ACCENT)
+    ]
+
+    assert left == []

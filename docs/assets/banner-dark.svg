@@ -3,9 +3,31 @@
   <rect width="1200" height="340" fill="#0E0E10"/>
   <rect y="339" width="1200" height="1" fill="#38383A"/>
   <g transform="translate(66 72) scale(1.3125)">
-  <rect width="64" height="64" rx="15" fill="#4A3FE0"/>
-  <path d="M47.45 27.86A16 16 0 1 1 36.14 16.55" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
-  <circle cx="44.2" cy="19.8" r="4.1" fill="#FFFFFF"/>
+  <style>
+    .lc-ink { fill: #0E0E10; } .lc-line { stroke: #0E0E10; } .lc-crown { fill: #FFFFFF; stroke: #0E0E10; }
+    .lc-loop { fill: #FF000D; stroke: #FF000D; } .lc-arc { fill: none; stroke: #FF000D; }
+    @media (prefers-color-scheme: dark) {
+      .lc-ink { fill: #5C5C64; } .lc-crown { stroke: #5C5C64; }
+      .lc-loop { fill: #FF6B73; stroke: #FF6B73; } .lc-arc { stroke: #FF6B73; }
+    }
+  </style>
+  <g transform="translate(32 32.5) scale(0.78) translate(-32 -31.5)">
+    <g transform="translate(0 3)">
+      <path class="lc-crown" stroke-width="1.6" d="M9.5 12.5C9.5 7 19.5 4 32 4s22.5 3 22.5 8.5c0 2.8-3.8 4.2-6.5 5.2V21H16v-3.3c-2.7-1-6.5-2.4-6.5-5.2z"/>
+      <rect class="lc-ink" x="16" y="16.6" width="32" height="4.4"/>
+      <path class="lc-line" fill="none" stroke-width="1.3" stroke-linecap="round" d="M32 7.2v6.2M29.3 9.2h5.4M28.3 11.6c.6 2.3 2 3.2 3.7 3.2s3.1-.9 3.7-3.2"/>
+      <path class="lc-ink" d="M14.5 21h35c2 1.5 2.3 3.4-.3 4-5.4 1.2-11 1.8-17.2 1.8s-11.8-.6-17.2-1.8c-2.6-.6-2.3-2.5-.3-4z"/>
+    </g>
+    <rect class="lc-ink" x="28" y="41.4" width="8" height="5.2" rx="1.5"/>
+    <circle class="lc-ink" cx="19.7" cy="44" r="11.6"/>
+    <path class="lc-arc" stroke-width="3.3" d="M24.91 39.63A6.8 6.8 0 1 1 14.65 39.45"/>
+    <circle class="lc-loop" cx="24.91" cy="39.63" r="1.65" stroke-width="0"/>
+    <path class="lc-loop" stroke-width=".6" stroke-linejoin="round" d="M18.07 35.65L12.07 37.13L17.22 41.77z"/>
+    <circle class="lc-ink" cx="44.3" cy="44" r="11.6"/>
+    <path class="lc-arc" stroke-width="3.3" d="M39.09 39.63A6.8 6.8 0 1 0 49.35 39.45"/>
+    <circle class="lc-loop" cx="39.09" cy="39.63" r="1.65" stroke-width="0"/>
+    <path class="lc-loop" stroke-width=".6" stroke-linejoin="round" d="M45.93 35.65L51.93 37.13L46.78 41.77z"/>
+  </g>
 </g>
   <g font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
     <text x="172" y="141" font-size="84" font-weight="700" fill="#F5F5F3" letter-spacing="-3.4">Loopcaptain</text>
