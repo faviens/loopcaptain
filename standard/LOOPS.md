@@ -309,14 +309,17 @@ def register(loop_id, manifest, repo="."):
     tmp.replace(target)
 
 
-def emit(loop_id, event, fields=None, repo="."):
-    """Append one event line. Fields that are None are left out."""
+def emit(loop_id, event, fields=None, repo=".", at=None):
+    """Append one event line, stamped now; `at` (a datetime or text) is when it really happened."""
+    if "ts" in (fields or {}) or "event" in (fields or {}):
+        raise ValueError("emit sets `ts` and `event` itself; give when it happened as `at`")
     now = time.time()
     line = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + f".{int(now % 1 * 1000):03d}Z",
         "event": event,
     }
-    line.update({key: value for key, value in (fields or {}).items() if value is not None})
+    stamp = at.isoformat() if isinstance(at, datetime) else at
+    line.update({key: value for key, value in {"at": stamp, **(fields or {})}.items() if value is not None})
     with open(folder(loop_id, repo) / "events.jsonl", "a") as log:
         log.write(json.dumps(line) + "\n")
 

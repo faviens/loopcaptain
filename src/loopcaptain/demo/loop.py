@@ -76,7 +76,7 @@ class Clock:
             time.sleep(self.pace_s)
             return {}
         self.at += timedelta(minutes=minutes)
-        return {"ts": self.at.strftime("%Y-%m-%dT%H:%M:%SZ")}
+        return {"at": self.at.strftime("%Y-%m-%dT%H:%M:%SZ")}
 
 
 def write(relative: str, text: str) -> str:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import types
@@ -95,8 +96,9 @@ def test_a_time_in_the_year_9999_does_not_break_a_page(
     scan: Path, other: Path, tmp_path: Path, helper: types.ModuleType, field: str
 ) -> None:
     far = "9999-12-31T23:59:59+00:00"
-    event = {"round": 1, "verdict": "continue", field: far}
-    helper.emit("odd", "round_finished", event, other)
+    event = {"ts": "2026-11-15T08:00:00Z", "event": "round_finished", "round": 1, "verdict": "continue"}
+    with (other / ".loops" / "odd" / "events.jsonl").open("a", encoding="utf-8") as log:
+        log.write(json.dumps({**event, field: far}) + "\n")  # `ts` too, which the helper sets itself
     client = board(Config(repos=(scan, other)), tmp_path / "state")
 
     assert "Odd one" in client.get("/").text

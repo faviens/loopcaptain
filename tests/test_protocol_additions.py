@@ -173,3 +173,22 @@ def test_a_clock_that_jumps_back_once_is_one_problem_with_a_count(
         "scan/events.jsonl: events 2 to 6 (5 lines) are earlier than event 1 before them",
         "scan/events.jsonl: event 8 (heartbeat) is earlier than the one before it",
     ]
+
+
+def test_the_helper_stamps_the_time_itself_and_takes_when_it_happened_as_at(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+
+    try:
+        helper.emit("scan", "heartbeat", {"ts": "2020-01-01T00:00:00Z"}, repo)
+    except ValueError as error:
+        refused = str(error)
+    else:
+        refused = ""
+    helper.emit("scan", "round_started", {"round": 1}, repo, at=T0)
+
+    events, _ = store.read_events(repo, "scan")
+    assert "give when it happened as `at`" in refused
+    assert [event.event for event in events] == ["round_started"]
+    assert events[0].at == T0 and events[0].ts > T0
