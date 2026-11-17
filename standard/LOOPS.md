@@ -114,6 +114,7 @@ its time has come.
 | `round_finished` | `round`, `verdict`, `stop_reason`, `summary`, `next`, `commit`, `artifact`, `cost`, `metrics`, `outcome`, `next_at` | A round ends. |
 | `question` | `text`, `round`, `blocks`, `timeout_s`, `id`, `options` | The loop needs the person. |
 | `question_closed` | `question`, `reason`, `answer` | The loop ends its own question. |
+| `loop_started` | `rounds` | The loop's process starts. |
 | `loop_stopped` | `stop_reason`, `summary` | The loop ends between rounds. |
 | `heartbeat` | `text`, `next_at` | Alive; when to expect the next line. |
 | `check` | `item`, `kind`, `result`, `who`, `finding`, `evidence`, `round` | One check of one thing the loop evaluates. |
@@ -191,6 +192,12 @@ line still needs `ts`, and still shows that the loop is alive.
 13. `heartbeat`: a loop that works quietly or sleeps says it is alive and,
     with `next_at`, when its next line comes. Until then it is not
     stalled.
+14. `loop_started`: optional, for a loop whose process runs a number of
+    rounds and ends, and is started again. `rounds` is how many rounds
+    this start may run. The board counts the starts and the rounds of the
+    latest one, and a start that has finished its `rounds` reads as
+    capped, not as a loop that went quiet. It ends no round and changes
+    no count: rounds still count on from the last one.
 
 A round of the example above, as lines:
 
@@ -386,6 +393,7 @@ import loops as board
 
 board.register("market-scan", {"title": "Market scan", "steps": STEPS, "commands": {"start": "make loop"}})
 first = board.last_round("market-scan") + 1  # a second start counts on; it never begins at 1 again
+board.emit("market-scan", "loop_started", {"rounds": ROUNDS})
 for n in range(first, first + ROUNDS):
     messages = board.inbox("market-scan")
     if any(m["kind"] == "stop" and m["signed"] is True for m in messages):

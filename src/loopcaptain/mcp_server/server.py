@@ -117,6 +117,7 @@ def emit(loop_id: str, event: str, fields: dict[str, Any] | None = None, repo: s
       commit, cost, metrics, outcome (kept|discarded), next_at
     - question: text, round, blocks, timeout_s, id, options [{"id", "label"}]
     - question_closed: question (its id), reason (answered|superseded|withdrawn), answer
+    - loop_started: rounds (how many this start may run)
     - loop_stopped: stop_reason, summary
     - heartbeat: text, next_at
     - check: item, kind, result (pass|partly|fail|blocked), who, finding, evidence

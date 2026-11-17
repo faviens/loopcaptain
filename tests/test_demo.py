@@ -151,4 +151,5 @@ def test_the_example_does_not_take_a_stop_it_cannot_check(tmp_path: Path, inbox_
 
     state = state_of(repo)
     assert not inbox_key.exists()
-    assert len(state.rounds) == SEEDED_ROUNDS + 1 and state.ended is None and state.status == "idle"
+    # It ran its one round and ended: its start is used up, not ended by the stop it could not check.
+    assert len(state.rounds) == SEEDED_ROUNDS + 1 and state.ended is None and state.status == "capped"

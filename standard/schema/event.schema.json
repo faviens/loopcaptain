@@ -338,6 +338,53 @@
       "title": "InboxRead",
       "type": "object"
     },
+    "LoopStarted": {
+      "description": "A start of the loop's process: one command, a number of rounds, then it ends.\n\nA loop started many times in one folder says so here, with `rounds`, what this start may run: a\nstart whose rounds are used up has ended, and is not a loop that went quiet.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "event": {
+          "const": "loop_started",
+          "default": "loop_started",
+          "title": "Event",
+          "type": "string"
+        },
+        "rounds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rounds"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ts"
+      ],
+      "title": "LoopStarted",
+      "type": "object"
+    },
     "LoopStopped": {
       "description": "The loop ended between rounds: a stop that came after the last round finished, a cap.",
       "properties": {
@@ -491,6 +538,7 @@
               "question_closed",
               "check",
               "inbox_read",
+              "loop_started",
               "loop_stopped",
               "heartbeat"
             ]
@@ -1117,6 +1165,9 @@
     },
     {
       "$ref": "#/$defs/InboxRead"
+    },
+    {
+      "$ref": "#/$defs/LoopStarted"
     },
     {
       "$ref": "#/$defs/LoopStopped"

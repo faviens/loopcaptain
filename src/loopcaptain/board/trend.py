@@ -127,12 +127,20 @@ class CapBar:
 
 
 def caps_of(state: LoopState) -> list[CapBar]:
-    """Rounds, runtime and cost against the loop's own caps, for the caps it declares."""
+    """Rounds, this start's rounds, runtime and cost against the loop's own caps, for those it declares."""
     manifest = state.manifest
     bars = []
     if manifest.round_cap:
         used = state.rounds[-1].number if state.rounds else 0
         bars.append(CapBar("rounds", str(used), str(manifest.round_cap), min(1.0, used / manifest.round_cap)))
+    start = state.start
+    if start is not None and start.budget:
+        used = len(start.begun)
+        bars.append(
+            CapBar(
+                f"start {start.number}, rounds", str(used), str(start.budget), min(1.0, used / start.budget)
+            )
+        )
     if manifest.runtime_cap_minutes:
         share = state.minutes / manifest.runtime_cap_minutes
         bars.append(

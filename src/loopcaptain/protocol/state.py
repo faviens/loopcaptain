@@ -21,6 +21,7 @@ from loopcaptain.protocol.models import (
     Heartbeat,
     InboxEntry,
     InboxRead,
+    LoopStarted,
     LoopStopped,
     Manifest,
     Metric,
@@ -222,6 +223,22 @@ class ItemState:
 
 
 @dataclass(frozen=True)
+class StartState:
+    """The latest start of the loop's process: which start it is, its round budget, the rounds it ran."""
+
+    number: int
+    budget: int | None = None
+    #: The rounds this start began, in order, and those of them that finished.
+    begun: tuple[int, ...] = ()
+    finished: tuple[int, ...] = ()
+
+    @property
+    def used_up(self) -> bool:
+        """This start has finished as many rounds as it was given: it has ended, not gone quiet."""
+        return self.budget is not None and len(self.finished) >= self.budget
+
+
+@dataclass(frozen=True)
 class LoopState:
     manifest: Manifest
     rounds: tuple[RoundState, ...] = ()
@@ -238,6 +255,8 @@ class LoopState:
     expected: datetime | None = None
     #: The last line in words, for a loop that went silent.
     last_line: str = ""
+    #: The latest `loop_started`, for a loop that says when its process starts.
+    start: StartState | None = None
 
     @property
     def last_round(self) -> RoundState | None:
@@ -305,8 +324,10 @@ def fold(
     last_question: Question | None = None
     ended: LoopStopped | None = None
     expected: datetime | None = None
+    start: StartState | None = None
 
     for event in events:
+        start = count_start(start, event)
         if isinstance(event, RoundStarted):
             ended = None
             expected = None  # a new round is its own sign of life; an older promise is spent
@@ -341,6 +362,8 @@ def fold(
             read_ids.update(event.ids)
         elif isinstance(event, LoopStopped):
             ended = event
+        elif isinstance(event, LoopStarted):
+            ended = None  # started again: an earlier end is history
         elif isinstance(event, Heartbeat):
             expected = promise(event.next_at, event.ts, at) or expected
 
@@ -355,6 +378,8 @@ def fold(
             if run.step not in declared and run.step not in undeclared:
                 undeclared.append(run.step)
     status = status_of(manifest, ordered, question, last_event, at, process_alive, expected)
+    if status == "idle" and start is not None and start.used_up:
+        status = "capped"
     if ended is not None and not process_alive and not (ordered and ordered[-1].running):
         status = ended_status(ended)
     return LoopState(
@@ -369,7 +394,21 @@ def fold(
         ended=ended,
         expected=expected,
         last_line=describe(events[-1]) if events else "",
+        start=start,
     )
+
+
+def count_start(start: StartState | None, event: AnyEvent) -> StartState | None:
+    """The latest start after this event: a `loop_started` opens the next, a round counts in the open one."""
+    if isinstance(event, LoopStarted):
+        return StartState(start.number + 1 if start else 1, event.rounds)
+    if start is None:
+        return None
+    if isinstance(event, RoundStarted) and event.round not in start.begun:
+        return replace(start, begun=(*start.begun, event.round))
+    if isinstance(event, RoundFinished) and event.round in start.begun and event.round not in start.finished:
+        return replace(start, finished=(*start.finished, event.round))
+    return start
 
 
 def describe(event: AnyEvent) -> str:

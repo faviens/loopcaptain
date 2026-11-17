@@ -397,6 +397,16 @@ class RoundFinished(Event):
     _next_at = field_validator("next_at")(aware_time)
 
 
+class LoopStarted(Event):
+    """A start of the loop's process: one command, a number of rounds, then it ends.
+
+    A loop started many times in one folder says so here, with `rounds`, what this start may run: a
+    start whose rounds are used up has ended, and is not a loop that went quiet."""
+
+    event: Literal["loop_started"] = "loop_started"
+    rounds: int | None = Field(default=None, ge=1)
+
+
 class LoopStopped(Event):
     """The loop ended between rounds: a stop that came after the last round finished, a cap."""
 
@@ -471,6 +481,7 @@ EVENT_NAMES = (
     "question_closed",
     "check",
     "inbox_read",
+    "loop_started",
     "loop_stopped",
     "heartbeat",
 )
@@ -504,6 +515,7 @@ AnyEvent = Annotated[
     | Annotated[QuestionClosed, Tag("question_closed")]
     | Annotated[Check, Tag("check")]
     | Annotated[InboxRead, Tag("inbox_read")]
+    | Annotated[LoopStarted, Tag("loop_started")]
     | Annotated[LoopStopped, Tag("loop_stopped")]
     | Annotated[Heartbeat, Tag("heartbeat")]
     | Annotated[OtherEvent, Tag(OTHER)],

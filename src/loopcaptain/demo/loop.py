@@ -287,6 +287,7 @@ def main(argv: list[str] | None = None) -> int:
     loops.register(LOOP, MANIFEST)
     audience, carried, done = "a team about to run its first loop", kept_steering(), False
     first = loops.last_round(LOOP) + 1  # a second start goes on counting
+    loops.emit(LOOP, "loop_started", {"rounds": args.rounds})
     for number in range(first, first + args.rounds):
         messages = loops.inbox(LOOP)
         if any(m["kind"] == "stop" and m["signed"] is True for m in messages):
