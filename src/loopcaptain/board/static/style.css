@@ -89,7 +89,8 @@ code { background: var(--tint-2); padding: 1px 6px; border-radius: 6px; }
 nav.strip { margin-left: auto; display: flex; gap: 2px; padding: 3px; border-radius: var(--pill); background: var(--tint-2); }
 nav.strip a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: var(--pill); color: var(--text-2); font-size: var(--t14); font-weight: 500; white-space: nowrap; transition: background .2s var(--ease), color .2s var(--ease); }
 nav.strip a:hover { color: var(--text); text-decoration: none; }
-nav.strip a[aria-current="page"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+/* the page itself, or a page that belongs under it: a loop, a file of a loop */
+nav.strip a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
 
 main { width: 100%; max-width: 1280px; margin: 0 auto; padding: var(--s4) var(--s4) var(--s6); flex: 1; }
 .foot { width: 100%; max-width: 1280px; margin: 0 auto; padding: var(--s3) var(--s4) var(--s5); color: var(--text-2); font-size: var(--t12); border-top: 1px solid var(--line); }

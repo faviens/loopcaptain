@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set page = 'loop' %}
 {% block title %}{{ view.title }} · Loopcaptain{% endblock %}
 {% block where %}{{ view.repo.key }} / {{ view.loop_id }}{% endblock %}
 {% block body_attrs %} data-pulse-url="{{ url_for('loop_pulse', repo_key=view.repo.key, loop_id=view.loop_id) }}" data-pulse="{{ pulse }}"{% endblock %}
