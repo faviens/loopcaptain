@@ -94,8 +94,9 @@ nav.strip a[aria-current] { background: var(--surface); color: var(--text); font
 
 main { width: 100%; max-width: 1280px; margin: 0 auto; padding: var(--s4) var(--s4) var(--s6); flex: 1; }
 .foot { width: 100%; max-width: 1280px; margin: 0 auto; padding: var(--s3) var(--s4) var(--s5); color: var(--text-2); font-size: var(--t12); border-top: 1px solid var(--line); }
-.crumb { font-size: var(--t14); color: var(--text-2); }
-.crumb a { color: var(--text-2); }
+.crumb { font-size: var(--t14); color: var(--text-2); margin: 0; }
+/* the way back to the list: a link that reads as one and a target as tall as any control */
+.crumb a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); font-weight: 600; }
 .lede { color: var(--text-2); font-size: var(--t20); line-height: 1.45; max-width: 62ch; letter-spacing: -.01em; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) 12px; color: var(--text-2); font-size: var(--t14); }
 .note { color: var(--text-2); font-size: var(--t14); margin-top: var(--s1); max-width: 100ch; }
@@ -433,6 +434,6 @@ main .card, main .ask, main .brief > *, main .steer > * { min-width: 0; }
 /* ---- a link in running text is told apart by more than its colour ---- */
 main p a, main li a, main dd a, .prose a, .note a, .card a, .flash a, form.filters a { text-decoration: underline; text-decoration-thickness: 1px; }
 main p a:hover, main li a:hover, main dd a:hover, .prose a:hover, .note a:hover, .card a:hover, .flash a:hover { text-decoration-thickness: 2px; }
-/* not running text: the way back above a heading, and a loop's name in the table, which is the row's one link */
-.crumb a, table.loops td.name a { text-decoration: none; }
-.crumb a:hover, table.loops td.name a:hover { text-decoration: underline; }
+/* not running text: a loop's name in the table, which is the row's one link */
+table.loops td.name a { text-decoration: none; }
+table.loops td.name a:hover { text-decoration: underline; }

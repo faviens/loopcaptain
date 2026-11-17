@@ -52,3 +52,21 @@ def test_the_menu_marks_loops_on_a_loop_and_a_file_page(client: TestClient, scan
 def test_the_menu_marks_loops_as_the_page_itself_only_on_the_overview(client: TestClient) -> None:
     assert 'aria-current="page"' in menu_link(client.get("/").text, "Loops")
     assert "aria-current" not in menu_link(client.get("/connect").text, "Loops")
+
+
+STYLE = Path(__file__).resolve().parents[1] / "src" / "loopcaptain" / "board" / "static" / "style.css"
+
+
+def rules_for(selector: str) -> str:
+    """Every declaration the style sheet gives `selector` on its own or in a list of selectors."""
+    sheet = re.sub(r"/\*.*?\*/", "", STYLE.read_text(encoding="utf-8"), flags=re.S)
+    found = re.findall(r"([^{}]+)\{([^}]*)\}", sheet)
+    return " ".join(body for head, body in found if selector in [part.strip() for part in head.split(",")])
+
+
+def test_the_way_back_above_a_heading_is_a_target_as_tall_as_any_control() -> None:
+    crumb = rules_for(".crumb a")
+
+    assert "min-height: 44px" in crumb
+    assert "text-decoration: none" not in crumb, "a link that does not look like one"
+    assert "var(--accent)" in crumb, "links are the one action colour"
