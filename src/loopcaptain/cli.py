@@ -28,6 +28,7 @@ from loopcaptain.board.discover import (
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.doctor import examine
 from loopcaptain.protocol.models import EVENT_NAMES, AnyEvent, InboxEntry, Manifest, now
+from loopcaptain.protocol.signing import board_key
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import before_writing, validate_report
 
@@ -189,6 +190,8 @@ def serve_board(port: int) -> int:
             f"port {port} on {HOST} cannot be used: another board or program has it, or it is no port. "
             f"Stop that one, or pick another: `loopcaptain serve --port <number>`"
         )
+    # The key exists before the first answer, so a loop can tell the board's lines from the start.
+    board_key()
     session = session_for(port)
     sys.stdout.write(f"open {entry_address(port, session)}   ({watched_line()})\n")
     sys.stdout.flush()

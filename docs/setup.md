@@ -86,7 +86,7 @@ loopcaptain serve --port 9000
 ## 5. The key your answers are signed with
 
 The board signs every line it writes into a loop's `inbox.jsonl` with
-`~/.config/loopcaptain/inbox.key`, made on first use. A loop that reads
+`~/.config/loopcaptain/inbox.key`, made when `serve` first starts. A loop that reads
 the same key can refuse a stop or an answer the board did not write. A
 loop the board starts gets the key's path as `LOOPCAPTAIN_INBOX_KEY`,
 whether or not the board's own environment sets it; a loop you start

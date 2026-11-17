@@ -236,7 +236,7 @@ must learn, and unknown fields are already allowed.
 **Decision.** Every line the board appends to `inbox.jsonl` carries `sig`,
 an HMAC-SHA256 over the line without `sig` in a canonical JSON form. The
 key is `~/.config/loopcaptain/inbox.key` (or the file `LOOPCAPTAIN_INBOX_KEY`
-names), created on first use, readable by the user only, outside every
+names), created when `serve` starts, readable by the user only, outside every
 watched repository (`protocol/signing.py`). The helper and the MCP tool
 `inbox_read` add `signed` to each entry: true, false, or null where the
 machine has no key. `sig` is an optional field of protocol 1. Starting a
@@ -337,8 +337,10 @@ board's fold.
 (`signing.untrusted_ids`). They are listed on the "What you sent" tab, but
 answer no question, clear no "needs you" and request no stop. Each line
 the board writes carries `loop`, inside the signed body, and a line for
-another loop does not verify. Where the machine has no key yet, nothing
-can be told apart and every line counts, as before. The key is written
+another loop does not verify. `serve` makes the key before it opens
+(`cli.py`), so a loop on a machine that runs the board can tell lines apart
+from the start. Where a machine has no key, nothing can be told apart
+and every line counts, as before. The key is written
 whole and linked into place, and a key shorter than 32 bytes is not used.
 
 **Why.** An independent review found that a reply an agent wrote into its

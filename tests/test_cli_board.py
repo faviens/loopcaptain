@@ -51,6 +51,18 @@ def test_serve_says_in_one_line_where_the_board_is_and_what_it_watches(
     assert "1 repository with loops" in out and "config.yaml" in out
 
 
+def test_serve_makes_the_inbox_key_before_the_board_opens(
+    tmp_path: Path, inbox_key: Path, monkeypatch: pytest.MonkeyPatch, served: list[dict[str, Any]]
+) -> None:
+    """From its first minute a loop can tell the board's lines from any other: the key is there."""
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(tmp_path / "none.yaml"))
+
+    assert not inbox_key.exists()
+    cli_main(["serve", "--port", str(free_port())])
+
+    assert inbox_key.is_file() and served
+
+
 def test_the_board_listens_on_this_machine_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, served: list[dict[str, Any]]
 ) -> None:
