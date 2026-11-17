@@ -2,25 +2,34 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import types
 from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 from fastapi.testclient import TestClient
 
+from loopcaptain.board import steer
 from loopcaptain.board.app import create_app
-from loopcaptain.board.discover import Config
+from loopcaptain.board.discover import Config, find_repos
 from loopcaptain.board.steer import Runner
 
 HOST = "board.test"
 
 
 @pytest.fixture
-def client(scan: Path, tmp_path: Path) -> TestClient:
+def runner(tmp_path: Path) -> Runner:
+    return Runner(tmp_path / "state")
+
+
+@pytest.fixture
+def client(scan: Path, runner: Runner) -> TestClient:
     app = create_app(
         config=lambda: Config(repos=(scan,)),
-        runner=Runner(tmp_path / "state"),
+        runner=runner,
         allowed_hosts=frozenset({HOST}),
     )
     session = app.state.session
@@ -128,3 +137,21 @@ def test_the_status_filter_takes_more_than_one_status(client: TestClient, scan: 
 
     assert "Market scan" in both, "the loop runs, which is one of the two"
     assert "Market scan" not in other.split('<table class="loops">')[-1]
+
+
+def test_end_says_so_when_the_remembered_process_had_already_ended(
+    client: TestClient, scan: Path, runner: Runner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def gone(pid: int, sig: int) -> None:
+        raise ProcessLookupError(3, "No such process")
+
+    repo = find_repos(Config(repos=(scan,)))[0]
+    record = {"pid": 4242, "command": "x", "started": "2026-11-14T21:00:00+00:00", "boot": steer.boot_time()}
+    steer.write_private(runner.record_path(repo, "scan"), json.dumps(record | {"repo": steer.identity(repo)}))
+    monkeypatch.setattr(os, "kill", lambda pid, sig: None)  # the pid answers, as a reused one would
+    monkeypatch.setattr(os, "killpg", gone)  # but leads no process group
+
+    ended = client.post("/loop/some-repo/scan/kill", data={"token": str(client.app.state.token)})  # type: ignore[attr-defined]
+
+    location = unquote(ended.headers["location"])
+    assert "had already ended" in location and "told to end" not in location

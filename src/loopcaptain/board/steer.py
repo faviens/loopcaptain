@@ -226,18 +226,22 @@ class Runner:
         log.info("started %s: %s (pid %d)", name, command, child.pid)
         return Process(child.pid, command, started, True)
 
-    def kill(self, repo: Repo, loop_id: str) -> None:
-        """End the process the board started, and its children, now. The polite way is an inbox `stop`."""
+    def kill(self, repo: Repo, loop_id: str) -> bool:
+        """End the process the board started, and its children, now. The polite way is an inbox `stop`.
+
+        False when no process group of that pid was left to signal: it had ended on its own."""
         current = self.process(repo, loop_id)
         if not current or not current.alive:
             raise StoreError("nothing the board started is running")
         try:
             os.killpg(current.pid, signal.SIGTERM)
         except ProcessLookupError:
-            return
+            log.info("%s (pid %d) had already ended", self.name(repo, loop_id), current.pid)
+            return False
         except PermissionError as error:
             raise StoreError(f"may not end pid {current.pid}") from error
         log.info("ended %s (pid %d)", self.name(repo, loop_id), current.pid)
+        return True
 
     def log_tail(self, repo: Repo, loop_id: str) -> str:
         path = self.log_path(repo, loop_id)

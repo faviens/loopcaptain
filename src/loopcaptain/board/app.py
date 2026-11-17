@@ -466,9 +466,11 @@ def create_app(
         check_token(token, repo_key, loop_id)
         repo, _, _ = view_of(repo_key, loop_id)
         try:
-            steer.kill(repo, loop_id)
+            ended = steer.kill(repo, loop_id)
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, error=f"{problem}.".capitalize())
+        if not ended:
+            return back(repo_key, loop_id, tab=tab, note="The process had already ended: nothing was sent.")
         return back(repo_key, loop_id, tab=tab, note="The process was told to end.")
 
     @app.get("/connect", response_class=HTMLResponse, name="connect")
