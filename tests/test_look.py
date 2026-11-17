@@ -54,3 +54,11 @@ def test_no_trace_of_the_old_accent_is_left() -> None:
     ]
 
     assert left == []
+
+
+def test_each_banner_shows_the_mark_in_its_own_theme_whatever_the_viewer_prefers() -> None:
+    light = (ROOT / "docs" / "assets" / "banner-light.svg").read_text(encoding="utf-8")
+    dark = (ROOT / "docs" / "assets" / "banner-dark.svg").read_text(encoding="utf-8")
+
+    assert "prefers-color-scheme" not in light + dark
+    assert "#5C5C64" not in light and "#5C5C64" in dark

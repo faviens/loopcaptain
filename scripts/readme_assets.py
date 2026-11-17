@@ -6,6 +6,7 @@ No dependency, so the pictures are redrawn the same on any machine.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -101,9 +102,17 @@ def icon(kind: str, x: float, y: float, colour: str) -> str:
 MARK = Path(__file__).resolve().parents[1] / "src" / "loopcaptain" / "board" / "static" / "mark.svg"
 
 
-def mark(x: float, y: float, size: float) -> str:
-    """The logo, from its one source file, placed and scaled."""
+#: The mark's dark form, a media query in its source; a picture fixes it to its own theme instead.
+DARK_FORM = re.compile(r"@media \(prefers-color-scheme: dark\) \{(?P<rules>.*?)\}\s*(?=</style>)", re.S)
+
+
+def mark(x: float, y: float, size: float, theme: str) -> str:
+    """The logo, from its one source file, placed, scaled and in the given theme's colours.
+
+    A picture is shown for one scheme already, so the mark must not switch with the viewer's."""
     inner = MARK.read_text(encoding="utf-8").split(">", 1)[1].rsplit("</svg>", 1)[0]
+    inner = DARK_FORM.sub(lambda found: found["rules"] if theme == "dark" else "", inner)
+    inner = "\n".join(line.rstrip() for line in inner.splitlines())
     return f'<g transform="translate({x} {y}) scale({size / 64})">{inner}</g>'
 
 
@@ -134,7 +143,7 @@ def banner(theme: str) -> str:
   <title>Loopcaptain</title>
   <rect width="1200" height="340" fill="{t["paper"]}"/>
   <rect y="339" width="1200" height="1" fill="{t["hair"]}"/>
-  {mark(66, 72, 84)}
+  {mark(66, 72, 84, theme)}
   <g font-family="{FONT}">
     {text(172, 141, "Loopcaptain", 84, t["ink"], 700, 'letter-spacing="-3.4"')}
     {text(68, 208, "Monitor and steer your agent loops", 22, t["ink"], 600, 'letter-spacing="-0.4"')}
