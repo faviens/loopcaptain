@@ -1,5 +1,5 @@
-// Three small things, no library: reload the page when a loop's files change, show a message once,
-// and copy the protocol.
+// A few small things, no library: reload the page when a loop's files change, show a message once,
+// keep tabs and answers out of the browser's history, and copy the protocol.
 (function () {
   "use strict";
   var body = document.body;
@@ -38,6 +38,53 @@
   }
 
   if (url) window.setInterval(poll, POLL_MS);
+
+  // Back leads back: a tab, a round, an answer or a button replaces the page in the history instead of
+  // adding one, so one press of Back from a loop's page reaches the list it was opened from.
+  document.querySelectorAll("nav.tabs a, th.rnd a").forEach(function (link) {
+    link.addEventListener("click", function (event) {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      window.location.replace(link.href);
+    });
+  });
+
+  function sendTheOldWay(form, button) {
+    // form.submit() leaves out the pressed button, which may carry the choice.
+    if (button && button.name) {
+      var carried = document.createElement("input");
+      carried.type = "hidden";
+      carried.name = button.name;
+      carried.value = button.value;
+      form.appendChild(carried);
+    }
+    form.submit();
+  }
+
+  if (window.fetch && window.FormData) {
+    document.querySelectorAll('form[method="post"]').forEach(function (form) {
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var data = new FormData(form);
+        var button = event.submitter;
+        if (button && button.name) data.append(button.name, button.value);
+        if (button) button.disabled = true;
+        fetch(form.action, { method: "POST", body: data, credentials: "same-origin" })
+          .then(function (response) {
+            if (response.ok && response.redirected) {
+              window.location.replace(response.url);
+            } else if (response.status >= 500) {
+              // Something may have been written: show the page as it is now rather than send twice.
+              window.location.reload();
+            } else {
+              // Refused, so nothing changed: send it the old way and show the board's own answer.
+              sendTheOldWay(form, button);
+            }
+          })
+          .catch(function () { sendTheOldWay(form, button); });
+      });
+    });
+  }
 
   // Every copy button copies its own source and says so beside itself.
   if (navigator.clipboard) {

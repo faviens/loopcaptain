@@ -155,3 +155,27 @@ def test_end_says_so_when_the_remembered_process_had_already_ended(
 
     location = unquote(ended.headers["location"])
     assert "had already ended" in location and "told to end" not in location
+
+
+SCRIPT = STYLE.parent / "board.js"
+
+
+def test_the_script_keeps_tabs_and_answers_out_of_the_history() -> None:
+    """Back from a loop page leads to the list in one press: a tab or an answer replaces the entry.
+
+    The browser's history itself is checked by hand; this holds the script to the way it does it."""
+    script = SCRIPT.read_text(encoding="utf-8")
+
+    assert 'querySelectorAll("nav.tabs a, th.rnd a")' in script
+    assert 'form[method="post"]' in script and "fetch(form.action" in script
+    assert "window.location.replace(response.url)" in script
+    assert "form.submit()" in script, "without a usable answer the form is sent the old way"
+    assert "carried.name = button.name" in script, "the old way keeps the button that was pressed"
+
+
+def test_a_form_still_works_without_the_script(client: TestClient) -> None:
+    form = {"token": str(client.app.state.token), "text": "A note."}  # type: ignore[attr-defined]
+
+    sent = client.post("/loop/some-repo/scan/reply", data=form)
+
+    assert sent.status_code == 303 and sent.headers["location"].startswith("/loop/some-repo/scan?note=Sent")
