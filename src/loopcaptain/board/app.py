@@ -199,11 +199,16 @@ def create_app(
         return hmac.new(token.encode(), f"{note}\0{error}".encode(), "sha256").hexdigest()
 
     def back(
-        repo_key: str, loop_id: str, note: str = "", error: str = "", *, tab: str = ""
+        repo_key: str, loop_id: str, note: str = "", error: str = "", *, tab: str = "", back_to: str = ""
     ) -> RedirectResponse:
-        """To the loop's page, on the tab the form was drawn on, with a message only this server can seal."""
+        """To the loop's page, on the tab the form was drawn on, with a message only this server can seal.
+
+        `back_to` names the one other place a form may lead: the overview's waiting tab. It is a name,
+        never an address, so a form cannot send the browser anywhere the board does not know."""
         url = str(app.url_path_for("loop_page", repo_key=repo_key, loop_id=loop_id))
         pairs = [("tab", tab)] if tab in TABS and tab != "overview" else []
+        if back_to == "waiting":
+            url, pairs = str(app.url_path_for("overview")), [("tab", "waiting")]
         if note or error:
             pairs += [("note", note), ("error", error), ("seal", seal(note, error))]
         query = "&".join(f"{key}={quote(value)}" for key, value in pairs if value)
@@ -236,6 +241,7 @@ def create_app(
             last = view.state.last_event if view.state else None
             return STATUS_ORDER.index(status), -(last.timestamp() if last else 0.0)
 
+        note, told = message_of(request)
         views.sort(key=rank)
         # A figure asks for more than one status as the status given twice, the menu as one value
         # joined by commas, so Filter keeps them; an unknown one is dropped.
@@ -258,7 +264,8 @@ def create_app(
             "tab": tab if tab in OVERVIEW_TABS else "loops",
             "waiting": [view for view in views if view.state and view.state.question],
             "config": cfg,
-            "error": error,
+            "error": error or told,
+            "note": note,
             "unreadable": unreadable,
             "token": token,
             "pulse": overview_fingerprint() if not error else "error",
@@ -359,6 +366,7 @@ def create_app(
         loop_id: str,
         token: Annotated[str, Form()],
         tab: Annotated[str, Form()] = "",
+        back_to: Annotated[str, Form()] = "",
         text: Annotated[str, Form()] = "",
         choice: Annotated[str, Form()] = "",
     ) -> Response:
@@ -368,14 +376,24 @@ def create_app(
         picked = next((option for option in asked.options if option.id == choice), None) if asked else None
         if choice and picked is None:
             return back(
-                repo_key, loop_id, tab=tab, error="Nothing was sent: that choice is no longer offered."
+                repo_key,
+                loop_id,
+                tab=tab,
+                back_to=back_to,
+                error="Nothing was sent: that choice is no longer offered.",
             )
         message = text.strip() or (picked.label if picked else "")
         if not message:
-            return back(repo_key, loop_id, tab=tab, error="Nothing was sent: the reply was empty.")
+            return back(
+                repo_key, loop_id, tab=tab, back_to=back_to, error="Nothing was sent: the reply was empty."
+            )
         if len(message) > MAX_REPLY_CHARS:
             return back(
-                repo_key, loop_id, tab=tab, error=f"Nothing was sent: over {MAX_REPLY_CHARS} characters."
+                repo_key,
+                loop_id,
+                tab=tab,
+                back_to=back_to,
+                error=f"Nothing was sent: over {MAX_REPLY_CHARS} characters.",
             )
         question = view.state.question if view.state else None
         last = view.state.last_round if view.state else None
@@ -392,8 +410,10 @@ def create_app(
                 choice=picked.id if picked else None,
             )
         except StoreError as problem:
-            return back(repo_key, loop_id, tab=tab, error=str(problem))
-        return back(repo_key, loop_id, tab=tab, note="Sent. The loop reads it at its next round.")
+            return back(repo_key, loop_id, tab=tab, back_to=back_to, error=str(problem))
+        return back(
+            repo_key, loop_id, tab=tab, back_to=back_to, note="Sent. The loop reads it at its next round."
+        )
 
     @app.post("/loop/{repo_key}/{loop_id}/stop", name="loop_stop")
     def loop_stop(

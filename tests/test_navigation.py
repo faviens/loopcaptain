@@ -203,3 +203,26 @@ def test_a_menu_choice_of_two_statuses_filters_by_both(client: TestClient) -> No
 
     assert "Market scan" not in neither.split('<table class="loops">')[-1], "the loop runs"
     assert "Market scan" in one.split('<table class="loops">')[-1]
+
+
+def test_an_answer_from_the_waiting_tab_leads_back_to_it_with_its_message(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "question", {"round": 2, "text": "Per seat or per site?"}, scan)
+    forms = re.findall(r'<form [^>]*method="post".*?</form>', client.get("/?tab=waiting").text, re.S)
+    assert forms and all('<input type="hidden" name="back_to" value="waiting">' in form for form in forms)
+    form = {"token": str(client.app.state.token), "text": "Per seat.", "back_to": "waiting"}  # type: ignore[attr-defined]
+
+    sent = client.post("/loop/some-repo/scan/reply", data=form)
+
+    assert sent.headers["location"].startswith("/?tab=waiting&note=Sent")
+    assert "Sent. The loop reads it" in client.get(sent.headers["location"]).text
+
+
+@pytest.mark.parametrize("given", ["https://elsewhere.test/", "//elsewhere.test", "/connect", "loops"])
+def test_a_form_leads_only_to_a_place_the_board_knows(client: TestClient, given: str) -> None:
+    form = {"token": str(client.app.state.token), "text": "A note.", "back_to": given}  # type: ignore[attr-defined]
+
+    sent = client.post("/loop/some-repo/scan/reply", data=form)
+
+    assert sent.headers["location"].startswith("/loop/some-repo/scan?note=Sent")

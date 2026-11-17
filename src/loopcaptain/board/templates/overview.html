@@ -5,6 +5,7 @@
 {% block main %}
 <p class="eyebrow">Where every loop stands</p>
 <h1>Loops</h1>
+{% if note %}<p class="flash" role="status">{{ note }}</p>{% endif %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
 {% if unreadable %}
 <div class="flash bad" role="alert">
@@ -42,12 +43,12 @@
   <p class="q">{% if view.state.question.needs_person %}<b>A step needs you.</b> {% endif %}{{ view.state.question.text }}</p>
   {% if view.state.question.options %}
   <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting">
     {% for option in view.state.question.options %}<button type="submit" name="choice" value="{{ option.id }}">{{ option.label }}</button>{% endfor %}
   </form>
   {% endif %}
   <form class="say" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting">
     <textarea name="text" required aria-label="Your answer to {{ view.title }}" placeholder="Your answer. The loop reads it at its next round."></textarea>
     <button type="submit">Send answer</button>
   </form>
