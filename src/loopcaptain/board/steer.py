@@ -18,6 +18,7 @@ import os
 import shlex
 import signal
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -58,6 +59,50 @@ def boot_time() -> float:
     return time.time() - time.clock_gettime(clock)
 
 
+#: How far two readings of one process's start time may differ and still be the same process.
+PROCESS_START_TOLERANCE_S = 2.0
+#: macOS `sysctl` names: kern.proc.pid.<pid> answers a `kinfo_proc` for one process.
+CTL_KERN, KERN_PROC, KERN_PROC_PID = 1, 14, 1
+#: The size of macOS's `kinfo_proc` on 64-bit machines; its first field is the start time.
+KINFO_PROC_SIZE = 648
+
+
+def process_start_time(pid: int) -> float | None:
+    """When a process began, in epoch seconds; None when it is gone or this system cannot say.
+
+    Read from the kernel, not from `ps`: the board runs nothing but `commands.start`. A pid
+    reused by a process started later has another start time, which tells the two apart."""
+    if not reads_start_times():
+        return None
+    return darwin_start_time(pid) if sys.platform == "darwin" else linux_start_time(pid)
+
+
+def linux_start_time(pid: int) -> float | None:
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    # The command name, field 2, may hold spaces and parentheses: count from the last ")".
+    fields = stat[stat.rindex(")") + 2 :].split()
+    ticks = int(fields[19])  # field 22 of the whole line
+    return boot_time() + ticks / os.sysconf("SC_CLK_TCK")
+
+
+def darwin_start_time(pid: int) -> float | None:
+    import ctypes
+    import ctypes.util
+
+    libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+    name = (ctypes.c_int * 4)(CTL_KERN, KERN_PROC, KERN_PROC_PID, pid)
+    buffer = ctypes.create_string_buffer(KINFO_PROC_SIZE)
+    size = ctypes.c_size_t(KINFO_PROC_SIZE)
+    if libc.sysctl(name, 4, buffer, ctypes.byref(size), None, ctypes.c_size_t(0)) != 0 or size.value == 0:
+        return None  # an unknown pid answers an empty buffer, not an error
+    seconds = ctypes.c_long.from_buffer(buffer, 0).value
+    micros = ctypes.c_int32.from_buffer(buffer, ctypes.sizeof(ctypes.c_long)).value
+    return seconds + micros / 1_000_000
+
+
 def state_home() -> Path:
     """Where the board keeps its records: the folder `LOOPCAPTAIN_STATE` names, else the user's own
     state folder (`$XDG_STATE_HOME/loopcaptain`, else `~/.local/state/loopcaptain`)."""
@@ -96,6 +141,22 @@ def write_private(path: Path, text: str) -> None:
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, PRIVATE_MODE)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         handle.write(text)
+
+
+def same_process(pid: int, recorded_start: float | None) -> bool:
+    """Whether `pid` is still the process that began at `recorded_start`. A record from before
+    start times were kept, or a system that cannot tell, answers as the pid alone does."""
+    if recorded_start is None:
+        return True
+    now_start = process_start_time(pid)
+    if now_start is None:
+        # Where start times can be read, none means the process is gone; elsewhere it says nothing.
+        return not reads_start_times()
+    return abs(now_start - recorded_start) < PROCESS_START_TOLERANCE_S
+
+
+def reads_start_times() -> bool:
+    return sys.platform == "darwin" or sys.platform.startswith("linux")
 
 
 @dataclass(frozen=True)
@@ -161,12 +222,17 @@ class Runner:
                 raise ValueError(f"pid {pid} is not a process the board could have started")
             boot = record.get("boot")
             same_boot = boot is None or abs(float(boot) - boot_time()) < BOOT_TOLERANCE_S
+            began = record.get("process_start")
+            recorded_start = None if began is None else float(began)
         except FileNotFoundError:
             return None
         except (OSError, ValueError, KeyError, TypeError) as error:
             log.warning("unreadable process record for %s: %s", self.name(repo, loop_id), error)
             return None
-        return Process(pid, command, started, same_boot and self.is_alive(self.name(repo, loop_id), pid))
+        alive = (
+            same_boot and self.is_alive(self.name(repo, loop_id), pid) and same_process(pid, recorded_start)
+        )
+        return Process(pid, command, started, alive)
 
     def is_alive(self, name: str, pid: int) -> bool:
         child = self.children.get(name)
@@ -220,6 +286,7 @@ class Runner:
             "command": command,
             "started": started.isoformat(),
             "boot": boot_time(),
+            "process_start": process_start_time(child.pid),
             "repo": identity(repo),
         }
         write_private(self.record_path(repo, manifest.id), json.dumps(record) + "\n")

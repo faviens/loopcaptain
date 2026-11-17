@@ -613,6 +613,55 @@ def test_a_pid_recorded_before_a_reboot_is_not_taken_for_alive(scan: Path, tmp_p
     assert before_reboot is not None and not before_reboot.alive
 
 
+def test_a_pid_now_held_by_a_process_started_later_is_not_taken_for_alive(scan: Path, tmp_path: Path) -> None:
+    """The same boot, the same pid, another process: its start time tells, so End signals nothing."""
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    mine = steer.process_start_time(os.getpid())
+    record = {
+        "pid": os.getpid(),
+        "command": "x",
+        "started": "2026-11-14T10:00:00+00:00",
+        "boot": steer.boot_time(),
+    }
+    record["repo"] = steer.identity(repo)
+    runner.state_dir.mkdir(parents=True)
+    path = runner.record_path(repo, "scan")
+
+    path.write_text(json.dumps(record | {"process_start": mine}))
+    same = runner.process(repo, "scan")
+    path.write_text(json.dumps(record | {"process_start": (mine or 0) - 3600}))
+    reused = runner.process(repo, "scan")
+
+    assert mine is not None and steer.boot_time() - 5 < mine <= time.time()
+    assert same is not None and same.alive
+    assert reused is not None and not reused.alive
+    with pytest.raises(StoreError, match="nothing the board started"):
+        runner.kill(repo, "scan")
+
+
+def test_a_process_that_is_gone_has_no_start_time() -> None:
+    gone = subprocess.Popen([sys.executable, "-c", "pass"])
+    gone.wait()
+
+    assert steer.process_start_time(gone.pid) is None
+
+
+def test_the_board_records_when_the_process_it_started_began(scan: Path, tmp_path: Path) -> None:
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    manifest = Manifest.model_validate_json((scan / ".loops" / "scan" / "loop.json").read_text())
+    command = f"{sys.executable} -c 'import time; time.sleep(5)'"
+    manifest = manifest.model_copy(update={"commands": {**manifest.commands, "start": command}})
+
+    before = time.time()
+    process = runner.start(repo, manifest)
+    record = json.loads(runner.record_path(repo, "scan").read_text())
+    runner.kill(repo, "scan")
+
+    assert process.alive and before - 2 <= record["process_start"] <= time.time()
+
+
 def test_worktrees_of_one_repository_show_once_from_the_last_written(
     tmp_path: Path, helper: types.ModuleType
 ) -> None:
