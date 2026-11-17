@@ -1321,3 +1321,13 @@ def test_a_folder_that_only_claims_to_be_a_worktree_of_another_repository_stands
 
     assert sorted((repo.key, repo.others) for repo in repos) == [("claimant", ()), ("tool", ())]
     assert store.loop_ids(next(repo.path for repo in repos if repo.key == "tool")) == ["scan"]
+
+
+@pytest.mark.parametrize("stat", ["", "4242 (loop", "4242 (loop) S 1", "4242 (a) b) S " + "x " * 30])
+def test_a_proc_stat_line_that_cannot_be_read_gives_no_start_time(stat: str) -> None:
+    assert steer.start_ticks(stat) is None
+
+
+def test_a_proc_stat_line_gives_the_ticks_after_boot_even_with_a_bracket_in_the_name() -> None:
+    fields = ["S"] + [str(number) for number in range(4, 60)]  # field 3 onwards; field 22 is 22
+    assert steer.start_ticks("4242 (odd) name) " + " ".join(fields)) == 22

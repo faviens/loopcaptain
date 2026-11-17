@@ -82,10 +82,18 @@ def linux_start_time(pid: int) -> float | None:
         stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
-    # The command name, field 2, may hold spaces and parentheses: count from the last ")".
-    fields = stat[stat.rindex(")") + 2 :].split()
-    ticks = int(fields[19])  # field 22 of the whole line
-    return boot_time() + ticks / os.sysconf("SC_CLK_TCK")
+    ticks = start_ticks(stat)
+    return None if ticks is None else boot_time() + ticks / os.sysconf("SC_CLK_TCK")
+
+
+def start_ticks(stat: str) -> int | None:
+    """Field 22 of a `/proc/<pid>/stat` line, the start in clock ticks after boot; None where the
+    line cannot be read. The command name, field 2, may hold spaces and brackets: count from the
+    last ")"."""
+    try:
+        return int(stat[stat.rindex(")") + 2 :].split()[19])
+    except (ValueError, IndexError):
+        return None
 
 
 def darwin_start_time(pid: int) -> float | None:
