@@ -61,8 +61,10 @@ reaches a loop:
    only the stylesheet, the script and the font are served without it.
    Each start makes a new key, kept in the board's memory only, so an
    address or a cookie from an earlier start is refused. Every form also
-   carries a per-process token. The printed address is a password for as
-   long as that board runs: do not paste it anywhere.
+   carries a per-process token. The printed address works once: it lets
+   one browser in, which stays in while that board runs, and is refused
+   after that, so a copy left in a history, a scrollback or a transcript
+   lets nobody in. Another browser needs a restart of `serve`.
 8. **What that does not cover:** a process that runs as you and can read
    your terminal, your browser's cookie store or the board's memory can
    get in, as it can read the watched repositories and the inbox key

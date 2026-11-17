@@ -175,3 +175,25 @@ def test_the_security_text_says_another_server_on_the_address_gets_the_cookie() 
 
     assert "another web server on `127.0.0.1` that you open in the same browser receives" in text
     assert "changes at each start" in text
+
+
+def test_the_printed_address_lets_one_browser_in_and_no_second(stranger: TestClient) -> None:
+    path = session_of(stranger).entry_path
+    first = stranger.get(path)
+    second_browser = TestClient(stranger.app, base_url=f"http://{HOST}", follow_redirects=False)
+
+    refused = second_browser.get(path)
+
+    assert first.status_code == 303
+    assert refused.status_code == 401 and "set-cookie" not in refused.headers
+    assert "works once" in refused.text and "loopcaptain serve" in refused.text
+    assert second_browser.get("/").status_code == 401
+
+
+def test_the_browser_let_in_may_open_the_address_again(stranger: TestClient) -> None:
+    path = session_of(stranger).entry_path
+    stranger.get(path)
+
+    again = stranger.get(f"{path}&next=/connect")
+
+    assert again.status_code == 303 and again.headers["location"] == "/connect"

@@ -697,3 +697,30 @@ folder does not own.
 **Rejected.** Asking git (`git worktree list`): a second command the
 board runs in a watched repository, on every request. Dropping the
 grouping: the reason for section 13 stands.
+
+## 31. The address `serve` prints works once
+
+Replaces item 4 of "Rejected" in section 28, which kept the address
+working for as long as the board runs.
+
+**Decision.** The first browser that opens the printed address gets the
+cookie and spends the address (`enter` in `board/app.py`, under a lock,
+as two requests can arrive at once). A browser that holds the cookie may
+open it again; any other gets the locked page, which says the address
+works once and that a restart of `serve` prints a new one. `make shots`,
+which opens each page in a new headless browser, starts a board per
+picture (`served_board` in `scripts/shots.py`).
+
+**Why.** The address carries the key, and it does not stay in the
+terminal: it lands in the browser's history, in the scrollback, and in
+the transcript of any agent session that ran `make serve` for the
+person. Spent at first use, none of those copies lets anyone in.
+
+**Rejected.**
+1. Working for as long as the board runs, as notebook servers do: every
+   copy of the address is a password until the board stops.
+2. Working for a few minutes: a copy found in a transcript inside that
+   window still opens the board, and the window is one more number to
+   explain.
+3. A command that prints a fresh address to a running board: a second
+   way in to build and to guard, for the rare second browser.

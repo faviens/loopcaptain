@@ -12,6 +12,7 @@ whose name contains that word and leaves the others as they are.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import subprocess
@@ -19,6 +20,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -113,6 +115,26 @@ def photograph(address: str, target: Path, height: int, scheme: int) -> None:
     )
 
 
+@contextlib.contextmanager
+def served_board(base: Path, env: dict[str, str]) -> Iterator[str]:
+    """A board on PORT for one shot: yields the address it prints, stops it afterwards."""
+    printed = base / "serve.out"
+    with printed.open("w") as out:
+        board = subprocess.Popen(
+            [sys.executable, "-m", "loopcaptain.cli", "serve", "--port", str(PORT)],
+            env=env,
+            stdout=out,
+        )
+    try:
+        wait_for(lambda: entry_of(printed.read_text()) is not None, "the address serve prints")
+        entry = entry_of(printed.read_text()) or ""
+        wait_for(lambda: answers(entry.split("/enter")[0] + "/static/board.js"), "the board")
+        yield entry
+    finally:
+        board.terminate()
+        board.wait(timeout=10)
+
+
 def main(only: str = "") -> int:
     if not Path(CHROME).exists():
         raise SystemExit(f"shots: no Chrome at {CHROME}; set CHROME to its path")
@@ -127,27 +149,15 @@ def main(only: str = "") -> int:
             "LOOPCAPTAIN_STATE": str(base / "s"),
             "LOOPCAPTAIN_INBOX_KEY": str(base / "inbox.key"),
         }
-        printed = base / "serve.out"
-        with printed.open("w") as out:
-            board = subprocess.Popen(
-                [sys.executable, "-m", "loopcaptain.cli", "serve", "--port", str(PORT)],
-                env=board_env,
-                stdout=out,
-            )
-        try:
-            wait_for(lambda: entry_of(printed.read_text()) is not None, "the address serve prints")
-            entry = entry_of(printed.read_text()) or ""
-            wait_for(lambda: answers(entry.split("/enter")[0] + "/static/board.js"), "the board")
-            for path, name, height in (page for page in PAGES if only in page[1]):
-                for scheme, value in SCHEMES.items():
-                    shot = base / f"{name}-{scheme}.png"
+        for path, name, height in (page for page in PAGES if only in page[1]):
+            for scheme, value in SCHEMES.items():
+                shot = base / f"{name}-{scheme}.png"
+                # Each shot is a new browser, and the printed address lets one browser in.
+                with served_board(base, board_env) as entry:
                     photograph(page_address(entry, path), shot, height, value)
-                    webp = ASSETS / f"{name}{'-dark' if scheme == 'dark' else ''}.webp"
-                    rounded(shot).save(webp, "WEBP", quality=82, method=6)
-                    sys.stdout.write(f"{webp.relative_to(ROOT)}\n")
-        finally:
-            board.terminate()
-            board.wait(timeout=10)
+                webp = ASSETS / f"{name}{'-dark' if scheme == 'dark' else ''}.webp"
+                rounded(shot).save(webp, "WEBP", quality=82, method=6)
+                sys.stdout.write(f"{webp.relative_to(ROOT)}\n")
     return 0
 
 

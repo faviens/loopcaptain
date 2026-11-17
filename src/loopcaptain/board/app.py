@@ -11,6 +11,7 @@ from __future__ import annotations
 import hmac
 import logging
 import secrets
+import threading
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Annotated
@@ -126,6 +127,10 @@ def create_app(
     app.state.token = token
     door = session or Session()
     app.state.session = door
+    # The printed address lets one browser in: the first use spends it, under a lock, since two
+    # requests can arrive at once on the server's threads.
+    entry_lock = threading.Lock()
+    app.state.entered = False
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     add_error_pages(app, templates)
 
@@ -142,14 +147,21 @@ def create_app(
             response = locked(request)
         return secured(response)
 
-    def locked(request: Request) -> Response:
-        """What a browser without the cookie gets, whatever it asked for: where to find the address."""
-        return templates.TemplateResponse(request, "locked.html", {}, status_code=401)
+    def locked(request: Request, spent: bool = False) -> Response:
+        """What a browser without the cookie gets, whatever it asked for: where to find the address,
+        or, for an address used already, how to get a new one."""
+        return templates.TemplateResponse(request, "locked.html", {"spent": spent}, status_code=401)
 
     @app.get(ENTER_PATH, name="enter")
     def enter(request: Request, key: str = "", next: str = "/") -> Response:
+        if door.admits(request.cookies):
+            return RedirectResponse(local_path(next), status_code=303)
         if not door.opens(key):
             return locked(request)
+        with entry_lock:
+            if app.state.entered:
+                return locked(request, spent=True)
+            app.state.entered = True
         response = RedirectResponse(local_path(next), status_code=303)
         response.set_cookie(door.cookie_name, door.cookie_value, httponly=True, samesite="strict", path="/")
         return response
