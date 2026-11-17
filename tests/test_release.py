@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 import tomllib
 import types
@@ -74,3 +75,12 @@ def test_the_checkout_carries_no_version_of_its_own() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
     assert project["version"] == "0.0.0", "a release stamps its tag into the wheel; nothing is committed back"
+
+
+def test_a_release_is_built_by_one_named_version_of_the_build_backend() -> None:
+    """The build backend is not in the lock file: unpinned, a release builds with whatever is newest."""
+    build = tomllib.loads((ROOT / "pyproject.toml").read_text())["build-system"]
+
+    assert [re.fullmatch(r"hatchling==\d+\.\d+\.\d+", item) is not None for item in build["requires"]] == [
+        True
+    ]
