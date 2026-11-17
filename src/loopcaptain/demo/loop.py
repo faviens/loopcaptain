@@ -198,7 +198,7 @@ def run_round(
         {
             "round": number,
             "step": "gate",
-            "status": "ok" if passed else "failed",
+            "passed": passed,  # a gate that says no ran well: `failed` is for a step that broke
             "summary": "No material finding." if passed else f"{material} material finding(s) open.",
             **clock.tick(1),
         },

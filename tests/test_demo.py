@@ -42,6 +42,8 @@ def test_the_demo_writes_the_helper_as_the_spec_prints_it_and_a_history_that_val
     state = state_of(repo)
     assert len(state.rounds) == SEEDED_ROUNDS and state.status == "idle"
     assert state.rounds[0].finished is not None and state.rounds[0].finished < now()
+    gates = [run for round_ in state.rounds for run in round_.runs_of("gate")]
+    assert [(gate.status, gate.passed) for gate in gates] == [("ok", False)] * SEEDED_ROUNDS
 
 
 def test_the_example_converges_and_ends_done(tmp_path: Path) -> None:
