@@ -53,10 +53,12 @@ To run it once without installing, `uvx loopcaptain demo` and
 ## Install from the repository
 
 A release is also a tag in the repository. Name the tag, so the install
-is that release and not whatever the branch holds today:
+is that release and not whatever the branch holds today. The newest one is
+on the [latest release](https://github.com/faviens/loopcaptain/releases/latest)
+page; put its tag in place of `vX.Y.Z`:
 
 ```bash
-uv tool install git+https://github.com/faviens/loopcaptain@v0.3.1
+uv tool install git+https://github.com/faviens/loopcaptain@vX.Y.Z
 ```
 
 Without `@<tag>` the install is the `main` branch: the way to run a change

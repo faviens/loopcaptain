@@ -110,8 +110,11 @@ def test_every_page_an_agent_lands_on_installs_the_released_package() -> None:
     for name in INSTALL_PAGES:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert "not on pypi" not in text.lower(), name
-        untagged = re.findall(r"install git\+https://\S+?/loopcaptain(?!@v\d)", text)
+        untagged = re.findall(r"install git\+https://\S+?/loopcaptain(?!@v)", text)
         assert untagged == [], name
+        assert re.findall(r"loopcaptain@v\d", text) == [], (
+            f"{name} names a release that the next one leaves behind"
+        )
     for name in INSTALL_PAGES:
         assert re.search(
             r"uv tool install loopcaptain(?![\w@/-])", (ROOT / name).read_text(encoding="utf-8")
