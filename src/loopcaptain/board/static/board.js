@@ -73,15 +73,16 @@
           .then(function (response) {
             if (response.ok && response.redirected) {
               window.location.replace(response.url);
-            } else if (response.status >= 500) {
-              // Something may have been written: show the page as it is now rather than send twice.
-              window.location.reload();
-            } else {
+            } else if (response.status >= 400 && response.status < 500) {
               // Refused, so nothing changed: send it the old way and show the board's own answer.
               sendTheOldWay(form, button);
+            } else {
+              // Something may have been written: show the page as it is now rather than send twice.
+              window.location.reload();
             }
           })
-          .catch(function () { sendTheOldWay(form, button); });
+          // The answer was lost, not the request: it may have been written, so never send it twice.
+          .catch(function () { window.location.reload(); });
       });
     });
   }

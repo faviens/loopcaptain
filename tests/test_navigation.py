@@ -179,3 +179,11 @@ def test_a_form_still_works_without_the_script(client: TestClient) -> None:
     sent = client.post("/loop/some-repo/scan/reply", data=form)
 
     assert sent.status_code == 303 and sent.headers["location"].startswith("/loop/some-repo/scan?note=Sent")
+
+
+def test_the_script_sends_a_form_again_only_when_the_board_refused_it() -> None:
+    """A lost answer may have been written already: only a 4xx says nothing changed."""
+    script = SCRIPT.read_text(encoding="utf-8")
+
+    assert "response.status >= 400 && response.status < 500" in script
+    assert ".catch(function () { sendTheOldWay" not in script
