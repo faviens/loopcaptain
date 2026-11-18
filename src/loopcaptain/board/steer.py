@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 import os
+import secrets
 import signal
 import stat
 import subprocess
@@ -148,11 +149,21 @@ def command_hash(repo: Repo, loop_id: str, command: str) -> str:
 
 
 def write_private(path: Path, text: str) -> None:
-    """Write a file only this user can read: the board's state names repositories and commands."""
+    """Write a file only this user can read: the board's state names repositories and commands.
+
+    Written whole beside its place, then moved into it: a second board, or this one stopped
+    half-way, never leaves or reads half a file, which for the ticks would read as "none given".
+    Two boards that tick at the same moment may still lose one tick; it is asked again.
+    """
     private_folder(path.parent)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, PRIVATE_MODE)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        handle.write(text)
+    draft = path.with_name(f"{path.name}.{secrets.token_hex(4)}.tmp")
+    descriptor = os.open(draft, os.O_WRONLY | os.O_CREAT | os.O_EXCL, PRIVATE_MODE)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(draft, path)
+    finally:
+        draft.unlink(missing_ok=True)
 
 
 def private_folder(path: Path) -> None:

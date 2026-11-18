@@ -1077,6 +1077,33 @@ def test_a_state_folder_that_was_there_and_open_to_others_is_closed_by_the_first
         assert runner.state_dir.stat().st_mode & 0o777 == 0o700, runner.state_dir
 
 
+def test_a_record_is_written_whole_and_a_write_that_fails_leaves_the_earlier_one(
+    scan: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = find_repos(Config(repos=(scan,)))[0]
+    runner = Runner(tmp_path / "state")
+    runner.confirm(repo, "scan", "first")
+    kept = runner.state_dir / steer.CONFIRMED_FILE
+    earlier = kept.read_text()
+    seen_in_place: list[str] = []
+    move = os.replace
+
+    def moved(source: Path, target: Path) -> None:
+        seen_in_place.append(Path(target).read_text())
+        move(source, target)
+
+    monkeypatch.setattr(os, "replace", moved)
+    runner.confirm(repo, "scan", "second")
+    monkeypatch.setattr(os, "replace", lambda source, target: (_ for _ in ()).throw(OSError("disk full")))
+    with pytest.raises(OSError, match="disk full"):
+        runner.confirm(repo, "scan", "third")
+
+    assert seen_in_place == [earlier], "the file in place was whole until the new one took its place"
+    assert runner.is_confirmed(repo, "scan", "first") and runner.is_confirmed(repo, "scan", "second")
+    assert not runner.is_confirmed(repo, "scan", "third")
+    assert [path.name for path in runner.state_dir.iterdir()] == [steer.CONFIRMED_FILE]
+
+
 def test_a_record_made_for_a_repository_of_the_same_name_elsewhere_is_not_this_loops(
     scan: Path, tmp_path: Path, helper: types.ModuleType
 ) -> None:
