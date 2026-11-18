@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set page = 'loop' %}
-{% block title %}{{ path }} · {{ view.title }}{% endblock %}
+{% block title %}{{ view.title }} · {{ path }}{% endblock %}
 {% block where %}{{ view.repo.key }} / {{ view.loop_id }}{% endblock %}
 {% block main %}
 <p class="crumb"><a href="{{ url_for('overview') }}">Loops</a> / <a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a> / {{ path }}</p>

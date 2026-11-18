@@ -727,8 +727,11 @@ def no_progress_signs(state: LoopState) -> list[str]:
     if len(recent) == FLAT_ROUNDS:
         counts = [len(open_material(r)) for r in recent]
         if counts[0] and counts[-1] >= counts[0] and not any(s.startswith("the same") for s in signs):
+            span = f"round {recent[0].number} to {recent[-1].number}"
             signs.append(
-                f"open material findings did not fall over rounds {recent[0].number} to {recent[-1].number}"
+                f"open material findings stayed at {counts[0]} from {span}"
+                if counts[-1] == counts[0]
+                else f"open material findings rose from {counts[0]} to {counts[-1]} from {span}"
             )
         names = {m.name for r in recent for m in r.all_metrics}
         for name in sorted(names):
@@ -736,5 +739,9 @@ def no_progress_signs(state: LoopState) -> list[str]:
             if all(v is not None for v in values) and len({v.value for v in values if v}) == 1:
                 last_metric = values[-1]
                 if last_metric is not None and last_metric.met is not True:
-                    signs.append(f"{name} has not moved for {FLAT_ROUNDS} rounds")
+                    label = name.replace("_", " ").strip()
+                    value = f"{last_metric.value:g} {last_metric.unit}".strip()
+                    signs.append(
+                        f"{label} stayed at {value} from round {recent[0].number} to {recent[-1].number}"
+                    )
     return signs

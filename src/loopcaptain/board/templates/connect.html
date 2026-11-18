@@ -1,35 +1,50 @@
 {% extends "base.html" %}
 {% set page = 'connect' %}
-{% block title %}Connect a loop · Loopcaptain{% endblock %}
+{% block title %}Connect a loop{% endblock %}
 {% block main %}
-<p class="eyebrow">Connect a loop</p>
-<h1>A loop writes a few small files. That is the whole interface.</h1>
-<p class="lede">Design the loop however you like. To show it here it says what it is and what happens, in one folder. Nothing to install, no server to reach.</p>
-<section class="start-here" aria-label="Get started with your coding agent">
-  <h2>Start with your coding agent</h2>
-  <div class="prompts">
-    <div class="card"><p class="eyebrow">Build a loop</p><pre class="prompt" id="prompt-build">{{ prompts['build-a-loop'] }}</pre>
-      <p class="act"><button type="button" class="quiet" data-copy-from="prompt-build-text">Copy</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
-    <div class="card"><p class="eyebrow">Watch the loops on this machine</p><pre class="prompt" id="prompt-watch">{{ prompts['watch-my-loops'] }}</pre>
-      <p class="act"><button type="button" class="quiet" data-copy-from="prompt-watch-text">Copy</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
+<h1>Connect a loop</h1>
+<p class="lede">Pick the way that fits. Each takes a few minutes, and you do not need to read anything else on this page.</p>
+
+<section class="ways" aria-label="Ways to connect a loop">
+  <div class="card way first">
+    <p class="eyebrow">Easiest · your coding agent does it</p>
+    <h2>Paste one prompt into your agent</h2>
+    <p class="grey">It reads the standard, looks at your loop and proposes the smallest change. Nothing is changed before you say yes.</p>
+    <div class="pick">
+      <div><p class="what">Build a new loop, or connect one you have</p>
+        <details class="prompt"><summary>See the prompt</summary><pre class="prompt">{{ prompts['build-a-loop'] }}</pre></details>
+        <p class="act"><button type="button" data-copy-from="prompt-build-text">Copy the prompt</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
+      <div><p class="what">Find and watch the loops already on this machine</p>
+        <details class="prompt"><summary>See the prompt</summary><pre class="prompt">{{ prompts['watch-my-loops'] }}</pre></details>
+        <p class="act"><button type="button" class="quiet" data-copy-from="prompt-watch-text">Copy the prompt</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
+    </div>
   </div>
-</section>
-<textarea id="prompt-build-text" hidden readonly aria-hidden="true">{{ prompts['build-a-loop'] }}</textarea>
-<textarea id="prompt-watch-text" hidden readonly aria-hidden="true">{{ prompts['watch-my-loops'] }}</textarea>
-<section class="how">
-  <div class="card"><h3><b class="n">1</b>A loop with a script</h3>
-    <p>Give <a href="{{ url_for('spec_file') }}">LOOPS.md</a> to the agent that works on the loop, or paste it into the loop's repository. It holds the format and a helper of 60 lines, standard library only.</p>
-    <p class="act"><button type="button" class="quiet" data-copy-from="spec-text">Copy LOOPS.md</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
-  <div class="card"><h3><b class="n">2</b>A loop an agent session drives</h3>
-    <p>Add the MCP server, <code>loopcaptain mcp</code> over stdio, to your agent. Its tools write the same files. Pick yours:</p>
+  <div class="card way">
+    <p class="eyebrow">By hand · a loop that is a script</p>
+    <h2>Add one file to the loop's repository</h2>
+    <p class="grey">LOOPS.md holds the format and a helper of 60 lines, standard library only. The script calls the helper at each step.</p>
+    <p class="act"><button type="button" class="quiet" data-copy-from="spec-text">Copy LOOPS.md</button><a href="{{ url_for('spec_file') }}">open it</a><span class="grey" data-copied hidden role="status">Copied.</span></p>
+  </div>
+  <div class="card way">
+    <p class="eyebrow">By hand · a loop an agent session runs</p>
+    <h2>Add the MCP server to your agent</h2>
+    <p class="grey">Its tools write the same files. Pick your agent:</p>
     <nav class="agents" aria-label="Coding agents">{% for item in agents %}<a href="{{ url_for('connect') }}?agent={{ item.key }}#mcp"{% if item.key == picked.key %} aria-current="true"{% endif %}>{{ item.name }}</a>{% endfor %}</nav>
     <pre id="mcp">{{ picked.add }}</pre>
-    <p class="grey">Unattended, as <code>commands.start</code>: <code>{{ picked.headless }}</code></p></div>
-  <div class="card"><h3><b class="n">3</b>Show it here</h3>
-    <p>The board lists every repository it watches that has a <code>.loops/</code> folder. Add one with <code>loopcaptain watch &lt;folder&gt;</code>, and check it with:</p>
-    <pre>loopcaptain validate &lt;repository&gt;</pre></div>
+    <p class="grey small">To run it unattended, as the loop's start command: <code>{{ picked.headless }}</code></p>
+  </div>
 </section>
+
+<section class="then card" aria-label="Then">
+  <p class="eyebrow">Then</p>
+  <p>The board shows every repository it watches that has a <code>.loops/</code> folder. Watch one with <code>loopcaptain watch &lt;folder&gt;</code>; <code>loopcaptain validate &lt;repository&gt;</code> says whether its files are right.</p>
+</section>
+
+<details class="standard">
+  <summary><span>The protocol in full</span><span class="grey">for whoever builds a loop by hand; the <a href="{{ docs_url }}" rel="noopener">documentation site</a> explains it with examples</span></summary>
+  <article class="prose card">{{ body }}</article>
+</details>
+<textarea id="prompt-build-text" hidden readonly aria-hidden="true">{{ prompts['build-a-loop'] }}</textarea>
+<textarea id="prompt-watch-text" hidden readonly aria-hidden="true">{{ prompts['watch-my-loops'] }}</textarea>
 <textarea id="spec-text" hidden readonly aria-hidden="true">{{ spec }}</textarea>
-<h2>The standard</h2>
-<article class="prose card">{{ body }}</article>
 {% endblock %}

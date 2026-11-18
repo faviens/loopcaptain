@@ -6,16 +6,20 @@ and a row within it, and every edge is one curve.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from loopcaptain.protocol.models import Manifest
 from loopcaptain.protocol.state import RoundState
 
-NODE_W = 148
+NODE_W = 164
 NODE_H = 46
 GAP_X = 44
 GAP_Y = 14
 PAD = 14
+#: An error that says a limit stopped the step (a budget, a usage or rate limit, a turn cap), not
+#: that the step's work went wrong. The protocol has no kind for it yet, so the words decide.
+LIMIT_WORDS = re.compile(r"budget|usage.?limit|rate.?limit|quota|max.?turns|limit (?:reached|hit)", re.I)
 #: Room under the nodes for the arrow that leads from the last step back to the first.
 RETURN_H = 34
 
@@ -27,11 +31,17 @@ class Node:
     kind: str
     x: int
     y: int
-    #: pending, running, ok, no, failed, skipped: the step in the round the picture shows; `no` is
-    #: a gate that ran and did not let the work through.
+    #: pending, running, ok, no, failed, limit, skipped: the step in the round the picture shows;
+    #: `no` is a gate that ran and did not let the work through, `limit` a step a limit stopped.
     state: str = "pending"
     runs: int = 0
     findings: int = 0
+    #: From loop.json: the step's prompt file (a path inside the repository), what it is for, and
+    #: which agent and model run it, so a node can say what the step does and open its prompt.
+    prompt: str = ""
+    purpose: str = ""
+    backend: str = ""
+    model: str = ""
 
     @property
     def cx(self) -> int:
@@ -85,7 +95,11 @@ def step_state(round_: RoundState | None, step_id: str) -> tuple[str, int, int]:
     statuses: set[str] = {run.status for run in runs}
     if any(run.passed is False and run.status == "ok" for run in runs):
         statuses.add("no")
-    for state in ("running", "failed", "no", "ok"):
+    broken = [run for run in runs if run.status == "failed"]
+    if broken and all(run.error and LIMIT_WORDS.search(run.error.text) for run in broken):
+        statuses.discard("failed")
+        statuses.add("limit")
+    for state in ("running", "failed", "limit", "no", "ok"):
         if state in statuses:
             return state, len(runs), findings
     return "skipped", len(runs), findings
@@ -115,6 +129,10 @@ def layout(manifest: Manifest, round_: RoundState | None = None) -> Graph:
                 state=state,
                 runs=runs,
                 findings=findings,
+                prompt=(declared.prompt or "") if declared else "",
+                purpose=declared.purpose if declared else "",
+                backend=(declared.backend or "") if declared else "",
+                model=(declared.model or "") if declared else "",
             )
 
     edges = tuple(curve(nodes[source], nodes[target]) for source, target in manifest.edges())

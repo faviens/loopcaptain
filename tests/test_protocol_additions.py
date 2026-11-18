@@ -111,7 +111,7 @@ def test_a_gate_that_says_no_reads_apart_from_a_step_that_broke(
     assert '<span class="st no"><i class="mark no"></i>said no</span>' in shown
     assert '<span class="st failed"><i class="mark failed"></i>failed</span>' in shown
     assert '<span class="cell" title="said no"><i class="mark no"></i>' in shown
-    assert '<g class="node no">' in picture and "<title>gate: said no</title>" in picture
+    assert '<g class="node no k-gate">' in picture and "<title>gate: said no</title>" in picture
     assert '<i class="mark ok"></i>passed</span>' in page(repo, tmp_path, "?tab=rounds&round=2")
 
 
@@ -156,7 +156,7 @@ def test_a_round_names_its_mode_and_what_it_leaves_out_reads_as_meant(
     assert "breadth round · " in shown and 'title="a breadth round"' in shown
     assert 'title="skipped, as a breadth round does"' in shown
     assert 'title="not in a breadth round"' in shown  # the gate, never reported
-    assert "<title>deep: skipped, as a breadth round does</title>" in picture
+    assert "<title>deep (research): skipped, as a breadth round does</title>" in picture
 
 
 def test_a_clock_that_jumps_back_once_is_one_problem_with_a_count(

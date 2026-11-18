@@ -74,14 +74,14 @@ def test_overview_has_a_tab_for_what_waits_marked_only_when_something_does(
     client: TestClient, scan: Path, helper: types.ModuleType
 ) -> None:
     quiet = client.get("/").text
-    assert 'href="http://board.test/?tab=waiting"' in quiet and 'class="n hot"' not in quiet
+    assert 'href="http://board.test/?tab=waiting"' in quiet and 'class="kpi hot"' not in quiet
 
     helper.emit("scan", "question", {"round": 2, "text": "Per seat or per site?"}, scan)
     loops, waiting = client.get("/").text, client.get("/?tab=waiting").text
 
-    assert 'class="n hot"' in loops and 'class="waits"' in loops
+    assert 'class="kpi hot"' in loops and 'class="waits"' in loops
     assert "Per seat or per site?" not in loops and "<table" in loops
-    assert "Per seat or per site?" in waiting and "<table" not in waiting
+    assert "Per seat or per site?" in waiting and '<section class="ask inline"' in waiting
     assert client.get("/?tab=nonsense").text.count("<table") == 1
 
 
@@ -93,7 +93,9 @@ def test_a_question_on_the_overview_names_its_project_and_its_loop(
     page = client.get("/?tab=waiting").text
 
     card = page[
-        page.index('<section class="ask"') : page.index("</section>", page.index('<section class="ask"'))
+        page.index('<section class="ask inline"') : page.index(
+            "</section>", page.index('<section class="ask inline"')
+        )
     ]
     assert "<dt>Project</dt><dd>some-repo</dd>" in card
     assert "<dt>Loop</dt>" in card and "Market scan" in card and "round 2" in card
@@ -756,8 +758,8 @@ def test_the_overview_tab_draws_a_trend_and_bars_against_the_caps(
 
     page = client.get("/loop/some-repo/scan").text
 
-    assert "Is it converging" in page and "open material findings" in page and "pass rate" in page
-    assert 'class="target"' in page and 'class="cap warn"' in page and "2 of 2" in page
+    assert "Convergence" in page and "open material findings" in page and "pass rate" in page
+    assert 'class="target"' in page and 'class="capbar warn"' in page and "rounds: 2 of 2" in page
 
 
 def test_the_round_shows_what_its_steps_and_verdict_report(
@@ -867,9 +869,9 @@ def test_the_overview_filters_by_text_and_status_and_folds_finished_loops(
     assert (
         "Market scan" in default
         and "Finished survey" not in default
-        and "1 finished loop folded away" in default
+        and 'class="g-finished">finished<span class="n">1</span>' in default
     )
-    assert "loops in 1 project<" in default
+    assert 'title="in 1 project"' in default
     assert "Finished survey" in shown
     assert "Market scan" in found and "Finished survey" not in found
     assert "Finished survey" in by_status and "Market scan" not in by_status
@@ -887,7 +889,7 @@ def test_a_fresh_board_offers_the_two_prompts_and_the_demo(tmp_path: Path) -> No
 def test_the_title_counts_what_waits(client: TestClient, scan: Path, helper: types.ModuleType) -> None:
     helper.emit("scan", "question", {"text": "Per seat?"}, scan)
 
-    assert "<title>(1) Loops" in client.get("/").text
+    assert "<title>(1) Loopcaptain</title>" in client.get("/").text
 
 
 def test_watch_and_unwatch_edit_the_config_the_board_reads(
@@ -913,8 +915,10 @@ def test_a_loop_without_progress_is_flagged_on_both_pages(
         helper.emit("scan", "step_finished", {"round": number, "step": "facts", "findings": found}, scan)
         helper.emit("scan", "round_finished", {"round": number, "verdict": "continue"}, scan)
 
-    assert "No progress?" in client.get("/loop/some-repo/scan").text
-    assert "no progress?" in client.get("/").text
+    assert (
+        '<section class="band" aria-label="Signs of no progress">' in client.get("/loop/some-repo/scan").text
+    )
+    assert '<span class="stuck"' in client.get("/").text
 
 
 def test_the_project_count_includes_repositories_whose_loops_are_folded_away(
@@ -922,7 +926,7 @@ def test_the_project_count_includes_repositories_whose_loops_are_folded_away(
 ) -> None:
     helper.emit("scan", "round_finished", {"round": 2, "verdict": "done"}, scan)
 
-    assert "loop in 1 project<" in client.get("/").text
+    assert 'title="in 1 project"' in client.get("/").text
 
 
 def test_a_forged_reply_answers_no_question_and_a_forged_stop_requests_nothing(
@@ -1356,3 +1360,16 @@ def test_a_process_whose_start_time_cannot_be_read_is_not_called_ended_nor_signa
     with pytest.raises(StoreError, match="could not confirm"):
         runner.kill(repo, "scan")
     assert signalled == []
+
+
+def test_a_capped_loop_or_one_without_progress_needs_a_look(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.register("scan", {"title": "Market scan", "round_cap": 2, "steps": STEPS}, scan)
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "continue"}, scan)
+
+    page = client.get("/").text
+    looked = client.get("/?show=look").text
+
+    assert "<b>1</b><span>needs a look</span>" in page and "Market scan" in looked
+    assert 'class="g-look">needs a look<span class="n">1</span>' in page

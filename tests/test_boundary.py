@@ -254,7 +254,7 @@ def test_a_config_that_cannot_be_read_gives_a_page_that_says_so(
     assert 500 not in (answer.status_code, fetched.status_code, posted.status_code)
     assert "config.yaml" in fetched.text or fetched.json() == {"pulse": "error"}
     if "pulse" not in path:
-        assert "config.yaml" in answer.text and "<h1>" in answer.text
+        assert "config.yaml" in answer.text and "<h1" in answer.text
 
 
 def test_a_config_nested_past_the_parser_is_named(tmp_path: Path) -> None:

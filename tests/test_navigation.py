@@ -126,9 +126,9 @@ def tile(page: str, words: str) -> str:
 def test_the_figures_that_ask_for_a_look_lead_to_what_they_count(client: TestClient) -> None:
     page = client.get("/").text
 
-    assert '/?tab=waiting"' in tile(page, "wait[s]? for your answer")
-    assert '/?status=running"' in tile(page, "running now")
-    assert '/?status=stalled&amp;status=failed"' in tile(page, "stalled or failed")
+    assert '/?tab=waiting"' in tile(page, "waiting for you")
+    assert '/?show=running"' in tile(page, "running")
+    assert '/?show=look"' in tile(page, "needs? a look")
 
 
 def test_the_status_filter_takes_more_than_one_status(client: TestClient, scan: Path) -> None:
@@ -192,9 +192,9 @@ def test_the_script_sends_a_form_again_only_when_the_board_refused_it() -> None:
 def test_the_status_menu_keeps_the_statuses_a_figure_asked_for(client: TestClient) -> None:
     page = client.get("/?status=stalled&status=failed").text
 
-    menu = page.split('<select name="status">', 1)[1].split("</select>", 1)[0]
-    assert '<option value="failed,stalled" selected>failed or stalled</option>' in menu
-    assert menu.count(" selected") == 1
+    chips = page.split('<nav class="chips"', 1)[1].split("</nav>", 1)[0]
+    assert '" aria-current="true">failed or stalled</a>' in chips
+    assert chips.count("aria-current") == 1
 
 
 def test_a_menu_choice_of_two_statuses_filters_by_both(client: TestClient) -> None:
