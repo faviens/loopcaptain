@@ -11,11 +11,52 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-0E0E10.svg)](LICENSE)
 
 **Loopcaptain is an open protocol for agent loops and a local dashboard to
-monitor and steer them.** You run agent loops in many repositories, each
-built its own way. Here is the one place to see them: what each loop is
-for, where it stands, what every round and every reviewer found, what it
-cost, and what waits for you. You answer, stop and start a loop from the
-board: a human in the loop without a chat window.
+monitor and steer them:** a human in the loop without a chat window. Alpha:
+protocol 1 only grows, so a loop written today keeps working; the board may
+change.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+  <img alt="How it works. On the left, a loop in any repository: a script that pastes the helper from LOOPS.md, or an agent session that uses the MCP server. Both write the loop's folder, .loops/loop-id, with loop.json, events.jsonl and inbox.jsonl. On the right, the board on this machine reads the folder and shows every loop, one loop in detail, and the protocol to copy. Your answer, a stop or a start goes back through inbox.jsonl, which the loop reads at its next round." src="docs/assets/hero-light.svg">
+</picture>
+
+## Get started
+
+Paste one line into your coding agent, whichever you use.
+
+### Start a new loop
+
+```text
+Use Loopcaptain to build an agent loop in this repository: follow https://github.com/faviens/loopcaptain/blob/main/standard/AGENTS.md.
+```
+
+### Connect a loop you have
+
+```text
+Connect the agent loops on this machine to the Loopcaptain board: follow https://github.com/faviens/loopcaptain/blob/main/AGENTS.md, section A.
+```
+
+## The board
+
+Every loop on your machine on one page: what waits for you, what needs a
+look, what runs, what it cost. One loop in detail: whether it converges,
+every round and what each reviewer found, and where you answer, steer, stop
+or start it.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-overview-dark.webp"><img alt="The board's front page with eight invented loops in four projects: one waits for an answer, some run, others need a look, each with its rounds, open findings, time and cost." src="docs/assets/screenshot-overview.webp"></picture>
+
+<p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-waiting-dark.webp"><img alt="Waiting for you: a loop's question with two answer buttons and a box for your own words." src="docs/assets/screenshot-waiting.webp" width="49%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-loop-dark.webp"><img alt="One loop: key figures, rounds against the cap, and a line per measure showing whether it converges." src="docs/assets/screenshot-loop.webp" width="49%"></picture>
+</p>
+<p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-rounds-dark.webp"><img alt="The rounds of one loop: every round against every step, and one round with what each step did, found and cost." src="docs/assets/screenshot-rounds.webp" width="49%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-findings-dark.webp"><img alt="Open findings of one loop: what the last reviewed round left open, by reviewer, each with your call on it." src="docs/assets/screenshot-findings.webp" width="49%"></picture>
+</p>
+
+<sub>Invented loops, photographed from the board itself: `make shots`.</sub>
+
+## Setup
 
 ```bash
 uv tool install loopcaptain    # or put uvx in front of the two lines below
@@ -23,83 +64,32 @@ loopcaptain demo               # writes the example loop and puts it on the boar
 loopcaptain serve              # the board, on this machine only
 ```
 
-Alpha: protocol 1 only grows, so a loop written today keeps working; the
-board may change.
+Open the address `serve` prints in a browser: it lets that browser in. The
+example loop costs nothing, no model and no network: press Start, answer
+its question with a button and watch it end `done`. It needs Python 3.12 or
+later, on macOS or Linux, and [uv](https://docs.astral.sh/uv/), pipx or pip.
+From a checkout: `make setup && make demo && make serve`.
 
 It works with any loop that can write a file: a script, a Ralph loop, a
-long-running session of a coding agent (Claude Code's `/loop`, Codex's
-goal mode, for example), a loop built on an agent framework. None of
-them is needed: a loop has no dependency and never imports this
-repository.
-
-An agent loop is a program that runs an agent on one task again and
-again, until a bar is met or a cap is reached. One pass is a round: a few
-steps in order, usually one that makes something and others that judge
-it. A reviewer is such a judging step, with its own prompt: it reads what
-the round made and lists what is wrong, as findings.
-
-A loop reports by appending one line per thing that happened to a file in
-its own repository, `.loops/<loop-id>/events.jsonl`. One round, in which a
-reviewer finds a fault and the loop asks you what to do:
-
-<!-- The lines below are checked by tests/test_docs.py: they validate as written. -->
-```json
-{"ts": "2026-11-14T21:03:00Z", "event": "round_started", "round": 1, "plan": "Draft the memo"}
-{"ts": "2026-11-14T21:09:40Z", "event": "step_finished", "round": 1, "step": "build", "cost": {"usd": 0.34}}
-{"ts": "2026-11-14T21:12:10Z", "event": "step_finished", "round": 1, "step": "facts", "findings": [{"id": "1", "text": "The 40 percent has no source", "severity": "material"}]}
-{"ts": "2026-11-14T21:12:30Z", "event": "step_finished", "round": 1, "step": "gate", "passed": false, "summary": "One material finding is open"}
-{"ts": "2026-11-14T21:12:31Z", "event": "question", "id": "q1", "text": "Drop the figure?", "options": [{"id": "yes", "label": "Drop it"}, {"id": "no", "label": "Find a source"}]}
-{"ts": "2026-11-14T21:12:32Z", "event": "round_finished", "round": 1, "verdict": "wait"}
-```
-
-The board shows these lines as a round with its steps, an open finding,
-the cost, and a question with two buttons:
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-overview-dark.webp"><img alt="The board's front page with eight invented loops in four projects: one waits for an answer, two run, one stalled and one failed are marked, each with its rounds, open findings, time and cost." src="docs/assets/screenshot-overview.webp"></picture>
-
-<sub>Invented loops, photographed from the board itself: `make shots`.</sub>
-
-## Get started
-
-**Look first.** The three lines at the top run the example loop. It costs
-nothing: no model, no network.
-
-Open the address `serve` prints in a browser: it lets that browser in.
-Open the example loop, press Start, answer its
-question with a button and watch it end `done`. It needs Python 3.12 or
-later, on macOS or Linux, and [uv](https://docs.astral.sh/uv/), pipx or
-pip. From a checkout: `make setup && make demo && make serve`.
-
-The [documentation](https://faviens.github.io/loopcaptain/) has
+long-running session of a coding agent (Claude Code's `/loop`, Codex's goal
+mode, for example), a loop built on an agent framework. None of them is
+needed: a loop has no dependency and never imports this repository. The
+[documentation](https://faviens.github.io/loopcaptain/) has
 [Installation](https://faviens.github.io/loopcaptain/installation/),
 [Get started](https://faviens.github.io/loopcaptain/get-started/) and
 [Setup](https://faviens.github.io/loopcaptain/setup/).
 
-**Monitor the loops you already run.** Paste this into your coding agent,
-whichever you use. It finds the loops on your machine, sets up the board
-and proposes the smallest change that connects each one:
+## Steer a loop: answer, note, stop, start
 
-```text
-Help me see and steer the agent loops on this machine with Loopcaptain.
-Read https://github.com/faviens/loopcaptain/blob/main/AGENTS.md, section A.
-Find the repositories here that run agent loops, tell me which already
-write a .loops/ folder and which do not, set up the board to watch them,
-start it, and for each loop that is not connected propose the smallest
-change that connects it. Change nothing in those repositories before I agree.
-```
-
-**Set up a new loop that speaks the protocol.** Paste this one. It asks
-what the loop is for, builds it in your repository and shows you one real
-round on the board:
-
-```text
-Help me build an agent loop that reports to Loopcaptain.
-Read https://github.com/faviens/loopcaptain/blob/main/standard/AGENTS.md and LOOPS.md beside it.
-Ask me what the loop is for, who reads the result and when it is done.
-Then design the roles of one round, write the loop in this repository,
-make it write .loops/<loop-id>/ as the protocol says, and show me
-`loopcaptain validate .` printing ok after one real round.
-```
+1. **Answer.** A loop that asks shows its question on the board, with
+   buttons where it offered choices. Your answer is one signed line in the
+   loop's `inbox.jsonl`; the loop reads it at its next round.
+2. **Note.** The same line without a question: a direction for the next
+   round.
+3. **Stop.** The loop finishes the round it is in and ends.
+   `loopcaptain doctor` checks that a loop really takes a stop.
+4. **Start.** The board runs the one command the loop declared in its own
+   `loop.json`, without a shell, after you tick it once.
 
 ## The loop protocol
 
@@ -118,40 +108,25 @@ Python loop pastes a helper of under 110 lines, [standard/loops.py](standard/loo
 an agent session uses the MCP server, which every coding agent adds its own
 way: [docs/agents.md](docs/agents.md).
 
-## Monitor an agent loop
+An agent loop runs an agent on one task again and again, until a bar is met
+or a cap is reached. One pass is a round: a few steps, usually one that
+makes something and others that judge it. A reviewer is such a judging
+step: it reads what the round made and lists what is wrong, as findings. A
+loop reports by appending one line per thing that happened to
+`.loops/<loop-id>/events.jsonl`. One round, in which a reviewer finds a
+fault and the loop asks you what to do:
 
-1. **Every loop**, grouped by repository, filtered by status or text, with
-   what waits for you on its own tab.
-2. **One loop**: the brief, the graph of a round, whether it converges (a
-   line per measure against its target), bars against its caps, every round
-   against every step, open findings, the items it evaluates, and what you
-   sent with whether the loop took it.
-3. **Signs before the loop sees them**: a loop that stalled, one that goes
-   round without getting closer, a step that needs you, a line it wrote
-   that the protocol check refuses.
+<!-- The lines below are checked by tests/test_docs.py: they validate as written. -->
+```json
+{"ts": "2026-11-14T21:03:00Z", "event": "round_started", "round": 1, "plan": "Draft the memo"}
+{"ts": "2026-11-14T21:09:40Z", "event": "step_finished", "round": 1, "step": "build", "cost": {"usd": 0.34}}
+{"ts": "2026-11-14T21:12:10Z", "event": "step_finished", "round": 1, "step": "facts", "findings": [{"id": "1", "text": "The 40 percent has no source", "severity": "material"}]}
+{"ts": "2026-11-14T21:12:30Z", "event": "step_finished", "round": 1, "step": "gate", "passed": false, "summary": "One material finding is open"}
+{"ts": "2026-11-14T21:12:31Z", "event": "question", "id": "q1", "text": "Drop the figure?", "options": [{"id": "yes", "label": "Drop it"}, {"id": "no", "label": "Find a source"}]}
+{"ts": "2026-11-14T21:12:32Z", "event": "round_finished", "round": 1, "verdict": "wait"}
+```
 
-<p>
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-waiting-dark.webp"><img alt="Waiting for you: a loop's question with two answer buttons and a box for your own words." src="docs/assets/screenshot-waiting.webp" width="49%"></picture>
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-loop-dark.webp"><img alt="One loop: key figures, rounds against the cap, and a line per measure showing whether it converges." src="docs/assets/screenshot-loop.webp" width="49%"></picture>
-</p>
-<p>
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-rounds-dark.webp"><img alt="The rounds of one loop: every round against every step, and one round with what each step did, found and cost." src="docs/assets/screenshot-rounds.webp" width="49%"></picture>
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshot-findings-dark.webp"><img alt="Open findings of one loop: what the last reviewed round left open, by reviewer." src="docs/assets/screenshot-findings.webp" width="49%"></picture>
-</p>
-
-## Steer a loop: answer, note, stop, start
-
-1. **Answer.** A loop that asks shows its question on the board, with
-   buttons where it offered choices. Your answer is one signed line in the
-   loop's `inbox.jsonl`; the loop reads it at its next round.
-2. **Note.** The same line without a question: a direction for the next
-   round.
-3. **Stop.** The loop finishes the round it is in and ends.
-   `loopcaptain doctor` checks that a loop really takes a stop.
-4. **Start.** The board runs the one command the loop declared in its own
-   `loop.json`, without a shell, after you tick it once.
-
-## Connect a loop you already have
+## Connect a loop by hand
 
 1. **A script** (Python, shell, anything): paste the helper from
    [standard/LOOPS.md](standard/LOOPS.md) and call it where a round and a
