@@ -15,6 +15,7 @@ from pathlib import Path
 
 import yaml
 
+from loopcaptain.board.command import is_hidden
 from loopcaptain.protocol import store
 from loopcaptain.protocol.models import FOLDER, Manifest, now
 from loopcaptain.protocol.signing import untrusted_ids
@@ -28,8 +29,10 @@ log = logging.getLogger("loopcaptain.discover")
 CONFIG_ENV = "LOOPCAPTAIN_CONFIG"
 CONFIG_NAMES = ("loopcaptain.local.yaml",)
 USER_CONFIG = Path("~/.config/loopcaptain/config.yaml")
-#: A `HEAD` file is one short line; no more of it is read.
-HEAD_CHARS = 1024
+#: Git's own small files (`HEAD`, a worktree's `.git` and `gitdir`) are one line; no more is read.
+GIT_FILE_BYTES = 4096
+#: A longer name than this is not shown as a branch.
+MAX_BRANCH_CHARS = 200
 BRANCH_REF = "ref: refs/heads/"
 DEMO_FOLDER = "demo"
 
@@ -59,9 +62,9 @@ def git_common_dir(path: Path) -> Path:
     else (no git, an unreadable file, a claim that is not returned) stands for itself, so one
     folder cannot put itself in another repository's place on the board.
     """
-    dot_git = path / ".git"
-    if dot_git.is_dir():
-        return dot_git.resolve()
+    own = own_git_dir(path)
+    if own is not None:
+        return own.resolve()
     git_dir = worktree_git_dir(path)
     return git_dir.parent.parent if git_dir is not None else path.resolve()
 
@@ -279,15 +282,35 @@ def find_loop(config: Config, repo_key: str, loop_id: str) -> tuple[Repo, Manife
     return None
 
 
+def git_file(path: Path) -> str:
+    """The first line of one of git's small files, as a watched folder holds it: untrusted.
+
+    Opened without following a link and without waiting, and only if it is a plain file: a pipe
+    in the place of `.git` or `HEAD` would hold every page that reads it. Raises `OSError`,
+    `UnicodeDecodeError` or `IndexError` where there is no such line.
+    """
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as handle:
+        if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+            raise OSError(f"{path.name} is not a file")
+        return handle.read(GIT_FILE_BYTES).decode("utf-8").splitlines()[0]
+
+
+def own_git_dir(path: Path) -> Path | None:
+    """A checkout's `.git` folder, if it is a folder of its own and no link to another one."""
+    dot_git = path / ".git"
+    return dot_git if not dot_git.is_symlink() and dot_git.is_dir() else None
+
+
 def worktree_git_dir(path: Path) -> Path | None:
     """The folder a worktree's `.git` file names, if the repository it names lists the worktree back."""
     dot_git = path / ".git"
     try:
-        first = dot_git.read_text(encoding="utf-8").splitlines()[0]
+        first = git_file(dot_git)
         if not first.startswith("gitdir:"):
             return None
         gitdir = (path / first.removeprefix("gitdir:").strip()).resolve()
-        back = (gitdir / "gitdir").read_text(encoding="utf-8").strip()
+        back = git_file(gitdir / "gitdir").strip()
         returned = gitdir.parent.name == "worktrees" and (gitdir / back).resolve() == dot_git.resolve()
     except (OSError, IndexError, UnicodeDecodeError, ValueError):
         return None
@@ -296,21 +319,21 @@ def worktree_git_dir(path: Path) -> Path | None:
 
 def git_branch(repo: Path) -> str:
     """The checked-out branch, read from the checkout's `HEAD` file; "" where there is none to name
-    (no repository, a detached head, a worktree its repository does not list back).
+    (no repository, a detached head, a worktree its repository does not list back) or where the
+    name is too long or holds characters that do not show.
 
     Read from disk: the board runs nothing but `commands.start`, and running `git` in a watched
     folder would run whatever that folder's git config names.
     """
-    dot_git = repo / ".git"
-    git_dir = dot_git if dot_git.is_dir() else worktree_git_dir(repo)
+    git_dir = own_git_dir(repo) or worktree_git_dir(repo)
     if git_dir is None:
         return ""
     try:
-        with (git_dir / "HEAD").open(encoding="utf-8") as handle:
-            head = handle.read(HEAD_CHARS).splitlines()[0].strip()
+        head = git_file(git_dir / "HEAD").strip()
     except (OSError, UnicodeDecodeError, IndexError):
         return ""
-    return head.removeprefix(BRANCH_REF) if head.startswith(BRANCH_REF) else ""
+    branch = head.removeprefix(BRANCH_REF) if head.startswith(BRANCH_REF) else ""
+    return "" if len(branch) > MAX_BRANCH_CHARS or any(is_hidden(char) for char in branch) else branch
 
 
 def config_target() -> Path:
