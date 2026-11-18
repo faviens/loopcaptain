@@ -12,10 +12,11 @@ import hashlib
 import hmac
 import logging
 import secrets
+import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 from urllib.parse import quote
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request
@@ -63,6 +64,9 @@ MAX_REPLY_CHARS = 20_000
 #: How the person can settle a finding from the board, as the reply reads them. `fixed` and
 #: `duplicate` are the loop's to say: only its own run shows them.
 SETTLE_WORDS = {"accepted": "Accept as is", "wontfix": "Won't fix", "false_positive": "Not a problem"}
+#: How long the header's figures may be reused while no loop's files change: statuses also move
+#: with the clock (a silent round turns stalled), so not for longer.
+TOTALS_FRESH_S = 5
 #: The project's documentation site: the protocol, the guides and every command, explained at length.
 DOCS_URL = "https://faviens.github.io/loopcaptain/"
 TABS = ("overview", "rounds", "findings", "items", "inbox")
@@ -211,11 +215,19 @@ def create_app(
                 views.append(load_loop(repo, loop_id, process_alive=bool(process and process.alive)))
         return views
 
+    #: The views the header last counted, and the file stats and second they were read at: every
+    #: page shows the board's figures, and a page that reloads itself must not re-read every loop.
+    counted: dict[str, object] = {}
+
     def totals() -> dict[str, object] | None:
         """The board's figures for the header of every page; None where the loops cannot be read."""
         try:
-            views = all_views()
-        except StoreError:
+            stamp = (overview_fingerprint(), int(time.monotonic() // TOTALS_FRESH_S))
+            if counted.get("stamp") != stamp:
+                counted.update(stamp=stamp, views=all_views())
+            views = cast(list[LoopView], counted["views"])
+        except Exception:  # the header must never take a page down, an error page least of all
+            log.exception("the header's figures could not be read")
             return None
         states = [view.state for view in views if view.state]
         return {
