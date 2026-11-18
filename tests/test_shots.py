@@ -51,13 +51,21 @@ def test_the_entry_is_read_from_the_line_serve_prints(shots: types.ModuleType, b
     assert shots.entry_of("INFO uvicorn: started\n") is None
 
 
-def test_every_page_of_the_shots_is_reached_through_the_entry(
-    shots: types.ModuleType, board: TestClient
+def test_every_page_of_the_shots_is_reached_through_the_entry_of_its_own_board(
+    shots: types.ModuleType, scan: Path, tmp_path: Path
 ) -> None:
-    entry = entry_address(8497, board.app.state.session)  # type: ignore[attr-defined]
-
+    """Each shot is a new headless Chrome without a cookie, and an address lets one browser in, so
+    every shot has a board, and an address, of its own."""
     for path, _, _ in shots.PAGES:
-        answer = board.get(shots.page_address(entry, path))
+        app = create_app(
+            config=lambda: Config(repos=(scan,)),
+            runner=Runner(tmp_path / "state"),
+            allowed_hosts=frozenset({HOST}),
+        )
+        chrome = TestClient(app, base_url=f"http://{HOST}", follow_redirects=False)
+        entry = entry_address(8497, app.state.session)
+
+        answer = chrome.get(shots.page_address(entry, path))
 
         assert answer.status_code == 303, path
         assert answer.headers["location"] == path

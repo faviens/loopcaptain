@@ -276,9 +276,11 @@ and no model.
    itself started the process and it is alive. A loop that dies mid-round
    shows as stalled, not failed.
 7. **The pid the board remembers survives a restart of the board,** with
-   the machine's boot time beside it: a record from before a reboot never
-   reads as alive. The boot time comes from a clock, not from `ps`, since
-   the board runs nothing but `commands.start`.
+   the machine's boot time and the process's own start time beside it: a
+   record from before a reboot, or a pid a later process holds now, never
+   reads as alive, and End signals nothing then. Both times come from the
+   kernel (a clock, `/proc`, `sysctl`), not from `ps`, since the board runs
+   nothing but `commands.start`.
 8. **The page reloads itself every few seconds while files change,** but
    not while a textarea holds text. A template that adds a form field must
    keep that rule in `static/board.js`.

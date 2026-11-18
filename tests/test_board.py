@@ -44,7 +44,7 @@ def client(scan: Path, tmp_path: Path) -> TestClient:
 def let_in(client: TestClient) -> TestClient:
     """The client as a browser that opened the address `serve` printed."""
     session = client.app.state.session  # type: ignore[attr-defined]
-    client.cookies.set(session.cookie_name, session.cookie_value)
+    client.cookies.set(session.cookie_name, session.issue() or "")
     return client
 
 
@@ -611,6 +611,55 @@ def test_a_pid_recorded_before_a_reboot_is_not_taken_for_alive(scan: Path, tmp_p
 
     assert alive_now is not None and alive_now.alive
     assert before_reboot is not None and not before_reboot.alive
+
+
+def test_a_pid_now_held_by_a_process_started_later_is_not_taken_for_alive(scan: Path, tmp_path: Path) -> None:
+    """The same boot, the same pid, another process: its start time tells, so End signals nothing."""
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    mine = steer.process_start_time(os.getpid())
+    record = {
+        "pid": os.getpid(),
+        "command": "x",
+        "started": "2026-11-14T10:00:00+00:00",
+        "boot": steer.boot_time(),
+    }
+    record["repo"] = steer.identity(repo)
+    runner.state_dir.mkdir(parents=True)
+    path = runner.record_path(repo, "scan")
+
+    path.write_text(json.dumps(record | {"process_start": mine}))
+    same = runner.process(repo, "scan")
+    path.write_text(json.dumps(record | {"process_start": (mine or 0) - 3600}))
+    reused = runner.process(repo, "scan")
+
+    assert mine is not None and steer.boot_time() - 5 < mine <= time.time()
+    assert same is not None and same.alive
+    assert reused is not None and not reused.alive
+    with pytest.raises(StoreError, match="nothing the board started"):
+        runner.kill(repo, "scan")
+
+
+def test_a_process_that_is_gone_has_no_start_time() -> None:
+    gone = subprocess.Popen([sys.executable, "-c", "pass"])
+    gone.wait()
+
+    assert steer.process_start_time(gone.pid) is None
+
+
+def test_the_board_records_when_the_process_it_started_began(scan: Path, tmp_path: Path) -> None:
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    manifest = Manifest.model_validate_json((scan / ".loops" / "scan" / "loop.json").read_text())
+    command = f"{sys.executable} -c 'import time; time.sleep(5)'"
+    manifest = manifest.model_copy(update={"commands": {**manifest.commands, "start": command}})
+
+    before = time.time()
+    process = runner.start(repo, manifest)
+    record = json.loads(runner.record_path(repo, "scan").read_text())
+    runner.kill(repo, "scan")
+
+    assert process.alive and before - 2 <= record["process_start"] <= time.time()
 
 
 def test_worktrees_of_one_repository_show_once_from_the_last_written(
@@ -1272,3 +1321,38 @@ def test_a_folder_that_only_claims_to_be_a_worktree_of_another_repository_stands
 
     assert sorted((repo.key, repo.others) for repo in repos) == [("claimant", ()), ("tool", ())]
     assert store.loop_ids(next(repo.path for repo in repos if repo.key == "tool")) == ["scan"]
+
+
+@pytest.mark.parametrize("stat", ["", "4242 (loop", "4242 (loop) S 1", "4242 (a) b) S " + "x " * 30])
+def test_a_proc_stat_line_that_cannot_be_read_gives_no_start_time(stat: str) -> None:
+    assert steer.start_ticks(stat) is None
+
+
+def test_a_proc_stat_line_gives_the_ticks_after_boot_even_with_a_bracket_in_the_name() -> None:
+    fields = ["S"] + [str(number) for number in range(4, 60)]  # field 3 onwards; field 22 is 22
+    assert steer.start_ticks("4242 (odd) name) " + " ".join(fields)) == 22
+
+
+def test_a_process_whose_start_time_cannot_be_read_is_not_called_ended_nor_signalled(
+    scan: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    signalled: list[int] = []
+    runner = Runner(tmp_path / "state")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    record = {
+        "pid": os.getpid(),
+        "command": "x",
+        "started": "2026-11-14T10:00:00+00:00",
+        "boot": steer.boot_time(),
+    }
+    record |= {"repo": steer.identity(repo), "process_start": 1_000_000.0}
+    steer.write_private(runner.record_path(repo, "scan"), json.dumps(record))
+    monkeypatch.setattr(steer, "process_start_time", lambda pid: None)
+    monkeypatch.setattr(os, "killpg", lambda pid, sig: signalled.append(pid))
+
+    process = runner.process(repo, "scan")
+
+    assert process is not None and process.alive and not process.confirmed
+    with pytest.raises(StoreError, match="could not confirm"):
+        runner.kill(repo, "scan")
+    assert signalled == []

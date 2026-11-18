@@ -26,7 +26,7 @@ def client(scan: Path, tmp_path: Path) -> TestClient:
         allowed_hosts=frozenset({HOST}),
     )
     client = TestClient(app, base_url=f"http://{HOST}", follow_redirects=False, raise_server_exceptions=False)
-    client.cookies.set(app.state.session.cookie_name, app.state.session.cookie_value)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
     return client
 
 

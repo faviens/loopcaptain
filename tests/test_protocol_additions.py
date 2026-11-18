@@ -46,7 +46,7 @@ def page(repo: Path, tmp_path: Path, query: str = "") -> str:
     )
     client = TestClient(app, base_url=f"http://{HOST}", follow_redirects=False)
     session = app.state.session
-    client.cookies.set(session.cookie_name, session.cookie_value)
+    client.cookies.set(session.cookie_name, session.issue() or "")
     response = client.get(f"/loop/{repo.name}/scan{query}")
     assert response.status_code == 200
     return response.text

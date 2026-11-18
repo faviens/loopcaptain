@@ -142,16 +142,22 @@ def create_app(
             response = locked(request)
         return secured(response)
 
-    def locked(request: Request) -> Response:
-        """What a browser without the cookie gets, whatever it asked for: where to find the address."""
-        return templates.TemplateResponse(request, "locked.html", {}, status_code=401)
+    def locked(request: Request, spent: bool = False) -> Response:
+        """What a browser without the cookie gets, whatever it asked for: where to find the address,
+        or, for an address used already, how to get a new one."""
+        return templates.TemplateResponse(request, "locked.html", {"spent": spent}, status_code=401)
 
     @app.get(ENTER_PATH, name="enter")
     def enter(request: Request, key: str = "", next: str = "/") -> Response:
+        if door.admits(request.cookies):
+            return RedirectResponse(local_path(next), status_code=303)
         if not door.opens(key):
             return locked(request)
+        cookie = door.issue()
+        if cookie is None:
+            return locked(request, spent=True)
         response = RedirectResponse(local_path(next), status_code=303)
-        response.set_cookie(door.cookie_name, door.cookie_value, httponly=True, samesite="strict", path="/")
+        response.set_cookie(door.cookie_name, cookie, httponly=True, samesite="strict", path="/")
         return response
 
     def problems_of(repo: Repo, loop_id: str) -> list[str]:

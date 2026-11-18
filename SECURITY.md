@@ -10,7 +10,7 @@ reaches a loop:
 <!-- --8<-- [end:head] -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/entry-dark.svg">
-  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it sets a cookie made from the key and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="docs/assets/entry-light.svg">
+  <img alt="How a browser gets into the board: loopcaptain serve prints an address with a new key; opening it once sets a cookie of its own and leads on to the page; every request after passes the host check, the cookie and, for a form, the token, and only the entry and the static files are open without the cookie." src="docs/assets/entry-light.svg">
 </picture>
 
 <picture>
@@ -61,8 +61,10 @@ reaches a loop:
    only the stylesheet, the script and the font are served without it.
    Each start makes a new key, kept in the board's memory only, so an
    address or a cookie from an earlier start is refused. Every form also
-   carries a per-process token. The printed address is a password for as
-   long as that board runs: do not paste it anywhere.
+   carries a per-process token. The printed address works once: it lets
+   one browser in, which stays in while that board runs, and is refused
+   after that, so a copy left in a history, a scrollback or a transcript
+   lets nobody in. Another browser needs a restart of `serve`.
 8. **What that does not cover:** a process that runs as you and can read
    your terminal, your browser's cookie store or the board's memory can
    get in, as it can read the watched repositories and the inbox key
@@ -71,8 +73,8 @@ reaches a loop:
    network, a forwarded port, a process confined to its own folder.
    A browser sends a cookie for `127.0.0.1` to every port there, so
    another web server on `127.0.0.1` that you open in the same browser
-   receives the board's cookie while that board runs; the key, and so the
-   cookie, changes at each start.
+   receives the board's cookie while that board runs; the cookie, like the
+   key, changes at each start.
 
 ## Reporting a vulnerability
 

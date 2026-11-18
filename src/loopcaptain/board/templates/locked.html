@@ -13,13 +13,22 @@
   <span class="brand"><img src="{{ url_for('static', path='mark.svg') }}" alt="" width="28" height="28">Loopcaptain</span>
 </header>
 <main>
+{% if spent %}
+<h1>This address was used already</h1>
+<p class="lead">The address the board prints works once: it let one browser in, and that browser stays in while the board runs.</p>
+<ol class="steps">
+  <li>To use the board here, stop it in its terminal and start it again with <code>loopcaptain serve</code> (or <code>make serve</code>).</li>
+  <li>Open the new address it prints in this browser. A browser let in before has to open the new address too.</li>
+</ol>
+{% else %}
 <h1>Open the board from its own address</h1>
 <p class="lead">This browser has not been let in by the board that runs now.</p>
 <ol class="steps">
   <li>Find the terminal where <code>loopcaptain serve</code> (or <code>make serve</code>) runs. Its first line is an address that ends in a long key.</li>
-  <li>Open that address in this browser. It lets this browser in and leads on to the board.</li>
+  <li>Open that address in this browser. It lets this browser in and leads on to the board. It works once.</li>
 </ol>
 <p class="note">Every start of the board makes a new key, so an address from an earlier start no longer works, and a page left open across a restart ends up here. If this browser was let in already and a link from another program brought you here, enter the board's address in the address bar yourself.</p>
+{% endif %}
 </main>
 <footer class="foot">Answers only on this machine, and only to a browser that opened its address.</footer>
 </body>
