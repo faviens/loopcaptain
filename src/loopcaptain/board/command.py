@@ -17,17 +17,34 @@ from loopcaptain.board.files import TEXT_SUFFIXES, is_private, read_bounded
 
 #: Unicode categories of characters that do not show as themselves: control and format characters
 #: (among them the ones that turn the reading direction), line and paragraph separators, private
-#: use, lone surrogates. A space other than the plain one reads as a gap between arguments and is
-#: none, so it is refused with them.
-HIDDEN_CATEGORIES = frozenset({"Cc", "Cf", "Zl", "Zp", "Co", "Cs"})
+#: use, lone surrogates, code points nothing is assigned to. A space other than the plain one reads
+#: as a gap between arguments and is none, so it is refused with them.
+HIDDEN_CATEGORIES = frozenset({"Cc", "Cf", "Zl", "Zp", "Co", "Cs", "Cn"})
 OTHER_SPACE = "Zs"
+#: Letters, marks and symbols that are drawn as nothing or as a blank, by first and last code
+#: point: the combining grapheme joiner, the Hangul fillers, two Khmer inherent vowels, the
+#: Mongolian and the general variation selectors, the empty braille pattern.
+BLANK_RANGES = (
+    (0x034F, 0x034F),
+    (0x115F, 0x1160),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180F),
+    (0x2800, 0x2800),
+    (0x3164, 0x3164),
+    (0xFE00, 0xFE0F),
+    (0xFFA0, 0xFFA0),
+    (0xE0100, 0xE01EF),
+)
 #: How many of a command's arguments are looked up as files: a command names one script, or a few.
 MAX_NAMED_FILES = 16
 
 
 def is_hidden(char: str) -> bool:
+    """Whether a character is drawn as nothing, as a blank, or changes how its neighbours are drawn."""
     category = unicodedata.category(char)
-    return category in HIDDEN_CATEGORIES or (category == OTHER_SPACE and char != " ")
+    if category in HIDDEN_CATEGORIES or (category == OTHER_SPACE and char != " "):
+        return True
+    return any(first <= ord(char) <= last for first, last in BLANK_RANGES)
 
 
 def code_point(char: str) -> str:

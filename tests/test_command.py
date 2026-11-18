@@ -65,6 +65,12 @@ def start(client: TestClient, repo: Path) -> str:
         (NO_BREAK_SPACE, "U+00A0"),
         ("\t", "U+0009"),
         ("\x1b", "U+001B"),
+        ("\u3164", "U+3164"),  # a Hangul filler: a letter that is drawn as a blank
+        ("\u2800", "U+2800"),  # the empty braille pattern
+        ("\ufe0f", "U+FE0F"),  # a variation selector
+        ("\u034f", "U+034F"),  # the combining grapheme joiner
+        ("\U000e0101", "U+E0101"),
+        ("\u0378", "U+0378"),  # assigned to nothing
     ],
 )
 def test_a_command_with_a_character_that_does_not_show_is_named_and_not_read(hidden: str, name: str) -> None:
@@ -72,6 +78,12 @@ def test_a_command_with_a_character_that_does_not_show_is_named_and_not_read(hid
 
     assert name in command.problem and command.argv == ()
     assert hidden not in command.shown and f"<{name}>" in command.shown
+
+
+def test_letters_and_marks_that_show_are_not_refused() -> None:
+    command = read_command("python3 r\u00e9sum\u00e9/e\u0301t\u00e9.py \u65e5\u672c \u0915\u093f")
+
+    assert command.problem == "" and len(command.argv) == 4
 
 
 def test_a_plain_command_splits_into_the_arguments_that_run() -> None:
