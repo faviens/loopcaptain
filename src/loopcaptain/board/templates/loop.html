@@ -274,7 +274,7 @@
     {% elif start %}
     <form class="start" id="start-loop" method="post" action="{{ url_for('loop_start', repo_key=view.repo.key, loop_id=view.loop_id) }}">
       <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
-      <input type="hidden" name="command" value="{{ start }}">
+      <input type="hidden" name="command" value="{{ start }}"><input type="hidden" name="files" value="{{ files_mark }}">
       {% if command.problem %}
       <p><code>{{ command.shown }}</code></p>
       <p class="flash bad" role="alert">Not started from here: {{ command.problem }}.</p>

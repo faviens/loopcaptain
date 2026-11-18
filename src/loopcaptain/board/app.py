@@ -28,7 +28,7 @@ from markupsafe import Markup
 
 from loopcaptain.agents import agents, checkout_of
 from loopcaptain.board.access import COOKIE_NAME, ENTER_PATH, HOST, Session, is_open, local_path
-from loopcaptain.board.command import read_command
+from loopcaptain.board.command import files_mark, named_files, read_command
 from loopcaptain.board.discover import (
     Config,
     LoopView,
@@ -365,6 +365,7 @@ def create_app(
         manifest = state.manifest  # as the fold counts it: a cost cap that is not finite is none
         shown = next((r for r in state.rounds if r.number == round), state.last_round)
         process = steer.process(repo, loop_id)
+        declared = read_command(manifest.commands.get("start", ""))
         context = {
             "view": view,
             "state": state,
@@ -376,7 +377,8 @@ def create_app(
             "branch": git_branch(repo.path),
             "process": process,
             "log_tail": steer.log_tail(repo, loop_id) if process else "",
-            "command": read_command(manifest.commands.get("start", "")),
+            "command": declared,
+            "files_mark": files_mark(named_files(repo.path, declared.argv)),
             "confirmed": steer.is_confirmed(repo, loop_id, manifest.commands.get("start", "")),
             "changed_files": steer.changed_files(repo, loop_id, manifest.commands.get("start", "")),
             "runs_elsewhere": runs_elsewhere(view, steer),
@@ -576,6 +578,7 @@ def create_app(
         command: Annotated[str, Form()] = "",
         confirm: Annotated[str, Form()] = "",
         again: Annotated[str, Form()] = "",
+        files: Annotated[str, Form()] = "",
     ) -> Response:
         check_token(token, repo_key, loop_id)
         repo, manifest, view = view_of(repo_key, loop_id)
@@ -603,11 +606,21 @@ def create_app(
                 tab=tab,
                 error="Not started: first start of this command. Read it, tick the box, press again.",
             )
+        # Read before the process begins: what is remembered is what the page told the person of.
+        named = named_files(repo.path, read_command(command).argv)
+        if files_mark(named) != files:
+            return back(
+                repo_key,
+                loop_id,
+                tab=tab,
+                error="Not started: a file the command names changed after this page was drawn. "
+                "Look at it and press again.",
+            )
         try:
             process = steer.start(repo, manifest)
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, error=f"Not started: {problem}.")
-        steer.confirm(repo, loop_id, command)  # every start: the files it names are remembered anew
+        steer.confirm(repo, loop_id, command, named)  # every start: the files are remembered anew
         return back(repo_key, loop_id, tab=tab, note=f"Started: {process.command} (pid {process.pid}).")
 
     @app.post("/loop/{repo_key}/{loop_id}/kill", name="loop_kill")

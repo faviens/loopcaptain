@@ -256,9 +256,11 @@ class Runner:
         """Whether the person has started this exact command for this loop before."""
         return command_hash(repo, loop_id, command) in self.confirmed()
 
-    def confirm(self, repo: Repo, loop_id: str, command: str) -> None:
-        """Remember a start: the tick, and what the files the command names held at that moment."""
-        files = named_files(repo.path, read_command(command).argv)
+    def confirm(self, repo: Repo, loop_id: str, command: str, files: dict[str, str] | None = None) -> None:
+        """Remember a start: the tick, and what the files the command names held, as read before
+        the process began (`files`), else as they are now."""
+        if files is None:
+            files = named_files(repo.path, read_command(command).argv)
         kept = {**self.confirmed(), command_hash(repo, loop_id, command): files}
         write_private(self.state_dir / CONFIRMED_FILE, json.dumps(kept, sort_keys=True) + "\n")
 

@@ -8,6 +8,7 @@ one that would run, so such a command is marked on the page and never started.
 from __future__ import annotations
 
 import hashlib
+import json
 import shlex
 import unicodedata
 from dataclasses import dataclass
@@ -37,6 +38,7 @@ BLANK_RANGES = (
 )
 #: How many of a command's arguments are looked up as files: a command names one script, or a few.
 MAX_NAMED_FILES = 16
+MARK_CHARS = 16
 
 
 def is_hidden(char: str) -> bool:
@@ -111,3 +113,13 @@ def named_files(root: Path, argv: tuple[str, ...]) -> dict[str, str]:
         except (OSError, ValueError):  # a null byte, a name too long, a file that went away
             continue
     return found
+
+
+def files_mark(files: dict[str, str]) -> str:
+    """One short word for what the files a command names hold; "" where it names none.
+
+    The page carries it in the Start form, so a start is refused when a file changed after the
+    page was drawn: the person would start something they have not been told about."""
+    if not files:
+        return ""
+    return hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()[:MARK_CHARS]

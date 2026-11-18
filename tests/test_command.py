@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 import types
@@ -40,6 +41,12 @@ def declare(repo: Path, helper: types.ModuleType, command: str) -> None:
     helper.register("scan", {"title": "Market scan", "commands": {"start": command}}, repo)
 
 
+def seen_files(client: TestClient) -> str:
+    """The mark of the named files as the loop's page carries it in its Start form."""
+    found = re.search(r'name="files" value="([^"]*)"', client.get("/loop/some-repo/scan").text)
+    return found.group(1) if found else ""
+
+
 def start(client: TestClient, repo: Path) -> str:
     """Press Start with every tick, and wait for the process to end: a second start is refused
     while the first still runs."""
@@ -48,6 +55,7 @@ def start(client: TestClient, repo: Path) -> str:
         "command": store.read_manifest(repo, "scan").commands["start"],
         "confirm": "yes",
         "again": "yes",
+        "files": seen_files(client),
     }
     location = str(client.post("/loop/some-repo/scan/start", data=form).headers["location"])
     for _ in range(200):
@@ -174,3 +182,24 @@ def test_a_list_of_ticks_kept_by_an_older_board_reads_as_none(scan: Path, tmp_pa
     repo = find_repos(Config(repos=(scan,)))[0]
 
     assert runner.confirmed() == {} and runner.changed_files(repo, "scan", "x") == []
+
+
+def test_a_script_changed_after_the_page_was_drawn_is_not_started_unseen(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    (scan / "loop.py").write_text("open('ran.txt', 'a').write('first ')\n")
+    declare(scan, helper, f"{sys.executable} loop.py")
+    form = {
+        "token": str(client.app.state.token),  # type: ignore[attr-defined]
+        "command": f"{sys.executable} loop.py",
+        "confirm": "yes",
+        "again": "yes",
+        "files": seen_files(client),
+    }
+
+    (scan / "loop.py").write_text("open('ran.txt', 'a').write('swapped ')\n")
+    refused = client.post("/loop/some-repo/scan/start", data=form).headers["location"]
+    drawn_again = client.get("/loop/some-repo/scan").text
+
+    assert "changed%20after%20this%20page" in refused and not (scan / "ran.txt").exists()
+    assert 'name="confirm"' in drawn_again, "nothing was started, so the tick is still owed"
