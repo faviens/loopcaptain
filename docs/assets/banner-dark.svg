@@ -28,7 +28,7 @@
     <path class="lc-loop" stroke-width=".6" stroke-linejoin="round" d="M45.93 35.65L51.93 37.13L46.78 41.77z"/>
   </g></g>
   <g font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
-    <text x="172" y="141" font-size="84" font-weight="700" fill="#F5F5F3" letter-spacing="-3.4">Loopcaptain</text>
+    <text x="172" y="141" font-size="84" font-weight="700" fill="#F5F5F3" letter-spacing="-3.4">L<tspan fill="#FF6B73">oo</tspan>pcaptain</text>
     <text x="68" y="208" font-size="22" font-weight="600" fill="#F5F5F3" letter-spacing="-0.4">Monitor and steer your agent loops</text>
     <text x="68" y="242" font-size="16.5" font-weight="400" fill="#A0A09C" >One board for every loop on your machine: where it stands, what it found,</text>
     <text x="68" y="267" font-size="16.5" font-weight="400" fill="#A0A09C" >what it cost and what waits for you. An open protocol lets any loop report.</text>

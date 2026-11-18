@@ -62,3 +62,20 @@ def test_each_banner_shows_the_mark_in_its_own_theme_whatever_the_viewer_prefers
 
     assert "prefers-color-scheme" not in light + dark
     assert "#5C5C64" not in light and "#5C5C64" in dark
+
+
+def test_the_two_os_of_the_name_are_the_marks_lenses_in_red() -> None:
+    templates = ROOT / "src" / "loopcaptain" / "board" / "templates"
+    for page in ("base.html", "locked.html"):
+        assert '<span>L<span class="oo">oo</span>pcaptain</span></' in (templates / page).read_text(
+            encoding="utf-8"
+        )
+    assert ".brand .oo { color: var(--accent); }" in STYLE.read_text(encoding="utf-8")
+    drawn = pictures()
+    for theme in ("light", "dark"):
+        red = drawn.THEMES[theme]["loop"]
+        assert red in drawn.MARK.read_text(encoding="utf-8")
+        assert (
+            f'L<tspan fill="{red}">oo</tspan>pcaptain'
+            in (ROOT / "docs/assets" / f"banner-{theme}.svg").read_text()
+        )

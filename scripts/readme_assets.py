@@ -23,6 +23,7 @@ THEMES: dict[str, dict[str, str]] = {
         "grey": "#71716E",
         "hair": "#E4E3DE",
         "accent": "#D6000B",
+        "loop": "#FF000D",
         "good": "#13804B",
         "blue": "#0B7296",
         "group": "#ECEAE5",
@@ -37,6 +38,7 @@ THEMES: dict[str, dict[str, str]] = {
         "grey": "#A0A09C",
         "hair": "#38383A",
         "accent": "#FF6B73",
+        "loop": "#FF6B73",
         "good": "#4FBF82",
         "blue": "#5BB8D8",
         "group": "#1C1C1F",
@@ -145,7 +147,7 @@ def banner(theme: str) -> str:
   <rect y="339" width="1200" height="1" fill="{t["hair"]}"/>
   {mark(66, 72, 84, theme)}
   <g font-family="{FONT}">
-    {text(172, 141, "Loopcaptain", 84, t["ink"], 700, 'letter-spacing="-3.4"')}
+    {text(172, 141, f'L<tspan fill="{t["loop"]}">oo</tspan>pcaptain', 84, t["ink"], 700, 'letter-spacing="-3.4"')}
     {text(68, 208, "Monitor and steer your agent loops", 22, t["ink"], 600, 'letter-spacing="-0.4"')}
     {text(68, 242, "One board for every loop on your machine: where it stands, what it found,", 16.5, t["grey"])}
     {text(68, 267, "what it cost and what waits for you. An open protocol lets any loop report.", 16.5, t["grey"])}

@@ -84,6 +84,7 @@ code { background: var(--tint-2); padding: 1px 6px; border-radius: 6px; }
   background: rgb(var(--rgb-paper) / .82); -webkit-backdrop-filter: saturate(1.7) blur(22px); backdrop-filter: saturate(1.7) blur(22px); border-bottom: 1px solid var(--line); }
 .brand { display: inline-flex; align-items: center; gap: 10px; min-height: var(--target); color: var(--text); font: 700 18px/1 var(--font-display); letter-spacing: -.03em; }
 .brand:hover { text-decoration: none; }
+.brand .oo { color: var(--accent); } /* the two lenses of the mark, in its red */
 .brand img { width: 28px; height: 28px; display: block; border-radius: 7px; }
 .top .where { color: var(--text-2); font-size: var(--t14); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 nav.strip { margin-left: auto; display: flex; gap: 2px; padding: 3px; border-radius: var(--pill); background: var(--tint-2); }
