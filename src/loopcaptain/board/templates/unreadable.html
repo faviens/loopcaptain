@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set page = 'loop' %}
 {% block title %}{{ loop_id }} cannot be read · Loopcaptain{% endblock %}
 {% block where %}{{ repo.key }} / {{ loop_id }}{% endblock %}
 {% block main %}

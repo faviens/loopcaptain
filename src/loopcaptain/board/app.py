@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -198,13 +198,21 @@ def create_app(
         """A mark only this server process can make, so a crafted link cannot put words on a page."""
         return hmac.new(token.encode(), f"{note}\0{error}".encode(), "sha256").hexdigest()
 
-    def back(repo_key: str, loop_id: str, note: str = "", error: str = "") -> RedirectResponse:
+    def back(
+        repo_key: str, loop_id: str, note: str = "", error: str = "", *, tab: str = "", back_to: str = ""
+    ) -> RedirectResponse:
+        """To the loop's page, on the tab the form was drawn on, with a message only this server can seal.
+
+        `back_to` names the one other place a form may lead: the overview's waiting tab. It is a name,
+        never an address, so a form cannot send the browser anywhere the board does not know."""
         url = str(app.url_path_for("loop_page", repo_key=repo_key, loop_id=loop_id))
-        if not (note or error):
-            return RedirectResponse(url, status_code=303)
-        pairs = (("note", note), ("error", error), ("seal", seal(note, error)))
+        pairs = [("tab", tab)] if tab in TABS and tab != "overview" else []
+        if back_to == "waiting":
+            url, pairs = str(app.url_path_for("overview")), [("tab", "waiting")]
+        if note or error:
+            pairs += [("note", note), ("error", error), ("seal", seal(note, error))]
         query = "&".join(f"{key}={quote(value)}" for key, value in pairs if value)
-        return RedirectResponse(f"{url}?{query}", status_code=303)
+        return RedirectResponse(f"{url}?{query}" if query else url, status_code=303)
 
     def message_of(request: Request) -> tuple[str, str]:
         note = request.query_params.get("note", "")
@@ -214,7 +222,11 @@ def create_app(
 
     @app.get("/", response_class=HTMLResponse, name="overview")
     def overview(
-        request: Request, tab: str = "", q: str = "", status: str = "", finished: str = ""
+        request: Request,
+        tab: str = "",
+        q: str = "",
+        status: Annotated[list[str] | None, Query()] = None,
+        finished: str = "",
     ) -> Response:
         try:
             cfg = config()
@@ -229,8 +241,13 @@ def create_app(
             last = view.state.last_event if view.state else None
             return STATUS_ORDER.index(status), -(last.timestamp() if last else 0.0)
 
+        note, told = message_of(request)
         views.sort(key=rank)
-        shown, hidden = filter_views(views, q, status, show_finished=finished == "1")
+        # A figure asks for more than one status as the status given twice, the menu as one value
+        # joined by commas, so Filter keeps them; an unknown one is dropped.
+        asked = {part for value in status or () for part in value.split(",")}
+        statuses = frozenset(asked) & frozenset(STATUS_ORDER)
+        shown, hidden = filter_views(views, q, statuses, show_finished=finished == "1")
         context = {
             "views": views,
             "projects": projects_of(shown),
@@ -238,7 +255,8 @@ def create_app(
             "hidden": hidden,
             "filters": {
                 "q": q,
-                "status": status if status in STATUS_ORDER else "",
+                "statuses": statuses,
+                "together": [name for name in STATUS_ORDER if name in statuses] if len(statuses) > 1 else [],
                 "finished": finished == "1",
             },
             "statuses": STATUS_ORDER,
@@ -246,7 +264,8 @@ def create_app(
             "tab": tab if tab in OVERVIEW_TABS else "loops",
             "waiting": [view for view in views if view.state and view.state.question],
             "config": cfg,
-            "error": error,
+            "error": error or told,
+            "note": note,
             "unreadable": unreadable,
             "token": token,
             "pulse": overview_fingerprint() if not error else "error",
@@ -346,6 +365,8 @@ def create_app(
         repo_key: str,
         loop_id: str,
         token: Annotated[str, Form()],
+        tab: Annotated[str, Form()] = "",
+        back_to: Annotated[str, Form()] = "",
         text: Annotated[str, Form()] = "",
         choice: Annotated[str, Form()] = "",
     ) -> Response:
@@ -354,12 +375,26 @@ def create_app(
         asked = view.state.question if view.state else None
         picked = next((option for option in asked.options if option.id == choice), None) if asked else None
         if choice and picked is None:
-            return back(repo_key, loop_id, error="Nothing was sent: that choice is no longer offered.")
+            return back(
+                repo_key,
+                loop_id,
+                tab=tab,
+                back_to=back_to,
+                error="Nothing was sent: that choice is no longer offered.",
+            )
         message = text.strip() or (picked.label if picked else "")
         if not message:
-            return back(repo_key, loop_id, error="Nothing was sent: the reply was empty.")
+            return back(
+                repo_key, loop_id, tab=tab, back_to=back_to, error="Nothing was sent: the reply was empty."
+            )
         if len(message) > MAX_REPLY_CHARS:
-            return back(repo_key, loop_id, error=f"Nothing was sent: over {MAX_REPLY_CHARS} characters.")
+            return back(
+                repo_key,
+                loop_id,
+                tab=tab,
+                back_to=back_to,
+                error=f"Nothing was sent: over {MAX_REPLY_CHARS} characters.",
+            )
         question = view.state.question if view.state else None
         last = view.state.last_round if view.state else None
         round_ = question.round if question and question.round else (last.number if last else None)
@@ -375,34 +410,40 @@ def create_app(
                 choice=picked.id if picked else None,
             )
         except StoreError as problem:
-            return back(repo_key, loop_id, error=str(problem))
-        return back(repo_key, loop_id, note="Sent. The loop reads it at its next round.")
+            return back(repo_key, loop_id, tab=tab, back_to=back_to, error=str(problem))
+        return back(
+            repo_key, loop_id, tab=tab, back_to=back_to, note="Sent. The loop reads it at its next round."
+        )
 
     @app.post("/loop/{repo_key}/{loop_id}/stop", name="loop_stop")
-    def loop_stop(repo_key: str, loop_id: str, token: Annotated[str, Form()]) -> Response:
+    def loop_stop(
+        repo_key: str, loop_id: str, token: Annotated[str, Form()], tab: Annotated[str, Form()] = ""
+    ) -> Response:
         check_token(token, repo_key, loop_id)
         repo, _, view = view_of(repo_key, loop_id)
         if view.state and view.state.stop_requested:
-            return back(repo_key, loop_id, note="A stop is already waiting for the loop.")
+            return back(repo_key, loop_id, tab=tab, note="A stop is already waiting for the loop.")
         if view.state and view.state.status not in STOPPABLE:
             # Nothing would read it now, and the next start would read it and end at once.
             status = view.state.status
             return back(
                 repo_key,
                 loop_id,
+                tab=tab,
                 error=f"No stop was sent: this loop is {status} and starts no further round by itself.",
             )
         try:
             store.append_inbox(repo.path, loop_id, "stop", key=board_key())
         except StoreError as problem:
-            return back(repo_key, loop_id, error=str(problem))
-        return back(repo_key, loop_id, note="Stop sent. The loop ends after its current round.")
+            return back(repo_key, loop_id, tab=tab, error=str(problem))
+        return back(repo_key, loop_id, tab=tab, note="Stop sent. The loop ends after its current round.")
 
     @app.post("/loop/{repo_key}/{loop_id}/start", name="loop_start")
     def loop_start(
         repo_key: str,
         loop_id: str,
         token: Annotated[str, Form()],
+        tab: Annotated[str, Form()] = "",
         command: Annotated[str, Form()] = "",
         confirm: Annotated[str, Form()] = "",
         again: Annotated[str, Form()] = "",
@@ -412,12 +453,16 @@ def create_app(
         if command != manifest.commands.get("start", ""):
             # The loop rewrote its command after the page was drawn: run only what the person saw.
             return back(
-                repo_key, loop_id, error="Not started: the start command changed. Check it and press again."
+                repo_key,
+                loop_id,
+                tab=tab,
+                error="Not started: the start command changed. Check it and press again.",
             )
         if command and runs_elsewhere(view, steer) and again != "yes":
             return back(
                 repo_key,
                 loop_id,
+                tab=tab,
                 error="Not started: this loop is under way and the board did not start it. "
                 "A second copy would write the same files. Tick the box to start one anyway.",
             )
@@ -426,25 +471,30 @@ def create_app(
             return back(
                 repo_key,
                 loop_id,
+                tab=tab,
                 error="Not started: first start of this command. Read it, tick the box, press again.",
             )
         try:
             process = steer.start(repo, manifest)
         except StoreError as problem:
-            return back(repo_key, loop_id, error=f"Not started: {problem}.")
+            return back(repo_key, loop_id, tab=tab, error=f"Not started: {problem}.")
         if first:
             steer.confirm(repo, command)
-        return back(repo_key, loop_id, note=f"Started: {process.command} (pid {process.pid}).")
+        return back(repo_key, loop_id, tab=tab, note=f"Started: {process.command} (pid {process.pid}).")
 
     @app.post("/loop/{repo_key}/{loop_id}/kill", name="loop_kill")
-    def loop_kill(repo_key: str, loop_id: str, token: Annotated[str, Form()]) -> Response:
+    def loop_kill(
+        repo_key: str, loop_id: str, token: Annotated[str, Form()], tab: Annotated[str, Form()] = ""
+    ) -> Response:
         check_token(token, repo_key, loop_id)
         repo, _, _ = view_of(repo_key, loop_id)
         try:
-            steer.kill(repo, loop_id)
+            ended = steer.kill(repo, loop_id)
         except StoreError as problem:
-            return back(repo_key, loop_id, error=f"{problem}.".capitalize())
-        return back(repo_key, loop_id, note="The process was told to end.")
+            return back(repo_key, loop_id, tab=tab, error=f"{problem}.".capitalize())
+        if not ended:
+            return back(repo_key, loop_id, tab=tab, note="The process had already ended: nothing was sent.")
+        return back(repo_key, loop_id, tab=tab, note="The process was told to end.")
 
     @app.get("/connect", response_class=HTMLResponse, name="connect")
     def connect(request: Request, agent: str = "") -> Response:

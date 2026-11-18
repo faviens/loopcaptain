@@ -15,7 +15,7 @@
   <a class="brand" href="{{ url_for('overview') }}" aria-label="Loopcaptain, all loops"><img src="{{ url_for('static', path='mark.svg') }}" alt="" width="28" height="28">Loopcaptain</a>
   <span class="where">{% block where %}{% endblock %}</span>
   <nav class="strip" aria-label="Pages">
-    <a href="{{ url_for('overview') }}"{% if page == 'overview' %} aria-current="page"{% endif %}>Loops</a>
+    <a href="{{ url_for('overview') }}"{% if page == 'overview' %} aria-current="page"{% elif page == 'loop' %} aria-current="true"{% endif %}>Loops</a>
     <a href="{{ url_for('connect') }}"{% if page == 'connect' %} aria-current="page"{% endif %}>Connect a loop</a>
   </nav>
 </header>

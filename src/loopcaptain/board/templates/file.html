@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set page = 'loop' %}
 {% block title %}{{ path }} · {{ view.title }}{% endblock %}
 {% block where %}{{ view.repo.key }} / {{ view.loop_id }}{% endblock %}
 {% block main %}
