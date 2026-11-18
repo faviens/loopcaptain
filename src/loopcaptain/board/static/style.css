@@ -1,6 +1,6 @@
-/* Design tokens. Calm and quiet, so the one thing that needs the person stands out: a warm light
-   canvas (true black in dark mode), soft surfaces with a lit top edge, one action colour (iris:
-   links, the answer button, "waiting for you"), Inter Tight for headings and figures over Inter
+/* Design tokens. Calm and quiet, so the one thing that needs the person stands out: a warm white
+   paper and near-black ink (the ink is the ground in dark mode), soft surfaces with a lit top edge,
+   one red (links, the answer button, "waiting for you"), Inter Tight for headings and figures over Inter
    for text. Semantic colours only for status, and every status also differs in shape, so the
    board reads without colour. Open findings are an ink ramp, not a status colour: more ink, more
    to do. 4/8-point spacing; type scale 12/14/16/20/26/36. Colours are RGB triplets so a tint is
@@ -19,8 +19,8 @@
   --font-display: "Inter Tight", "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --rgb-paper: 246 245 242; --rgb-surface: 255 255 255; --rgb-ink: 29 29 31; --rgb-grey: 100 100 105;
-  --rgb-accent: 74 63 224;
+  --rgb-paper: 253 253 251; --rgb-surface: 255 255 255; --rgb-ink: 14 14 16; --rgb-grey: 113 113 110;
+  --rgb-accent: 214 0 11;
   --bg: rgb(var(--rgb-paper)); --surface: rgb(var(--rgb-surface));
   --text: rgb(var(--rgb-ink)); --text-2: rgb(var(--rgb-grey));
   --tint: rgb(var(--rgb-ink) / .035); --tint-2: rgb(var(--rgb-ink) / .07); --line: rgb(var(--rgb-ink) / .09);
@@ -43,8 +43,8 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --rgb-paper: 0 0 0; --rgb-surface: 28 28 30; --rgb-ink: 245 245 247; --rgb-grey: 161 161 166;
-    --rgb-accent: 168 161 255; --on-accent: #0E0A3A;
+    --rgb-paper: 14 14 16; --rgb-surface: 28 28 31; --rgb-ink: 245 245 243; --rgb-grey: 160 160 156;
+    --rgb-accent: 255 107 115; --on-accent: #2B0003;
     --line: rgb(255 255 255 / .10);
     --ok: #6FD09A; --ok-bg: rgb(111 208 154 / .14); --ok-mark: #4FBF82;
     --run: #7CCBE6; --run-bg: rgb(124 203 230 / .14); --run-mark: #5BB8D8;
@@ -84,6 +84,7 @@ code { background: var(--tint-2); padding: 1px 6px; border-radius: 6px; }
   background: rgb(var(--rgb-paper) / .82); -webkit-backdrop-filter: saturate(1.7) blur(22px); backdrop-filter: saturate(1.7) blur(22px); border-bottom: 1px solid var(--line); }
 .brand { display: inline-flex; align-items: center; gap: 10px; min-height: var(--target); color: var(--text); font: 700 18px/1 var(--font-display); letter-spacing: -.03em; }
 .brand:hover { text-decoration: none; }
+.brand .oo { color: var(--accent); } /* the two lenses of the mark, in its red */
 .brand img { width: 28px; height: 28px; display: block; border-radius: 7px; }
 .top .where { color: var(--text-2); font-size: var(--t14); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 nav.strip { margin-left: auto; display: flex; gap: 2px; padding: 3px; border-radius: var(--pill); background: var(--tint-2); }

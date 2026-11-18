@@ -1,11 +1,12 @@
 """Draw the README's banner and the pictures of the architecture and security pages, light and dark: `make readme`.
 
-Plain SVG in the board's own palette (warm canvas, ink, one iris accent), written to docs/assets/.
+Plain SVG in the board's own palette (paper, ink, one red), written to docs/assets/.
 No dependency, so the pictures are redrawn the same on any machine.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -15,30 +16,32 @@ MONO = "ui-monospace, SF Mono, Menlo, monospace"
 
 THEMES: dict[str, dict[str, str]] = {
     "light": {
-        "paper": "#F6F5F2",
+        "paper": "#FDFDFB",
         "card": "#FFFFFF",
         "sunk": "#EDECE8",
-        "ink": "#1D1D1F",
-        "grey": "#646469",
-        "hair": "#DAD9D5",
-        "accent": "#4A3FE0",
+        "ink": "#0E0E10",
+        "grey": "#71716E",
+        "hair": "#E4E3DE",
+        "accent": "#D6000B",
+        "loop": "#FF000D",
         "good": "#13804B",
         "blue": "#0B7296",
         "group": "#ECEAE5",
         "edge": "#CBC8C0",
-        "shade": "#1D1D1F",
+        "shade": "#0E0E10",
     },
     "dark": {
-        "paper": "#000000",
-        "card": "#1C1C1E",
+        "paper": "#0E0E10",
+        "card": "#1C1C1F",
         "sunk": "#111113",
-        "ink": "#F5F5F7",
-        "grey": "#A1A1A6",
+        "ink": "#F5F5F3",
+        "grey": "#A0A09C",
         "hair": "#38383A",
-        "accent": "#A8A1FF",
+        "accent": "#FF6B73",
+        "loop": "#FF6B73",
         "good": "#4FBF82",
         "blue": "#5BB8D8",
-        "group": "#1C1C1E",
+        "group": "#1C1C1F",
         "edge": "#0A0A0B",
         "shade": "#000000",
     },
@@ -101,9 +104,17 @@ def icon(kind: str, x: float, y: float, colour: str) -> str:
 MARK = Path(__file__).resolve().parents[1] / "src" / "loopcaptain" / "board" / "static" / "mark.svg"
 
 
-def mark(x: float, y: float, size: float) -> str:
-    """The logo, from its one source file, placed and scaled."""
+#: The mark's dark form, a media query in its source; a picture fixes it to its own theme instead.
+DARK_FORM = re.compile(r"@media \(prefers-color-scheme: dark\) \{(?P<rules>.*?)\}\s*(?=</style>)", re.S)
+
+
+def mark(x: float, y: float, size: float, theme: str) -> str:
+    """The logo, from its one source file, placed, scaled and in the given theme's colours.
+
+    A picture is shown for one scheme already, so the mark must not switch with the viewer's."""
     inner = MARK.read_text(encoding="utf-8").split(">", 1)[1].rsplit("</svg>", 1)[0]
+    inner = DARK_FORM.sub(lambda found: found["rules"] if theme == "dark" else "", inner)
+    inner = "\n".join(line.rstrip() for line in inner.splitlines())
     return f'<g transform="translate({x} {y}) scale({size / 64})">{inner}</g>'
 
 
@@ -134,9 +145,9 @@ def banner(theme: str) -> str:
   <title>Loopcaptain</title>
   <rect width="1200" height="340" fill="{t["paper"]}"/>
   <rect y="339" width="1200" height="1" fill="{t["hair"]}"/>
-  {mark(66, 72, 84)}
+  {mark(66, 72, 84, theme)}
   <g font-family="{FONT}">
-    {text(172, 141, "Loopcaptain", 84, t["ink"], 700, 'letter-spacing="-3.4"')}
+    {text(172, 141, f'L<tspan fill="{t["loop"]}">oo</tspan>pcaptain', 84, t["ink"], 700, 'letter-spacing="-3.4"')}
     {text(68, 208, "Monitor and steer your agent loops", 22, t["ink"], 600, 'letter-spacing="-0.4"')}
     {text(68, 242, "One board for every loop on your machine: where it stands, what it found,", 16.5, t["grey"])}
     {text(68, 267, "what it cost and what waits for you. An open protocol lets any loop report.", 16.5, t["grey"])}

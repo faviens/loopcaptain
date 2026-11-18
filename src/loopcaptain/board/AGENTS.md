@@ -27,8 +27,8 @@ Rules here:
    `tests/test_board.py` checks it.
 3. Design: the tokens at the top of `style.css` are the whole palette,
    type scale (12/14/16/20/26/36) and spacing (4/8 point). One action
-   colour, iris: links, the answer button and "waiting for you", nothing
-   decorative. Status colours only for status, and every status also has
+   colour, one red on paper and ink: links, the answer button and "waiting
+   for you", nothing decorative. Status colours only for status, and every status also has
    its own shape (dot, ring, bar, square), so the page reads without
    colour. Open findings are an ink ramp, darker for more. Dark mode only
    redefines tokens. Controls are at least 44 px high; text keeps 4.5:1.
