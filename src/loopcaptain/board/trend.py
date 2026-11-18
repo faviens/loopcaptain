@@ -19,7 +19,7 @@ READOUT = 16
 #: The board's own count of open material findings, which a loop may also report as a measure.
 FINDINGS = "open material findings"
 #: A unit that names a whole, "of 294 sources": the measure counts towards it.
-OF_A_WHOLE = re.compile(r"^of\s+([\d,]+(?:\.\d+)?)\s*(.*)$")
+OF_A_WHOLE = re.compile(r"^of\s+(\d[\d,]*(?:\.\d+)?)\s*(.*)$")
 
 
 @dataclass(frozen=True)
