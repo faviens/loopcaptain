@@ -24,7 +24,7 @@ from loopcaptain.board.steer import Runner
 from loopcaptain.cli import main as cli_main
 from loopcaptain.protocol import signing, store
 from loopcaptain.protocol.models import Manifest
-from loopcaptain.protocol.state import STATUS_TEXT, FindingState, LoopState, RoundState, Status, StepRun
+from loopcaptain.protocol.state import STATUS_TEXT, FindingState, LoopState, RoundState, Status, StepRun, fold
 from loopcaptain.protocol.store import StoreError
 from tests.conftest import STEPS
 
@@ -1373,3 +1373,67 @@ def test_a_capped_loop_or_one_without_progress_needs_a_look(
 
     assert "<b>1</b><span>needs a look</span>" in page and "Market scan" in looked
     assert 'class="g-look">needs a look<span class="n">1</span>' in page
+
+
+def test_the_person_settles_a_finding_and_the_reply_answers_no_question(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "question", {"round": 2, "text": "Per seat or per site?"}, scan)
+    form = {"token": token_of(client), "step": "facts", "finding": "1", "resolution": "wontfix"}
+
+    sent = client.post("/loop/some-repo/scan/finding", data={**form, "reason": "Quoted on request only."})
+    refused = client.post("/loop/some-repo/scan/finding", data={**form, "finding": "9"})
+
+    entries, _ = store.read_inbox(scan, "scan")
+    assert sent.status_code == 303 and "tab=findings" in sent.headers["location"]
+    assert (
+        "no longer open" in refused.headers["location"].replace("+", " ")
+        or "error" in refused.headers["location"]
+    )
+    assert len(entries) == 1 and entries[0].finding is not None
+    assert (entries[0].finding.step, entries[0].finding.id, entries[0].finding.resolution) == (
+        "facts",
+        "1",
+        "wontfix",
+    )
+    assert entries[0].sig and entries[0].text.startswith("Won't fix: No source for 40 percent.")
+    page = client.get("/loop/some-repo/scan?tab=findings").text
+    assert "<b>Won&#39;t fix</b> sent" in page and "Quoted on request only." in page
+    assert "Per seat or per site?" in client.get("/loop/some-repo/scan").text, "the question is still open"
+
+
+def test_a_measure_says_what_it_counts_and_where_the_list_is(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    (scan / "topics.md").write_text("# Topics\n", encoding="utf-8")
+    metric = {
+        "name": "topics_covered",
+        "value": 3,
+        "unit": "of 4",
+        "label": "Topics covered",
+        "about": "Topics of the brief the page treats.",
+        "file": "topics.md",
+    }
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "continue", "metrics": [metric]}, scan)
+
+    page = client.get("/loop/some-repo/scan").text
+
+    assert '<span class="eyebrow">Topics covered</span>' in page
+    assert "Topics of the brief the page treats." in page and "path=topics.md" in page
+
+
+def test_a_step_a_limit_stopped_reads_apart_from_one_that_failed(
+    scan: Path, helper: types.ModuleType
+) -> None:
+    error = {"kind": "limit", "text": "Out of turns."}
+    helper.emit(
+        "scan", "step_finished", {"round": 2, "step": "facts", "status": "failed", "error": error}, scan
+    )
+    events, _ = store.read_events(scan, "scan")
+
+    folded = fold(
+        store.read_manifest(scan, "scan"), events, store.read_inbox(scan, "scan")[0], datetime.now(UTC)
+    )
+    nodes = {node.id: node.state for node in layout(folded.manifest, folded.rounds[-1]).nodes}
+
+    assert nodes["facts"] == "limit"

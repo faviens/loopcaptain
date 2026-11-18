@@ -1,4 +1,54 @@
 {
+  "$defs": {
+    "FindingRef": {
+      "description": "A finding the person settles from the board: which one, and how they want it closed.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "resolution": {
+          "enum": [
+            "fixed",
+            "accepted",
+            "wontfix",
+            "false_positive",
+            "duplicate"
+          ],
+          "title": "Resolution",
+          "type": "string"
+        },
+        "step": {
+          "title": "Step",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step",
+        "id",
+        "resolution"
+      ],
+      "title": "FindingRef",
+      "type": "object"
+    }
+  },
   "properties": {
     "choice": {
       "anyOf": [
@@ -11,6 +61,17 @@
       ],
       "default": null,
       "title": "Choice"
+    },
+    "finding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FindingRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "id": {
       "title": "Id",

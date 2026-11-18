@@ -656,3 +656,11 @@ section.band .acts a:first-child { background: var(--text); color: var(--bg); bo
 section.band .acts a:first-child:hover { background: rgb(var(--rgb-ink) / .86); }
 /* Under the tabs a heading needs no rule of its own: the tabs' line is already there. */
 nav.tabs + h2, nav.tabs ~ .split h2 { border-top: 0; padding-top: 0; }
+/* Settling a finding: a reason, then the three calls. */
+table.runs td.settle { min-width: 300px; }
+table.runs td.settle form { display: grid; gap: 8px; margin: 0; }
+table.runs td.settle input[type="text"] { min-height: 36px; padding: 0 12px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: var(--t14); }
+table.runs td.settle .acts { margin: 0; gap: 6px; }
+table.runs td.settle button { min-height: 34px; padding: 0 12px; font-size: 13px; }
+table.runs td.settle p.sent { margin: 0; font-size: var(--t14); }
+figure.trend p.about { margin: -2px 0 8px; font-size: var(--t12); color: var(--text-2); line-height: 1.4; }

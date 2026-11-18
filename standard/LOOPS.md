@@ -186,11 +186,16 @@ line still needs `ts`, and still shows that the loop is alive.
    `blocked`. A kind nobody ran for an item shows as an empty cell.
 10. `metrics`: the numbers a loop optimises, on a step or a round,
     `[{"name": "pass rate", "value": 0.82, "target": 0.95, "better":
-    "higher", "unit": ""}]`. The board draws each per round.
+    "higher", "unit": ""}]`. The board draws each per round. Optional,
+    so a person can tell what a number counts: `label`, the name as it
+    should read ("Topics covered"); `about`, one sentence on what is
+    counted; `file`, a path in the repository to a file that lists it.
 11. `attempt` counts tries of a step within a round from 1; `error`,
-    `{"kind": "transient" | "needs_person", "text": "..."}`, says why it
-    did not succeed. `needs_person` waits for the person like a blocking
-    question, until they reply. `session` is the agent session the step
+    `{"kind": "transient" | "needs_person" | "limit", "text": "..."}`,
+    says why it did not succeed. `needs_person` waits for the person like
+    a blocking question, until they reply. `limit` says a limit stopped
+    the step, a budget, a usage or rate limit or a turn cap, and not that
+    its work went wrong: the board shows it apart from a failure. `session` is the agent session the step
     ran in, shown as text so a person can resume it by hand. `model` is
     the model the step really ran on, where it is not the one `loop.json`
     names for the step: a fallback after the first one refused.
@@ -230,12 +235,19 @@ keep it in a file of the loop's own.
 ```json
 {"id": "20261114T211900-a3f1", "ts": "2026-11-14T21:19:00Z", "kind": "reply", "text": "Per seat.", "round": 3, "sig": "9c1e..."}
 {"id": "20261114T213000-09bc", "ts": "2026-11-14T21:30:00Z", "kind": "stop"}
+{"id": "20261114T214500-5d20", "ts": "2026-11-14T21:45:00Z", "kind": "reply", "text": "Won't fix: No source for the price.", "round": 3, "finding": {"step": "review", "id": "2", "resolution": "wontfix", "reason": "The price is quoted on request only."}, "sig": "1f7a..."}
 ```
 
 1. `reply`: text for the loop. It answers the open question if there is
    one; without one it is steering for the next round. A reply to a
    question with an `id` carries `question`, and `choice`, the id of the
-   option the person picked, where the question offered options.
+   option the person picked, where the question offered options. A reply
+   that settles a finding carries `finding`: its `step`, `id` and `label`
+   (the run of a fan-out step), the `resolution` the person chose
+   (`accepted`, `wontfix` or `false_positive`) and, if they gave one, a
+   `reason`. It answers no question. The loop SHOULD close that finding
+   with `finding_closed`, that resolution and that reason, and keep it
+   closed in later reviews.
 2. `stop`: end. A stop read during a round: finish the round and send
    `round_finished` with its real verdict, `done` if the goal was met,
    else `stopped` with `stop_reason` `person`. A stop read between rounds,

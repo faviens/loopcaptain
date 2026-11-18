@@ -18,7 +18,8 @@ GAP_X = 44
 GAP_Y = 14
 PAD = 14
 #: An error that says a limit stopped the step (a budget, a usage or rate limit, a turn cap), not
-#: that the step's work went wrong. The protocol has no kind for it yet, so the words decide.
+#: that the step's work went wrong: the kind `limit`, or for a loop that does not send it yet, the
+#: words of its error.
 LIMIT_WORDS = re.compile(r"budget|usage.?limit|rate.?limit|quota|max.?turns|limit (?:reached|hit)", re.I)
 #: Room under the nodes for the arrow that leads from the last step back to the first.
 RETURN_H = 34
@@ -96,7 +97,9 @@ def step_state(round_: RoundState | None, step_id: str) -> tuple[str, int, int]:
     if any(run.passed is False and run.status == "ok" for run in runs):
         statuses.add("no")
     broken = [run for run in runs if run.status == "failed"]
-    if broken and all(run.error and LIMIT_WORDS.search(run.error.text) for run in broken):
+    if broken and all(
+        run.error and (run.error.kind == "limit" or LIMIT_WORDS.search(run.error.text)) for run in broken
+    ):
         statuses.discard("failed")
         statuses.add("limit")
     for state in ("running", "failed", "limit", "no", "ok"):

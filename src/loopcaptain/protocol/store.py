@@ -23,6 +23,7 @@ from loopcaptain.protocol.models import (
     INBOX_FILE,
     MANIFEST_FILE,
     AnyEvent,
+    FindingRef,
     InboxEntry,
     InboxKind,
     InboxRead,
@@ -218,6 +219,7 @@ def append_inbox(
     key: bytes | None = None,
     question: str | None = None,
     choice: str | None = None,
+    finding: FindingRef | None = None,
 ) -> InboxEntry:
     """What the person sends, signed with `key` when given. The loop's folder must exist: the board
     never creates a loop."""
@@ -234,6 +236,7 @@ def append_inbox(
         round=round_,
         question=question,
         choice=choice,
+        finding=finding,
         loop=loop_id,
     )
     if key is not None:
