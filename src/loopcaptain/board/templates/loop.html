@@ -284,6 +284,7 @@
       <ol class="args">{% for argument in command.argv %}<li><code>{{ argument }}</code></li>{% endfor %}</ol>
       {% endif %}
       <p class="grey">This command comes from this repository's <code>loop.json</code>, not from the board. It runs here with your rights.</p>
+      {% if changed_files %}<p class="flash warn" role="status">Changed since the board last started this command: {% for name in changed_files %}<a href="{{ url_for('loop_file', repo_key=view.repo.key, loop_id=view.loop_id) }}?path={{ name|urlencode }}">{{ name }}</a>{{ ', ' if not loop.last }}{% endfor %}. Read {{ 'it' if changed_files|length == 1 else 'them' }} before you press Start.</p>{% endif %}
       {% if not confirmed and not command.problem %}<label class="tick"><input type="checkbox" name="confirm" value="yes" required> I have read the command and want it run</label>{% endif %}
       {% if runs_elsewhere %}<label class="tick"><input type="checkbox" name="again" value="yes" required> This loop is {{ state.status }} and the board did not start it: start a second copy anyway</label>{% endif %}
     </form>

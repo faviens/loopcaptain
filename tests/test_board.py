@@ -1016,7 +1016,7 @@ def test_records_in_the_folder_the_board_is_started_in_are_not_read(
     start_command(scan, helper, "run-me")
     repo = find_repos(Config(repos=(scan,)))[0]
     planted = Runner(scan / ".state")
-    planted.confirm(repo, "run-me")
+    planted.confirm(repo, "scan", "run-me")
     record = {"pid": os.getpid(), "command": "run-me", "started": "2026-11-14T21:00:00+00:00"}
     record["repo"] = steer.identity(repo)
     planted.record_path(repo, "scan").write_text(json.dumps(record))
@@ -1027,8 +1027,8 @@ def test_records_in_the_folder_the_board_is_started_in_are_not_read(
 
     runner = Runner()
 
-    assert planted.is_confirmed(repo, "run-me") and planted.process(repo, "scan") is not None
-    assert not runner.is_confirmed(repo, "run-me") and runner.process(repo, "scan") is None
+    assert planted.is_confirmed(repo, "scan", "run-me") and planted.process(repo, "scan") is not None
+    assert not runner.is_confirmed(repo, "scan", "run-me") and runner.process(repo, "scan") is None
 
 
 def test_the_state_folder_and_its_files_are_the_users_alone(
@@ -1039,7 +1039,7 @@ def test_the_state_folder_and_its_files_are_the_users_alone(
     runner = Runner(tmp_path / "fresh" / "state")
 
     runner.start(repo, store.read_manifest(scan, "scan"))
-    runner.confirm(repo, "x")
+    runner.confirm(repo, "scan", "x")
 
     modes = {path.name: path.stat().st_mode & 0o777 for path in runner.state_dir.iterdir()}
     assert runner.state_dir.stat().st_mode & 0o777 == 0o700
@@ -1053,7 +1053,7 @@ def test_the_state_folder_is_made_the_users_alone_by_whichever_write_comes_first
     repo = find_repos(Config(repos=(scan,)))[0]
     confirmed_first, started_first = Runner(tmp_path / "a" / "state"), Runner(tmp_path / "b" / "state")
 
-    confirmed_first.confirm(repo, "x")
+    confirmed_first.confirm(repo, "scan", "x")
     started_first.start(repo, store.read_manifest(scan, "scan"))
 
     for runner in (confirmed_first, started_first):
@@ -1070,7 +1070,7 @@ def test_a_state_folder_that_was_there_and_open_to_others_is_closed_by_the_first
         runner.state_dir.mkdir(mode=0o755)
         runner.state_dir.chmod(0o755)
 
-    confirmed_first.confirm(repo, "x")
+    confirmed_first.confirm(repo, "scan", "x")
     started_first.start(repo, store.read_manifest(scan, "scan"))
 
     for runner in (confirmed_first, started_first):

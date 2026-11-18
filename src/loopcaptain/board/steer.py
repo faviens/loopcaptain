@@ -4,7 +4,8 @@ The board runs nothing a browser typed. `start` runs `commands.start` from the l
 `loop.json`, split into arguments and run without a shell, in the repository root, with a
 minimal environment: the board's own variables (keys, tokens) do not travel to a command a
 watched repository wrote. The first start of a given command in a given repository needs the
-person's tick; the hash of what they confirmed is kept in the state folder. That folder is the
+person's tick, loop by loop; the hash of what they confirmed is kept in the state folder, with a
+digest of each file the command names, so the page can say when one changed since. That folder is the
 person's own (`state_home`), never one inside the folder the board happens to be started in: what
 it holds decides which command runs without a tick and which process "End" signals.
 """
@@ -24,7 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from loopcaptain.board.command import read_command
+from loopcaptain.board.command import named_files, read_command
 from loopcaptain.board.discover import Repo, git_common_dir, safe_key
 from loopcaptain.protocol.models import Manifest, now
 from loopcaptain.protocol.signing import KEY_ENV, key_path
@@ -140,8 +141,10 @@ def identity(repo: Repo) -> str:
     return str(git_common_dir(repo.path))
 
 
-def command_hash(repo: Repo, command: str) -> str:
-    return hashlib.sha256(f"{repo.path.resolve()}\0{command}".encode()).hexdigest()
+def command_hash(repo: Repo, loop_id: str, command: str) -> str:
+    """What a tick covers: this command, for this loop, in this repository. A second loop that
+    declares the same command has not been read by the person and needs its own tick."""
+    return hashlib.sha256(f"{repo.path.resolve()}\0{loop_id}\0{command}".encode()).hexdigest()
 
 
 def write_private(path: Path, text: str) -> None:
@@ -215,23 +218,44 @@ class Runner:
     def log_path(self, repo: Repo, loop_id: str) -> Path:
         return self.state_dir / f"{self.name(repo, loop_id)}.log"
 
-    def confirmed_hashes(self) -> frozenset[str]:
+    def confirmed(self) -> dict[str, dict[str, str]]:
+        """Every ticked command by its hash, with the digests of the files it named when last started.
+
+        A file of an older board, a plain list of hashes that did not name the loop, reads as
+        empty: every command needs one tick again."""
         try:
-            listed = json.loads((self.state_dir / CONFIRMED_FILE).read_text(encoding="utf-8"))
+            kept = json.loads((self.state_dir / CONFIRMED_FILE).read_text(encoding="utf-8"))
         except FileNotFoundError:
-            return frozenset()
+            return {}
         except (OSError, ValueError) as error:
             log.warning("unreadable %s, every command needs a tick again: %s", CONFIRMED_FILE, error)
-            return frozenset()
-        return frozenset(str(item) for item in listed) if isinstance(listed, list) else frozenset()
+            return {}
+        if not isinstance(kept, dict):
+            return {}
+        return {
+            str(key): {str(name): str(digest) for name, digest in files.items()}
+            for key, files in kept.items()
+            if isinstance(files, dict)
+        }
 
-    def is_confirmed(self, repo: Repo, command: str) -> bool:
-        """Whether the person has started this exact command in this repository before."""
-        return command_hash(repo, command) in self.confirmed_hashes()
+    def is_confirmed(self, repo: Repo, loop_id: str, command: str) -> bool:
+        """Whether the person has started this exact command for this loop before."""
+        return command_hash(repo, loop_id, command) in self.confirmed()
 
-    def confirm(self, repo: Repo, command: str) -> None:
-        hashes = sorted(self.confirmed_hashes() | {command_hash(repo, command)})
-        write_private(self.state_dir / CONFIRMED_FILE, json.dumps(hashes) + "\n")
+    def confirm(self, repo: Repo, loop_id: str, command: str) -> None:
+        """Remember a start: the tick, and what the files the command names held at that moment."""
+        files = named_files(repo.path, read_command(command).argv)
+        kept = {**self.confirmed(), command_hash(repo, loop_id, command): files}
+        write_private(self.state_dir / CONFIRMED_FILE, json.dumps(kept, sort_keys=True) + "\n")
+
+    def changed_files(self, repo: Repo, loop_id: str, command: str) -> list[str]:
+        """The files a ticked command names that differ from what the board last started: changed,
+        gone, or newly there. Empty for a command that was never ticked."""
+        before = self.confirmed().get(command_hash(repo, loop_id, command))
+        if before is None:
+            return []
+        today = named_files(repo.path, read_command(command).argv)
+        return sorted(name for name in before.keys() | today.keys() if before.get(name) != today.get(name))
 
     def process(self, repo: Repo, loop_id: str) -> Process | None:
         """The process the board last started for this loop, and whether it still runs."""

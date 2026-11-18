@@ -46,7 +46,9 @@ reaches a loop:
    when the person presses Start, split into arguments with no shell, with
    only `PATH`, `HOME`, `LANG` and `TERM` from the board's environment,
    and `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs with. The
-   first start of a command in a repository needs a tick. Do not put a
+   first start of a command for a loop needs a tick; a command with
+   characters that do not show is never started, and the page names a
+   script that changed since the last start. Do not put a
    folder of repositories you have not read under `roots:`.
 5. **The inbox:** the board signs every line it writes with a key in
    `~/.config/loopcaptain/`, naming the loop, so a loop can tell the person

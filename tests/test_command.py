@@ -10,8 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from loopcaptain.board.app import create_app
-from loopcaptain.board.command import read_command
-from loopcaptain.board.discover import Config
+from loopcaptain.board.command import named_files, read_command
+from loopcaptain.board.discover import Config, find_repos
 from loopcaptain.board.steer import Runner
 from loopcaptain.protocol import store
 
@@ -96,3 +96,61 @@ def test_the_page_lists_the_arguments_a_command_runs_as(
 
     assert "It runs as 4 arguments, without a shell" in page
     assert "<li><code>two words</code></li>" in page and 'form="start-loop"' in page
+
+
+def test_a_tick_covers_one_loop_and_a_second_loop_with_the_same_command_asks_again(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    command = f"{sys.executable} -c pass"
+    declare(scan, helper, command)
+    helper.register("other", {"title": "Other", "commands": {"start": command}}, scan)
+    start(client, scan)
+
+    first, second = client.get("/loop/some-repo/scan").text, client.get("/loop/some-repo/other").text
+    form = {"token": str(client.app.state.token), "command": command}  # type: ignore[attr-defined]
+    refused = client.post("/loop/some-repo/other/start", data=form).headers["location"]
+
+    assert 'name="confirm"' not in first and 'name="confirm"' in second
+    assert "first%20start" in refused
+
+
+def test_the_page_names_a_script_that_changed_since_the_board_last_started_it(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    (scan / "loop.py").write_text("pass\n")
+    declare(scan, helper, f"{sys.executable} loop.py")
+    untouched_before = client.get("/loop/some-repo/scan").text
+    start(client, scan)
+    untouched_after = client.get("/loop/some-repo/scan").text
+
+    (scan / "loop.py").write_text("import shutil\n")
+    changed = client.get("/loop/some-repo/scan").text
+    start(client, scan)
+    started_again = client.get("/loop/some-repo/scan").text
+
+    marker = "Changed since the board last started this command"
+    assert marker not in untouched_before and marker not in untouched_after
+    assert marker in changed and "path=loop.py" in changed
+    assert marker not in started_again
+
+
+def test_only_files_the_board_would_show_are_read_for_a_command(scan: Path, tmp_path: Path) -> None:
+    (scan / "loop.py").write_text("pass\n")
+    (scan / ".env").write_text("KEY=1\n")
+    (scan / "tool.bin").write_bytes(b"\x00\x01")
+    (tmp_path / "outside.py").write_text("pass\n")
+
+    found = named_files(
+        scan, ("python3", "loop.py", ".env", "tool.bin", "../outside.py", "no-such.py", "\x00")
+    )
+
+    assert list(found) == ["loop.py"]
+
+
+def test_a_list_of_ticks_kept_by_an_older_board_reads_as_none(scan: Path, tmp_path: Path) -> None:
+    runner = Runner(tmp_path / "state")
+    runner.state_dir.mkdir()
+    (runner.state_dir / "confirmed.json").write_text('["abc"]\n')
+    repo = find_repos(Config(repos=(scan,)))[0]
+
+    assert runner.confirmed() == {} and runner.changed_files(repo, "scan", "x") == []

@@ -377,7 +377,8 @@ def create_app(
             "process": process,
             "log_tail": steer.log_tail(repo, loop_id) if process else "",
             "command": read_command(manifest.commands.get("start", "")),
-            "confirmed": steer.is_confirmed(repo, manifest.commands.get("start", "")),
+            "confirmed": steer.is_confirmed(repo, loop_id, manifest.commands.get("start", "")),
+            "changed_files": steer.changed_files(repo, loop_id, manifest.commands.get("start", "")),
             "runs_elsewhere": runs_elsewhere(view, steer),
             "signed": inbox_marks(state),
             "charts": charts_of(state),
@@ -589,7 +590,7 @@ def create_app(
                 error="Not started: this loop is under way and the board did not start it. "
                 "A second copy would write the same files. Tick the box to start one anyway.",
             )
-        first = not steer.is_confirmed(repo, command)
+        first = not steer.is_confirmed(repo, loop_id, command)
         if first and confirm != "yes":
             return back(
                 repo_key,
@@ -601,8 +602,7 @@ def create_app(
             process = steer.start(repo, manifest)
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, error=f"Not started: {problem}.")
-        if first:
-            steer.confirm(repo, command)
+        steer.confirm(repo, loop_id, command)  # every start: the files it names are remembered anew
         return back(repo_key, loop_id, tab=tab, note=f"Started: {process.command} (pid {process.pid}).")
 
     @app.post("/loop/{repo_key}/{loop_id}/kill", name="loop_kill")
