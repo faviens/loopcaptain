@@ -49,7 +49,7 @@ from loopcaptain.board.steer import Runner
 from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
 from loopcaptain.protocol import spec_text, store
-from loopcaptain.protocol.models import Manifest
+from loopcaptain.protocol.models import FindingRef, Manifest
 from loopcaptain.protocol.signing import board_key, is_signed, read_key
 from loopcaptain.protocol.state import STATUS_TEXT, LoopState, no_progress_signs
 from loopcaptain.protocol.store import StoreError
@@ -60,6 +60,9 @@ log = logging.getLogger("loopcaptain.web")
 HERE = Path(__file__).parent
 MAX_REPLY_CHARS = 20_000
 #: The parts of a loop's page, each with its own address: ?tab=<name>.
+#: How the person can settle a finding from the board, as the reply reads them. `fixed` and
+#: `duplicate` are the loop's to say: only its own run shows them.
+SETTLE_WORDS = {"accepted": "Accept as is", "wontfix": "Won't fix", "false_positive": "Not a problem"}
 #: The project's documentation site: the protocol, the guides and every command, explained at length.
 DOCS_URL = "https://faviens.github.io/loopcaptain/"
 TABS = ("overview", "rounds", "findings", "items", "inbox")
@@ -117,6 +120,7 @@ def make_templates() -> Jinja2Templates:
     )
     templates.env.globals["status_text"] = STATUS_TEXT
     templates.env.globals["docs_url"] = DOCS_URL
+    templates.env.globals["settle_words"] = SETTLE_WORDS
     templates.env.globals["asset_stamp"] = asset_stamp
     templates.env.globals["stoppable"] = STOPPABLE
     templates.env.globals["no_progress"] = no_progress_signs
@@ -462,6 +466,54 @@ def create_app(
             return back(repo_key, loop_id, tab=tab, back_to=back_to, error=str(problem))
         return back(
             repo_key, loop_id, tab=tab, back_to=back_to, note="Sent. The loop reads it at its next round."
+        )
+
+    @app.post("/loop/{repo_key}/{loop_id}/finding", name="loop_settle")
+    def loop_settle(
+        repo_key: str,
+        loop_id: str,
+        token: Annotated[str, Form()],
+        step: Annotated[str, Form()],
+        finding: Annotated[str, Form()],
+        resolution: Annotated[str, Form()],
+        label: Annotated[str, Form()] = "",
+        reason: Annotated[str, Form()] = "",
+        tab: Annotated[str, Form()] = "findings",
+    ) -> Response:
+        """The person settles one open finding: a signed reply naming it, for the loop to close."""
+        check_token(token, repo_key, loop_id)
+        repo, _, view = view_of(repo_key, loop_id)
+        state = view.state
+        found = next(
+            (
+                (run, item)
+                for run, item in (state.open_findings if state else ())
+                if run.step == step and item.id == finding and run.label == label
+            ),
+            None,
+        )
+        if found is None or resolution not in SETTLE_WORDS:
+            return back(
+                repo_key, loop_id, tab="findings", error="Nothing was sent: that finding is no longer open."
+            )
+        reason = reason.strip()[:MAX_REPLY_CHARS]
+        _, item = found
+        said = f"{SETTLE_WORDS[resolution]}: {item.text}"[:MAX_REPLY_CHARS]
+        ref = FindingRef(step=step, id=finding, label=label or None, resolution=resolution, reason=reason)  # type: ignore[arg-type]
+        try:
+            store.append_inbox(
+                repo.path,
+                loop_id,
+                "reply",
+                said + (f" Why: {reason}" if reason else ""),
+                state.last_round.number if state and state.last_round else None,
+                key=board_key(),
+                finding=ref,
+            )
+        except StoreError as problem:
+            return back(repo_key, loop_id, tab="findings", error=str(problem))
+        return back(
+            repo_key, loop_id, tab="findings", note="Sent. The loop closes the finding at its next round."
         )
 
     @app.post("/loop/{repo_key}/{loop_id}/stop", name="loop_stop")

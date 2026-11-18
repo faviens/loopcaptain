@@ -29,11 +29,16 @@ class Series:
     unit: str = ""
     target: float | None = None
     better: str | None = None
+    #: What the loop says about the measure, where it said it: a name to read, a sentence on what
+    #: it counts, a file that lists what is counted.
+    title: str = ""
+    about: str = ""
+    file: str | None = None
 
     @property
     def label(self) -> str:
-        """The name as a person reads it: `topics_covered` reads "topics covered"."""
-        return self.name.replace("_", " ").strip()
+        """The name as a person reads it: the loop's own, else `topics_covered` reads "topics covered"."""
+        return self.title or self.name.replace("_", " ").strip()
 
 
 @dataclass(frozen=True)
@@ -138,7 +143,16 @@ def series_of(state: LoopState) -> list[Series]:
         points = [(r.number, m) for r in finished for m in r.all_metrics if m.name == name]
         last = points[-1][1]
         found.append(
-            Series(name, tuple((n, m.value) for n, m in points), last.unit, last.target, last.better)
+            Series(
+                name,
+                tuple((n, m.value) for n, m in points),
+                last.unit,
+                last.target,
+                last.better,
+                title=last.label,
+                about=last.about,
+                file=last.file,
+            )
         )
     return [series for series in found if series.values]
 

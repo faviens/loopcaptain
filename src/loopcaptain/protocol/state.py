@@ -296,6 +296,14 @@ class LoopState:
     def minutes(self) -> int:
         return sum(r.minutes or 0 for r in self.rounds)
 
+    def settling(self, run: StepRun, finding: FindingState) -> InboxState | None:
+        """The person's latest word on an open finding from the board, which the loop has yet to act on."""
+        for item in reversed(self.inbox):
+            ref = item.entry.finding
+            if ref and ref.step == run.step and ref.id == finding.id and (ref.label or "") == run.label:
+                return item
+        return None
+
     @property
     def open_findings(self) -> tuple[tuple[StepRun, FindingState], ...]:
         """What is open now: the open findings of the last round that reported any review at all.
@@ -534,7 +542,7 @@ def needs_person(rounds: tuple[RoundState, ...], inbox: list[InboxEntry]) -> Ope
     for run in reversed(rounds[-1].runs):
         if run.error is None or run.error.kind != "needs_person" or run.finished is None:
             continue
-        if any(entry.kind == "reply" and entry.ts >= run.finished for entry in inbox):
+        if any(entry.kind == "reply" and not entry.finding and entry.ts >= run.finished for entry in inbox):
             return None
         text = f"{run.step}{f' ({run.label})' if run.label else ''}: {run.error.text or run.summary}"
         return OpenQuestion(text, run.finished, rounds[-1].number, blocks=True, needs_person=True)
@@ -624,7 +632,7 @@ def open_question(last: Question | None, inbox: list[InboxEntry], at: datetime) 
     """
     if last is None:
         return None
-    if any(entry.kind == "reply" and entry.ts >= last.ts for entry in inbox):
+    if any(entry.kind == "reply" and not entry.finding and entry.ts >= last.ts for entry in inbox):
         return None
     question = OpenQuestion(
         last.text,

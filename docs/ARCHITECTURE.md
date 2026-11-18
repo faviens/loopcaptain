@@ -786,3 +786,24 @@ did nothing until a button was pressed. Half the first page was controls.
 not need a column. A chart library: the content policy allows no script that draws, and a hover
 on a strip of the chart needs none. Truncating summaries by length: a cut mid-sentence reads
 worse than a first sentence.
+
+## 34. The person settles a finding; a measure and a limit say what they are
+
+**Decision.** Three optional additions to protocol 1, in `standard/LOOPS.md`,
+`protocol/models.py` and `standard/schema/`. An inbox `reply` may carry `finding`
+(`FindingRef`: step, id, label, resolution, reason); the board writes it from three buttons on
+each open finding (`loop_settle` in `board/app.py`), and the loop closes the finding with
+`finding_closed`. Such a reply answers no question (`open_question`, `needs_person` in
+`protocol/state.py`). A metric may carry `label`, `about` and `file`. A step's error may have
+the kind `limit`; the board draws such a step as stopped by a limit, and reads the words of the
+error for a loop that does not send the kind yet (`LIMIT_WORDS` in `board/graph.py`).
+
+**Why.** A finding the person knows to be wrong or accepted stayed open round after round,
+since only the loop's reviewers could close it, and a note in free text named no finding. A
+measure named `topics_covered` did not say which topics. Reviewers a budget limit stopped after
+one turn read as failed reviews.
+
+**Rejected.** The board closing a finding itself: it never writes `events.jsonl` (rule 4), and
+the loop must know, or the next review raises the finding again. A new inbox kind: a reply
+already carries the person's words and the signature; a field on it keeps older loops reading
+it as a note.

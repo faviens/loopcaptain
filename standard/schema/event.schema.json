@@ -442,6 +442,11 @@
     "Metric": {
       "description": "A number a loop optimises, per step or round: a score, a test pass rate, a word count.\n\nA `value` that is not finite is read and not drawn; such a `target` counts as none.",
       "properties": {
+        "about": {
+          "default": "",
+          "title": "About",
+          "type": "string"
+        },
         "better": {
           "anyOf": [
             {
@@ -457,6 +462,23 @@
           ],
           "default": null,
           "title": "Better"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
         },
         "name": {
           "title": "Name",
@@ -935,7 +957,8 @@
           "default": "transient",
           "enum": [
             "transient",
-            "needs_person"
+            "needs_person",
+            "limit"
           ],
           "title": "Kind",
           "type": "string"

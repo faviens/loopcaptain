@@ -46,7 +46,7 @@ StopReason = Literal[
 #: Whether a round's work was kept or thrown away (an experiment that made things worse).
 Outcome = Literal["kept", "discarded"]
 #: An error a retry may cure, or one only the person can.
-ErrorKind = Literal["transient", "needs_person"]
+ErrorKind = Literal["transient", "needs_person", "limit"]
 #: How a question ended without a reply on the board.
 QuestionEnd = Literal["answered", "superseded", "withdrawn"]
 Better = Literal["higher", "lower"]
@@ -285,6 +285,13 @@ class Metric(Record):
     target: float | None = None
     better: Better | None = None
     unit: str = ""
+    #: How a person reads the measure ("Topics covered"), one sentence on what it counts, and a
+    #: file in the repository that lists what is counted. All optional.
+    label: str = ""
+    about: str = ""
+    file: str | None = None
+
+    _file = field_validator("file")(relative_path)
 
     @property
     def met(self) -> bool | None:
@@ -535,6 +542,16 @@ EVENT: TypeAdapter[AnyEvent] = TypeAdapter(AnyEvent)
 # ---- inbox.jsonl: what the person sends, written by the board ----
 
 
+class FindingRef(Record):
+    """A finding the person settles from the board: which one, and how they want it closed."""
+
+    step: str
+    id: str
+    label: str | None = None
+    resolution: Resolution
+    reason: str = ""
+
+
 class InboxEntry(Record):
     id: str
     ts: datetime
@@ -546,6 +563,8 @@ class InboxEntry(Record):
     #: A reply to a question with an id names it; `choice` is the id of the option picked.
     question: str | None = None
     choice: str | None = None
+    #: A reply that settles a finding names it; the loop closes it with `finding_closed`.
+    finding: FindingRef | None = None
     #: HMAC-SHA256 the board puts on every line it writes; a line without it is not from the board.
     sig: str | None = None
 
