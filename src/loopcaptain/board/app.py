@@ -508,8 +508,16 @@ def create_app(
             return back(
                 repo_key, loop_id, tab="findings", error="Nothing was sent: that finding is no longer open."
             )
+        run, item = found
+        pending = state.settling(run, item) if state else None
+        if pending and not pending.read:
+            return back(
+                repo_key,
+                loop_id,
+                tab=tab,
+                note="Already sent. The loop closes the finding at its next round.",
+            )
         reason = reason.strip()[:MAX_REPLY_CHARS]
-        _, item = found
         said = f"{SETTLE_WORDS[resolution]}: {item.text}"[:MAX_REPLY_CHARS]
         ref = FindingRef(step=step, id=finding, label=label or None, resolution=resolution, reason=reason)  # type: ignore[arg-type]
         try:
