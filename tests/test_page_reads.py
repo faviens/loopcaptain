@@ -56,3 +56,9 @@ def test_a_chart_short_of_its_target_or_falling_back_reads_amber() -> None:
 
     assert short.met is False and short.tone == "short" and worse.tone == "short"
     assert short.area.endswith("Z") and chart(Series("x", ((1, 1.0),))).area == ""
+
+
+def test_a_unit_that_only_looks_like_a_whole_does_not_break_the_page() -> None:
+    odd = chart(Series("score", ((1, 1.0),), "of ,", better="higher"))
+
+    assert odd.left == ""

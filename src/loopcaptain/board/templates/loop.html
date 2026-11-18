@@ -145,7 +145,7 @@
     <td class="sum">{{ finding.text }}</td>
     <td><span class="st {{ 'skipped' if finding.severity == 'minor' else '' }}">{{ finding.severity }}</span></td>
     <td>{{ file_link(run.artifact, 'file') }}</td>
-    <td class="settle">{% set sent = state.settling(run, finding) %}{% if sent %}<p class="sent"><b>{{ settle_words.get(sent.entry.finding.resolution, sent.entry.finding.resolution) }}</b> sent {{ sent.entry.ts|ago }}{% if sent.entry.finding.reason %}: {{ sent.entry.finding.reason }}{% endif %}.<br><span class="grey">{{ 'The loop has read it and not closed the finding yet.' if sent.read else 'The loop closes it at its next round.' }}</span></p>{% else %}
+    <td class="settle">{% set sent = state.settling(run, finding) %}{% if sent %}<p class="sent"><b>{{ settle_words.get(sent.entry.finding.resolution, sent.entry.finding.resolution) }}</b> sent {{ sent.entry.ts|ago }}{% if sent.entry.finding.reason %}: {{ sent.entry.finding.reason }}{% endif %}.<br><span class="grey">{{ 'The loop has read it and kept the finding open; you can send again.' if sent.read else 'The loop closes it at its next round.' }}</span></p>{% endif %}{% if not sent or sent.read %}
       <form method="post" action="{{ url_for('loop_settle', repo_key=view.repo.key, loop_id=view.loop_id) }}">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}"><input type="hidden" name="step" value="{{ run.step }}"><input type="hidden" name="label" value="{{ run.label }}"><input type="hidden" name="finding" value="{{ finding.id }}">
         <input type="text" name="reason" maxlength="500" placeholder="Why, if you like" aria-label="Why, for finding {{ finding.id }}">

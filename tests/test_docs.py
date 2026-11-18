@@ -146,15 +146,25 @@ def test_the_lines_the_readme_shows_validate_as_one_round(tmp_path: Path) -> Non
     assert gate["passed"] is False  # the gate says no as a gate does, not as a step that broke
 
 
-def test_the_readme_installs_right_under_its_first_paragraph_and_before_the_prompts() -> None:
+def test_the_readme_shows_what_it_does_and_the_two_prompts_before_any_detail() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    blocks = readme.split("\n\n")
-    first = next(number for number, block in enumerate(blocks) if block.startswith("**Loopcaptain is"))
+    order = [
+        "**Loopcaptain is",
+        "hero-light.svg",
+        "## Get started",
+        "### Start a new loop",
+        "### Connect a loop",
+    ]
+    order += [
+        "## The board",
+        "screenshot-overview.webp",
+        "## Setup",
+        "uv tool install loopcaptain",
+        "```json",
+    ]
 
-    assert blocks[first + 1].startswith("```bash\nuv tool install loopcaptain")
-    assert "loopcaptain demo" in blocks[first + 1] and "loopcaptain serve" in blocks[first + 1]
-    assert readme.index("loopcaptain demo") < readme.index("```json") < readme.index("## Get started")
-    assert readme.index("## Get started") < readme.index("Paste this into your coding agent")
+    assert [readme.index(part) for part in order] == sorted(readme.index(part) for part in order)
+    assert "loopcaptain demo" in readme and "loopcaptain serve" in readme
 
 
 def test_the_readme_badges_say_what_a_user_needs_and_that_it_is_alpha() -> None:
@@ -281,7 +291,7 @@ def test_the_package_page_gets_a_readme_whose_every_address_is_full_and_at_the_t
 
     assert len(pictures) >= 12 and all("/v1.2.3/docs/assets/" in picture for picture in pictures)
     assert [link for link in links if not link.startswith("https://")] == []
-    assert "/blob/main/" not in text and f"Read {files}AGENTS.md, section A." in text
+    assert "/blob/main/" not in text and f"follow {files}AGENTS.md, section A." in text
     for address in [link for link in links if link.startswith(files)] + pictures:
         path = address.split("/v1.2.3/", 1)[1].split("#")[0]
         assert (ROOT / path).is_file(), address

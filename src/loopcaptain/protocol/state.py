@@ -297,10 +297,16 @@ class LoopState:
         return sum(r.minutes or 0 for r in self.rounds)
 
     def settling(self, run: StepRun, finding: FindingState) -> InboxState | None:
-        """The person's latest word on an open finding from the board, which the loop has yet to act on."""
+        """The person's latest word on an open finding from the board, which the loop has yet to act on.
+
+        Only a line the board signed, written after the run raised the finding: ids start over in
+        every review, so a word on finding "1" of an earlier round is not a word on this one."""
+        raised = run.finished or run.started
         for item in reversed(self.inbox):
             ref = item.entry.finding
-            if ref and ref.step == run.step and ref.id == finding.id and (ref.label or "") == run.label:
+            if not ref or not item.trusted or not item.entry.sig or (raised and item.entry.ts < raised):
+                continue
+            if ref.step == run.step and ref.id == finding.id and (ref.label or "") == run.label:
                 return item
         return None
 
