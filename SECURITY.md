@@ -35,7 +35,9 @@ reaches a loop:
    enter, read or make sense of is named with the reason and left out,
    and every other loop stays readable and steerable.
 3. **The file viewer:** it opens text files inside a watched repository
-   and nothing outside it. It never shows `.git`, and it refuses a
+   and nothing outside it. It never shows `.git`; of git's own files the
+   board reads only the branch's name and which repository a worktree
+   belongs to, from disk, without running `git`. The viewer refuses a
    block-list of names under which tools commonly keep keys, tokens and
    passwords (`PRIVATE_PARTS` and `PRIVATE_PATTERNS` in
    `src/loopcaptain/board/files.py`). The list goes by name only: a secret

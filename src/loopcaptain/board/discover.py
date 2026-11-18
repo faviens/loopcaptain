@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 import stat
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -29,7 +28,9 @@ log = logging.getLogger("loopcaptain.discover")
 CONFIG_ENV = "LOOPCAPTAIN_CONFIG"
 CONFIG_NAMES = ("loopcaptain.local.yaml",)
 USER_CONFIG = Path("~/.config/loopcaptain/config.yaml")
-GIT_TIMEOUT_S = 3
+#: A `HEAD` file is one short line; no more of it is read.
+HEAD_CHARS = 1024
+BRANCH_REF = "ref: refs/heads/"
 DEMO_FOLDER = "demo"
 
 
@@ -61,16 +62,8 @@ def git_common_dir(path: Path) -> Path:
     dot_git = path / ".git"
     if dot_git.is_dir():
         return dot_git.resolve()
-    try:
-        first = dot_git.read_text(encoding="utf-8").splitlines()[0]
-        if not first.startswith("gitdir:"):
-            return path.resolve()
-        gitdir = (path / first.removeprefix("gitdir:").strip()).resolve()
-        back = (gitdir / "gitdir").read_text(encoding="utf-8").strip()
-        returned = gitdir.parent.name == "worktrees" and (gitdir / back).resolve() == dot_git.resolve()
-    except (OSError, IndexError, UnicodeDecodeError, ValueError):
-        return path.resolve()
-    return gitdir.parent.parent if returned else path.resolve()
+    git_dir = worktree_git_dir(path)
+    return git_dir.parent.parent if git_dir is not None else path.resolve()
 
 
 def last_written(path: Path) -> int:
@@ -286,20 +279,38 @@ def find_loop(config: Config, repo_key: str, loop_id: str) -> tuple[Repo, Manife
     return None
 
 
-def git_branch(repo: Path) -> str:
-    """The checked-out branch, or "" where git cannot say (no repository, detached, too slow)."""
+def worktree_git_dir(path: Path) -> Path | None:
+    """The folder a worktree's `.git` file names, if the repository it names lists the worktree back."""
+    dot_git = path / ".git"
     try:
-        done = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=GIT_TIMEOUT_S,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
+        first = dot_git.read_text(encoding="utf-8").splitlines()[0]
+        if not first.startswith("gitdir:"):
+            return None
+        gitdir = (path / first.removeprefix("gitdir:").strip()).resolve()
+        back = (gitdir / "gitdir").read_text(encoding="utf-8").strip()
+        returned = gitdir.parent.name == "worktrees" and (gitdir / back).resolve() == dot_git.resolve()
+    except (OSError, IndexError, UnicodeDecodeError, ValueError):
+        return None
+    return gitdir if returned else None
+
+
+def git_branch(repo: Path) -> str:
+    """The checked-out branch, read from the checkout's `HEAD` file; "" where there is none to name
+    (no repository, a detached head, a worktree its repository does not list back).
+
+    Read from disk: the board runs nothing but `commands.start`, and running `git` in a watched
+    folder would run whatever that folder's git config names.
+    """
+    dot_git = repo / ".git"
+    git_dir = dot_git if dot_git.is_dir() else worktree_git_dir(repo)
+    if git_dir is None:
         return ""
-    branch = done.stdout.strip()
-    return branch if done.returncode == 0 and branch != "HEAD" else ""
+    try:
+        with (git_dir / "HEAD").open(encoding="utf-8") as handle:
+            head = handle.read(HEAD_CHARS).splitlines()[0].strip()
+    except (OSError, UnicodeDecodeError, IndexError):
+        return ""
+    return head.removeprefix(BRANCH_REF) if head.startswith(BRANCH_REF) else ""
 
 
 def config_target() -> Path:
