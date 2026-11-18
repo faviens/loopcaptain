@@ -41,6 +41,9 @@ USER_STATE = Path("~/.local/state")
 MAX_PID = 2**31
 LOG_TAIL_LINES = 30
 LOG_TAIL_BYTES = 20_000
+#: A loop's log above this size is put aside when the loop is started again; one earlier log is kept.
+MAX_LOG_BYTES = 2_000_000
+EARLIER_LOG_SUFFIX = ".1"
 #: The only variables a started loop inherits from the board, beside the key's path (`minimal_env`).
 PASSED_ENV = ("PATH", "HOME", "LANG", "TERM")
 CONFIRMED_FILE = "confirmed.json"
@@ -316,6 +319,7 @@ class Runner:
         if current and current.alive:
             raise StoreError(f"already running (pid {current.pid})")
         private_folder(self.state_dir)
+        self.put_aside_a_long_log(repo, manifest.id)
         started = now()
         descriptor = os.open(
             self.log_path(repo, manifest.id), os.O_WRONLY | os.O_CREAT | os.O_APPEND, PRIVATE_MODE
@@ -348,6 +352,20 @@ class Runner:
         write_private(self.record_path(repo, manifest.id), json.dumps(record) + "\n")
         log.info("started %s: %s (pid %d)", name, command, child.pid)
         return Process(child.pid, command, started, True)
+
+    def put_aside_a_long_log(self, repo: Repo, loop_id: str) -> None:
+        """Keep what the started processes printed from growing start after start: a log over
+        `MAX_LOG_BYTES` becomes the one earlier log, in the place of the one kept before.
+
+        What one run prints is the loop's own: the process writes the file itself."""
+        path = self.log_path(repo, loop_id)
+        try:
+            if path.stat().st_size > MAX_LOG_BYTES:
+                os.replace(path, path.with_name(path.name + EARLIER_LOG_SUFFIX))
+        except FileNotFoundError:
+            return
+        except OSError as error:
+            log.warning("cannot put %s aside: %s", path.name, error)
 
     def kill(self, repo: Repo, loop_id: str) -> bool:
         """End the process the board started, and its children, now. The polite way is an inbox `stop`.

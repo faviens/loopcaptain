@@ -1104,6 +1104,30 @@ def test_a_record_is_written_whole_and_a_write_that_fails_leaves_the_earlier_one
     assert [path.name for path in runner.state_dir.iterdir()] == [steer.CONFIRMED_FILE]
 
 
+def test_a_long_log_is_put_aside_at_the_next_start_and_one_earlier_log_is_kept(
+    scan: Path, tmp_path: Path, helper: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    runner = Runner(tmp_path / "state")
+    monkeypatch.setattr(steer, "MAX_LOG_BYTES", 100)
+    manifest = store.read_manifest(scan, "scan")
+    runner.state_dir.mkdir()
+    log_path = runner.log_path(repo, "scan")
+    log_path.write_text("short\n")
+
+    runner.start(repo, manifest)
+    runner.children[runner.name(repo, "scan")].wait()
+    kept_short = log_path.read_text()
+    log_path.write_text("x" * 500)
+    runner.start(repo, manifest)
+    runner.children[runner.name(repo, "scan")].wait()
+
+    assert kept_short.startswith("short\n") and "$ " in kept_short
+    assert log_path.with_name(log_path.name + ".1").read_text() == "x" * 500
+    assert log_path.stat().st_size < 500 and log_path.read_text().lstrip().startswith("$ ")
+
+
 def test_a_record_made_for_a_repository_of_the_same_name_elsewhere_is_not_this_loops(
     scan: Path, tmp_path: Path, helper: types.ModuleType
 ) -> None:
