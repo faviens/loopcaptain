@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 import types
 from pathlib import Path
 
@@ -40,13 +41,20 @@ def declare(repo: Path, helper: types.ModuleType, command: str) -> None:
 
 
 def start(client: TestClient, repo: Path) -> str:
+    """Press Start with every tick, and wait for the process to end: a second start is refused
+    while the first still runs."""
     form = {
         "token": str(client.app.state.token),  # type: ignore[attr-defined]
         "command": store.read_manifest(repo, "scan").commands["start"],
         "confirm": "yes",
         "again": "yes",
     }
-    return client.post("/loop/some-repo/scan/start", data=form).headers["location"]
+    location = str(client.post("/loop/some-repo/scan/start", data=form).headers["location"])
+    for _ in range(200):
+        if "Running since" not in client.get("/loop/some-repo/scan").text:
+            return location
+        time.sleep(0.05)
+    raise AssertionError("the started process did not end")
 
 
 @pytest.mark.parametrize(
