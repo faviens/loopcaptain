@@ -28,6 +28,7 @@ from markupsafe import Markup
 
 from loopcaptain.agents import agents, checkout_of
 from loopcaptain.board.access import COOKIE_NAME, ENTER_PATH, HOST, Session, is_open, local_path
+from loopcaptain.board.command import read_command
 from loopcaptain.board.discover import (
     Config,
     LoopView,
@@ -375,6 +376,7 @@ def create_app(
             "branch": git_branch(repo.path),
             "process": process,
             "log_tail": steer.log_tail(repo, loop_id) if process else "",
+            "command": read_command(manifest.commands.get("start", "")),
             "confirmed": steer.is_confirmed(repo, manifest.commands.get("start", "")),
             "runs_elsewhere": runs_elsewhere(view, steer),
             "signed": inbox_marks(state),

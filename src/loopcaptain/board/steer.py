@@ -15,7 +15,6 @@ import hashlib
 import json
 import logging
 import os
-import shlex
 import signal
 import stat
 import subprocess
@@ -25,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from loopcaptain.board.command import read_command
 from loopcaptain.board.discover import Repo, git_common_dir, safe_key
 from loopcaptain.protocol.models import Manifest, now
 from loopcaptain.protocol.signing import KEY_ENV, key_path
@@ -273,18 +273,13 @@ class Runner:
         return True
 
     def start(self, repo: Repo, manifest: Manifest) -> Process:
-        command = manifest.commands.get("start", "").strip()
-        if not command:
-            raise StoreError("this loop declares no start command in loop.json")
+        declared = read_command(manifest.commands.get("start", ""))
+        if declared.problem:
+            raise StoreError(declared.problem)
+        command, argv = declared.text, list(declared.argv)
         current = self.process(repo, manifest.id)
         if current and current.alive:
             raise StoreError(f"already running (pid {current.pid})")
-        try:
-            argv = shlex.split(command)
-        except ValueError as error:
-            raise StoreError(f"start command cannot be read: {error}") from error
-        if not argv:
-            raise StoreError("start command is empty")
         private_folder(self.state_dir)
         started = now()
         descriptor = os.open(

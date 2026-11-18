@@ -411,6 +411,8 @@ section.stalled { margin-top: var(--s3); border-color: var(--warn-mark); }
 section.stalled .eyebrow { color: var(--warn); }
 ol.steps { margin: var(--s1) 0 0; padding-left: 1.3em; }
 ol.steps li { margin: 4px 0; }
+ol.args { margin: 4px 0 var(--s1); padding-left: 1.6em; font-size: var(--t14); }
+ol.args li { margin: 2px 0; }
 
 /* ---- filters on the first page, and the first run ---- */
 form.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: var(--s3) 0 0; }
