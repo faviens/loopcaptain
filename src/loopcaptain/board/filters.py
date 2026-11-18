@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -54,3 +55,23 @@ def place(path: Path) -> str:
         return f"~/{path.resolve().relative_to(Path.home())}"
     except ValueError:
         return str(path)
+
+
+#: A summary shorter than this reads in one go and is not split.
+LEAD_CHARS = 220
+#: The end of a sentence: a full stop, question or exclamation mark before a space and a capital.
+SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(\[])")
+
+
+def lead(text: str) -> tuple[str, str]:
+    """A step's summary as its first sentence and the rest, so a round reads at a glance.
+
+    A short summary, or one whose first sentence is most of it, stays whole: ("all of it", "").
+    """
+    text = text.strip()
+    if len(text) <= LEAD_CHARS:
+        return text, ""
+    parts = SENTENCE_END.split(text, maxsplit=1)
+    if len(parts) < 2 or len(parts[0]) > len(text) * 3 // 4:
+        return text, ""
+    return parts[0], parts[1]

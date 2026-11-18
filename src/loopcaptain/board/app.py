@@ -8,9 +8,11 @@ reply, a stop, a start) are forms that also carry the token of this server proce
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import logging
 import secrets
+from collections import Counter
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Annotated
@@ -40,9 +42,9 @@ from loopcaptain.board.discover import (
 )
 from loopcaptain.board.errors import add_error_pages, secured
 from loopcaptain.board.files import MAX_FILE_BYTES, TEXT_SUFFIXES, inside
-from loopcaptain.board.filters import ago, minutes, place, stamp, tokens, usd
+from loopcaptain.board.filters import ago, lead, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
-from loopcaptain.board.overview import filter_views, projects_of
+from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of
 from loopcaptain.board.steer import Runner
 from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
@@ -58,6 +60,8 @@ log = logging.getLogger("loopcaptain.web")
 HERE = Path(__file__).parent
 MAX_REPLY_CHARS = 20_000
 #: The parts of a loop's page, each with its own address: ?tab=<name>.
+#: The project's documentation site: the protocol, the guides and every command, explained at length.
+DOCS_URL = "https://faviens.github.io/loopcaptain/"
 TABS = ("overview", "rounds", "findings", "items", "inbox")
 #: The two parts of the first page: every loop under its project, and what waits for the person.
 OVERVIEW_TABS = ("loops", "waiting")
@@ -97,12 +101,23 @@ class StaleForm(Exception):
 MARKDOWN = MarkdownIt("commonmark", {"html": False}).enable("table")
 
 
+def asset_stamp() -> str:
+    """A short digest of the stylesheet and the script: in their address, so a browser never keeps
+    an old copy once either changes."""
+    digest = hashlib.sha256()
+    for name in ("style.css", "board.js"):
+        digest.update((HERE / "static" / name).read_bytes())
+    return digest.hexdigest()[:10]
+
+
 def make_templates() -> Jinja2Templates:
     templates = Jinja2Templates(directory=HERE / "templates")
     templates.env.filters.update(
-        ago=ago, usd=usd, minutes=minutes, tokens=tokens, stamp=stamp, place=place, figure=figure
+        ago=ago, usd=usd, minutes=minutes, tokens=tokens, stamp=stamp, place=place, figure=figure, lead=lead
     )
     templates.env.globals["status_text"] = STATUS_TEXT
+    templates.env.globals["docs_url"] = DOCS_URL
+    templates.env.globals["asset_stamp"] = asset_stamp
     templates.env.globals["stoppable"] = STOPPABLE
     templates.env.globals["no_progress"] = no_progress_signs
     templates.env.globals["trail_of"] = trail_of
@@ -192,6 +207,24 @@ def create_app(
                 views.append(load_loop(repo, loop_id, process_alive=bool(process and process.alive)))
         return views
 
+    def totals() -> dict[str, object] | None:
+        """The board's figures for the header of every page; None where the loops cannot be read."""
+        try:
+            views = all_views()
+        except StoreError:
+            return None
+        states = [view.state for view in views if view.state]
+        return {
+            "loops": len(views),
+            "projects": len({view.repo.key for view in views}),
+            "waiting": sum(1 for state in states if state.question),
+            "running": sum(1 for view in views if group_of(view) == "running"),
+            "troubled": sum(1 for view in views if group_of(view) == "look"),
+            "usd": sum(state.cost_usd for state in states),
+        }
+
+    templates.env.globals["totals"] = totals
+
     def overview_fingerprint() -> str:
         """From file stats alone, in discovery order: the overview polls it every few seconds."""
         return "|".join(
@@ -233,6 +266,7 @@ def create_app(
         q: str = "",
         status: Annotated[list[str] | None, Query()] = None,
         finished: str = "",
+        show: str = "",
     ) -> Response:
         try:
             cfg = config()
@@ -254,21 +288,30 @@ def create_app(
         asked = {part for value in status or () for part in value.split(",")}
         statuses = frozenset(asked) & frozenset(STATUS_ORDER)
         shown, hidden = filter_views(views, q, statuses, show_finished=finished == "1")
+        found, _ = filter_views(views, q, frozenset(), show_finished=True)
+        groups: Counter[str] = Counter(group_of(view) for view in found)
+        group = show if show in GROUPS else ""
+        if group:  # one group, finished or not, whatever else the address says
+            shown, hidden = [view for view in found if group_of(view) == group], 0
         context = {
             "views": views,
             "projects": projects_of(shown),
             "project_count": len({view.repo.key for view in views}),
             "hidden": hidden,
+            "groups": GROUPS,
+            "group_counts": groups,
             "filters": {
                 "q": q,
                 "statuses": statuses,
                 "together": [name for name in STATUS_ORDER if name in statuses] if len(statuses) > 1 else [],
                 "finished": finished == "1",
+                "group": group,
             },
             "statuses": STATUS_ORDER,
             "prompts": prompts(),
             "tab": tab if tab in OVERVIEW_TABS else "loops",
             "waiting": [view for view in views if view.state and view.state.question],
+            "waiting_projects": projects_of([view for view in views if view.state and view.state.question]),
             "config": cfg,
             "error": error or told,
             "note": note,

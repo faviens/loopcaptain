@@ -39,6 +39,21 @@
 
   if (url) window.setInterval(poll, POLL_MS);
 
+  // A repository folded away on the first page stays folded across the page's own reloads.
+  var FOLDED = "loopcaptain.folded";
+  function folded() {
+    try { return JSON.parse(window.localStorage.getItem(FOLDED) || "[]"); } catch (e) { return []; }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("details[data-fold]"), function (section) {
+    var key = section.getAttribute("data-fold");
+    if (folded().indexOf(key) !== -1) section.open = false;
+    section.addEventListener("toggle", function () {
+      var keys = folded().filter(function (name) { return name !== key; });
+      if (!section.open) keys.push(key);
+      try { window.localStorage.setItem(FOLDED, JSON.stringify(keys)); } catch (e) { /* private mode */ }
+    });
+  });
+
   // Back leads back: a tab, a round, an answer or a button replaces the page in the history instead of
   // adding one, so one press of Back from a loop's page reaches the list it was opened from.
   document.querySelectorAll("nav.tabs a, th.rnd a").forEach(function (link) {

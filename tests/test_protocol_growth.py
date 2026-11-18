@@ -177,7 +177,7 @@ def test_the_board_sees_no_progress_before_the_loop_says_so(repo: Path, helper: 
     signs = no_progress_signs(state_at(repo, T0))
 
     assert "the same 1 material finding stayed open in rounds 2 and 3" in signs
-    assert "score has not moved for 3 rounds" in signs
+    assert "score stayed at 0.5 from round 1 to 3" in signs
 
 
 def test_a_loop_that_moves_shows_no_sign(repo: Path, helper: types.ModuleType) -> None:

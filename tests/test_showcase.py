@@ -56,7 +56,10 @@ def test_the_overview_marks_what_waits_what_runs_and_what_is_stuck(repos: list[P
     page = client.get("/?finished=1").text
 
     assert 'class="kpi hot"><b>1</b>' in page
-    assert 'class="kpi live"><b>2</b>' in page
-    assert 'class="kpi alarm"><b>2</b>' in page
+    assert 'class="kpi live"><b>3</b>' in page  # running and sleeping are one group
+    assert (
+        'class="kpi alarm" title="stalled, failed or capped, or going round without progress"><b>3</b><span>need a look'
+        in page
+    )
     for status in ("waiting", "running", "stalled", "failed", "sleeping", "done", "capped"):
         assert f'<tr class="is-{status}">' in page, status

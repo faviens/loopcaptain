@@ -758,3 +758,31 @@ header, and the red of its loops is the same signal as on the page.
    the colour difference between running, done and stalled.
 3. The logo on a red or a black tile: the tile was the loudest thing in
    the header.
+
+## 33. A page says what a figure means and where to go from it
+
+**Decision.** The loop page, the first page and the connect page are built around what a
+person does next, not around what the files hold. On the loop page
+(`board/templates/loop.html`) the figures sit in one strip on an ink rule with their caps as
+bars under them; a sign of no progress is a band on ink that names the rounds and values and
+links to the round, the open findings and the note; every chart reads a round out on hover
+and opens it on click (`board/trend.py`); a measure counted towards a whole says what is left;
+the board's own count of open findings is left out where the loop reports the same measure;
+each step in the round graph shows its kind by an icon and its state by its bar, and opens its
+prompt (`board/graph.py`); a step's summary shows its first sentence and folds the rest
+(`lead` in `board/filters.py`). The first page has its views in the header menu, one row of
+pills for finding and filtering that apply at once, and a folding section per repository named
+by its main checkout, with the worktree and branch apart (`main_checkout` in
+`board/overview.py`); `static/board.js` keeps a folded section folded across reloads. The
+connect page offers three ways in, the agent's prompt first, and folds the protocol away
+behind a link to the documentation site.
+
+**Why.** Read against a long real loop, the pages showed numbers without saying what they
+were, charts that could not be read by round, the same measure twice, a warning that linked
+nowhere, step boxes that all looked alike, and filters in four different shapes, of which one
+did nothing until a button was pressed. Half the first page was controls.
+
+**Rejected.** A navigation column on the left: the tables need the width, and two views do
+not need a column. A chart library: the content policy allows no script that draws, and a hover
+on a strip of the chart needs none. Truncating summaries by length: a cut mid-sentence reads
+worse than a first sentence.

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from loopcaptain.board.discover import LoopView, Repo, git_branch
 from loopcaptain.board.filters import place
+from loopcaptain.protocol.state import no_progress_signs
 
 
 @dataclass(frozen=True)
@@ -16,10 +18,35 @@ class Project:
     place: str
     branch: str
     views: tuple[LoopView, ...]
+    #: The repository's own name: the folder of its main checkout, also when the loop runs in a
+    #: worktree of it elsewhere. `worktree` is that worktree's folder, "" for the main checkout.
+    name: str = ""
+    worktree: str = ""
 
     @property
     def waiting(self) -> int:
         return sum(1 for view in self.views if view.state and view.state.question)
+
+
+def main_checkout(folder: Path) -> Path:
+    """The main checkout a folder belongs to: itself, or for a worktree the one it was added from.
+
+    Read from the worktree's `.git` file (`gitdir: <main>/.git/worktrees/<name>`), so nothing runs."""
+    marker = folder / ".git"
+    try:
+        if not marker.is_file():
+            return folder
+        pointer = marker.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError):
+        return folder
+    if not pointer.startswith("gitdir:"):
+        return folder
+    gitdir = Path(pointer.removeprefix("gitdir:").strip())
+    if not gitdir.is_absolute():
+        gitdir = (folder / gitdir).resolve()
+    if gitdir.parent.name == "worktrees" and gitdir.parent.parent.name == ".git":
+        return gitdir.parent.parent.parent
+    return folder
 
 
 def projects_of(views: list[LoopView]) -> list[Project]:
@@ -27,10 +54,15 @@ def projects_of(views: list[LoopView]) -> list[Project]:
     grouped: dict[str, list[LoopView]] = {}
     for view in views:
         grouped.setdefault(view.repo.key, []).append(view)
-    return [
-        Project(found[0].repo, place(found[0].repo.path), git_branch(found[0].repo.path), tuple(found))
-        for found in grouped.values()
-    ]
+    projects = []
+    for found in grouped.values():
+        folder = found[0].repo.path
+        main = main_checkout(folder)
+        worktree = folder.name if main.name != folder.name else ""
+        projects.append(
+            Project(found[0].repo, place(folder), git_branch(folder), tuple(found), main.name, worktree)
+        )
+    return projects
 
 
 #: Statuses that are over; the overview folds them away unless asked.
@@ -57,3 +89,43 @@ def filter_views(
         return picked, 0
     kept = [view for view in picked if status_of(view) not in FINISHED]
     return kept, len(picked) - len(kept)
+
+
+#: Statuses that mean a loop has stopped short or broken: the person should look.
+TROUBLE = frozenset({"stalled", "failed", "capped"})
+
+
+def needs_look(view: LoopView) -> bool:
+    """A loop the person should look at: stalled, failed or capped, or going round without progress."""
+    if view.state is None:
+        return True
+    status = view.state.status
+    if status in TROUBLE:
+        return True
+    return status not in FINISHED and bool(no_progress_signs(view.state))
+
+
+#: The groups the first page sorts loops into, each loop into exactly one, in this order of
+#: precedence: what waits for the person, what needs a look, what runs, what rests, what is over.
+GROUPS = {
+    "waiting": "waiting for you",
+    "look": "needs a look",
+    "running": "running",
+    "idle": "idle",
+    "finished": "finished",
+}
+
+
+def group_of(view: LoopView) -> str:
+    """The one group a loop belongs to on the first page."""
+    if view.state is None:
+        return "look"
+    if view.state.question:
+        return "waiting"
+    if needs_look(view):
+        return "look"
+    if view.state.status in ("running", "sleeping"):
+        return "running"
+    if view.state.status in FINISHED:
+        return "finished"
+    return "idle"

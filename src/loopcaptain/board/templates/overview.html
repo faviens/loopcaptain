@@ -1,10 +1,33 @@
 {% extends "base.html" %}
 {% set page = 'overview' %}
-{% block title %}{% if waiting %}({{ waiting|length }}) {% endif %}Loops · Loopcaptain{% endblock %}
+{% block title %}{{ 'Waiting for you' if tab == 'waiting' else '' }}{% endblock %}
 {% block body_attrs %} data-pulse-url="{{ url_for('overview_pulse') }}" data-pulse="{{ pulse }}"{% endblock %}
+{% macro project_head(project) %}<span class="name">{{ project.name or project.repo.key }}</span>{% if project.worktree %}<span class="wt" title="a worktree of {{ project.name }}">worktree {{ project.worktree }}</span>{% endif %}{% if project.branch %}<code class="branch">{{ project.branch }}</code>{% endif %}<span class="path">{{ project.place }}</span><span class="count">{{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}{% endmacro %}
+{% macro loop_row(view) %}
+  <tr class="is-{{ view.state.status if view.state else 'failed' }}">
+    <td class="name"><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a><span class="id">{{ view.loop_id }}</span></td>
+    {% if view.state %}
+    {% set s = view.state %}
+    <td><span class="pill {{ s.status }}" title="{{ status_text[s.status] }}">{{ s.status }}</span>{% if s.question and s.status != 'waiting' %}<span class="asks" title="it has a question for you">asks</span>{% endif %}{% set signs = no_progress(s) %}{% if signs %}<span class="stuck" title="{{ signs|join('; ') }}">no progress</span>{% endif %}</td>
+    <td class="goal" title="{{ s.manifest.brief.goal }}"><span>{{ s.manifest.brief.goal|truncate(150) }}</span></td>
+    <td class="r num">{{ s.rounds|length }}{% if s.manifest.round_cap %}<span class="grey"> / {{ s.manifest.round_cap }}</span>{% endif %}{% set trail = trail_of(s) %}{% if trail %}<span class="trail" role="img" aria-label="{{ trail|map(attribute='label')|join('; ') }}">{% for cell in trail %}<i class="{{ cell.look }}" title="{{ cell.label }}"></i>{% endfor %}</span>{% endif %}</td>
+    <td class="r num">{{ s.open_findings|length or '' }}</td>
+    <td class="r num">{{ s.minutes|minutes }}</td>
+    <td class="r num">{{ s.cost_usd|usd }}</td>
+    <td class="grey">{{ s.last_event|ago }}{% if view.problems %} · {{ view.problems|length }} unreadable line{{ 's' if view.problems|length != 1 }}{% endif %}</td>
+    {% else %}
+    <td><span class="pill failed">unreadable</span></td>
+    <td class="goal" colspan="6">{{ view.error }}</td>
+    {% endif %}
+    <td class="go" aria-hidden="true">Open<i></i></td>
+  </tr>
+{% endmacro %}
+{% macro head_row(visible) %}<thead{% if not visible %} class="sr"{% endif %}><tr>
+    <th scope="col">Loop</th><th scope="col">Status</th><th scope="col">What it is for</th><th scope="col" class="r" title="A square per round, darker for more findings left open; a green dot for none; a ring while it runs">Rounds</th><th scope="col" class="r">Open findings</th><th scope="col" class="r">Time</th><th scope="col" class="r">Cost</th><th scope="col">Last sign of life</th><th scope="col"><span class="sr">Open</span></th>
+  </tr></thead>{% endmacro %}
+{% macro cols() %}<colgroup><col class="c-loop"><col class="c-status"><col class="c-goal"><col class="c-rounds"><col class="c-n"><col class="c-n"><col class="c-n"><col class="c-last"><col class="c-go"></colgroup>{% endmacro %}
 {% block main %}
-<p class="eyebrow">Where every loop stands</p>
-<h1>Loops</h1>
+<h1 class="sr">{{ 'Waiting for you' if tab == 'waiting' else 'Loops' }}</h1>
 {% if note %}<p class="flash" role="status">{{ note }}</p>{% endif %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
 {% if unreadable %}
@@ -18,27 +41,24 @@
 {% set running = views|selectattr('state')|selectattr('state.status', 'equalto', 'running')|list %}
 {% set troubled = views|selectattr('state')|selectattr('state.status', 'in', ['stalled', 'failed'])|list %}
 {% set here = url_for('overview') %}
-<section class="kpis" aria-label="Totals">
-  <div class="kpi"><b>{{ views|length }}</b><span>loop{{ 's' if views|length != 1 }} in {{ project_count }} project{{ 's' if project_count != 1 }}</span></div>
-  <a href="{{ here }}?tab=waiting" class="kpi{{ ' hot' if waiting }}"><b>{{ waiting|length }}</b><span>wait{{ 's' if waiting|length == 1 }} for your answer</span></a>
-  <a href="{{ here }}?status=running" class="kpi{{ ' live' if running }}"><b>{{ running|length }}</b><span>running now</span></a>
-  <a href="{{ here }}?status=stalled&amp;status=failed" class="kpi{{ ' alarm' if troubled }}"><b>{{ troubled|length }}</b><span>stalled or failed</span></a>
-  <div class="kpi"><b>{{ total_usd|usd or '$0' }}</b><span>reported cost of all rounds</span></div>
-</section>
 
-<nav class="tabs" aria-label="Parts of this page">
-  <a href="{{ here }}"{% if tab == 'loops' %} aria-current="page"{% endif %}>All loops<span class="n">{{ views|length }}</span></a>
-  <a href="{{ here }}?tab=waiting"{% if tab == 'waiting' %} aria-current="page"{% endif %}>Waiting for you<span class="n{{ ' hot' if waiting }}">{{ waiting|length }}</span></a>
-</nav>
 
 {% if tab == 'waiting' %}
 {% if not waiting %}<p class="empty tabbed">Nothing waits for you. A loop that needs you shows here with its question.</p>{% endif %}
-{% for view in waiting %}
-<section class="ask" aria-label="Question from {{ view.title }}">
+<div class="projects">
+{% for project in waiting_projects %}
+<div class="project card flush">
+  <div class="summary project">{{ project_head(project) }}</div>
+  <table class="loops">{{ cols() }}{{ head_row(false) }}<tbody>{% for view in project.views %}{{ loop_row(view) }}{% endfor %}</tbody></table>
+  {% for view in project.views %}
+<section class="ask inline" aria-label="Question from {{ view.title }}">
+  {% set q = view.state.question %}
   <dl class="from">
-    <div><dt>Project</dt><dd>{{ view.repo.key }}</dd></div>
-    <div><dt>Loop</dt><dd><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a></dd></div>
-    <div><dt>Asked</dt><dd>{% if view.state.question.round %}round {{ view.state.question.round }} · {% endif %}{{ view.state.question.asked|ago }}{% if view.state.question.blocks %} · it stands still until you answer{% endif %}</dd></div>
+    <div class="sr"><dt>Project</dt><dd>{{ view.repo.key }}</dd></div>
+    <div class="sr"><dt>Loop</dt><dd>{{ view.title }}</dd></div>
+    <div><dt>Asked</dt><dd>{% if q.round %}<a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}?tab=rounds&amp;round={{ q.round }}#round">round {{ q.round }}</a> · {% endif %}{{ q.asked|ago }}{% if q.blocks %} · it stands still until you answer{% endif %}</dd></div>
+    {% if project.views|length > 1 %}<div><dt>For</dt><dd>{{ view.title }}</dd></div>{% endif %}
+    <div class="hide"><dt>So far</dt><dd>{{ view.state.rounds|length }} round{{ 's' if view.state.rounds|length != 1 }}, {{ view.state.open_findings|length }} open finding{{ 's' if view.state.open_findings|length != 1 }}{% if view.state.cost_usd %}, {{ view.state.cost_usd|usd }}{% endif %}</dd></div>
   </dl>
   <p class="q">{% if view.state.question.needs_person %}<b>A step needs you.</b> {% endif %}{{ view.state.question.text }}</p>
   {% if view.state.question.options %}
@@ -53,55 +73,45 @@
     <button type="submit">Send answer</button>
   </form>
 </section>
+  {% endfor %}
+</div>
 {% endfor %}
+</div>
 {% else %}
-<form class="filters" method="get" action="{{ here }}" role="search" aria-label="Filter the loops">
-  <label><span class="sr">Find</span><input type="search" name="q" value="{{ filters.q }}" placeholder="Find a loop, a project, a goal"></label>
-  <label><span class="sr">Status</span><select name="status">
-    <option value="">every status</option>
-    {% set together = filters.together %}
-    {% if together %}<option value="{{ together|join(',') }}" selected>{{ together|join(' or ') }}</option>{% endif %}
-    {% for name in statuses %}<option value="{{ name }}"{% if not together and name in filters.statuses %} selected{% endif %}>{{ name }}</option>{% endfor %}
-  </select></label>
-  <label class="tick"><input type="checkbox" name="finished" value="1"{% if filters.finished %} checked{% endif %}> show finished loops</label>
-  <button type="submit" class="quiet">Filter</button>
-  {% if filters.q or filters.statuses or filters.finished %}<a href="{{ here }}">clear</a>{% endif %}
-</form>
+{% set f = filters %}
+{% macro chip_href(status='', finished=f.finished) %}{{ here }}?{% if f.q %}q={{ f.q|urlencode }}&amp;{% endif %}{% if status %}status={{ status }}&amp;{% endif %}{% if finished %}finished=1{% endif %}{% endmacro %}
+{% set active = f.together|join(',') if f.together else (f.statuses|first if f.statuses else '') %}
+<div class="toolbar">
+  <form class="find" method="get" action="{{ here }}" role="search" aria-label="Find a loop">
+    <label><span class="sr">Find</span><input type="search" name="q" value="{{ f.q }}" placeholder="Find a loop, a project, a goal"></label>
+    {% for name in f.statuses %}<input type="hidden" name="status" value="{{ name }}">{% endfor %}{% if f.finished %}<input type="hidden" name="finished" value="1">{% endif %}
+    <button type="submit" class="sr">Find</button>
+  </form>
+  <nav class="chips" aria-label="Show loops">
+    <a href="{{ here }}{% if f.q %}?q={{ f.q|urlencode }}{% endif %}"{% if not f.group and not f.statuses and not f.finished %} aria-current="true"{% endif %} title="every loop that is not finished">active</a>
+    {% for key, label in groups.items() %}{% if group_counts[key] or f.group == key %}<a href="{{ here }}?show={{ key }}{% if f.q %}&amp;q={{ f.q|urlencode }}{% endif %}"{% if f.group == key %} aria-current="true"{% endif %} class="g-{{ key }}">{{ label }}<span class="n">{{ group_counts[key] }}</span></a>{% endif %}{% endfor %}
+    {% if f.statuses and not f.group %}<a href="{{ chip_href(active) }}" aria-current="true">{{ (f.together or f.statuses|list)|join(' or ') }}</a>{% endif %}
+  </nav>
+  {% if f.q or f.statuses or f.finished or f.group %}<a class="clear" href="{{ here }}">clear</a>{% endif %}
+</div>
 {% if not projects %}<p class="empty tabbed">No loop matches{% if hidden %}; {{ hidden }} finished loop{{ 's' if hidden != 1 }} folded away{% endif %}.</p>{% else %}
-<div class="card flush tabbed">
+
+<div class="projects">
+{% for project in projects %}
+<details class="project card flush" open data-fold="{{ project.repo.key }}">
+  <summary class="project summary">{{ project_head(project) }}</summary>
 <table class="loops">
-  <thead><tr>
-    <th scope="col">Loop</th><th scope="col">Status</th><th scope="col">What it is for</th><th scope="col" class="r" title="A square per round, darker for more findings left open; a green dot for none; a ring while it runs">Rounds</th><th scope="col" class="r">Open findings</th><th scope="col" class="r">Time</th><th scope="col" class="r">Cost</th><th scope="col">Last sign of life</th><th scope="col"><span class="sr">Open</span></th>
-  </tr></thead>
-  {% for project in projects %}
+  {{ cols() }}
+  {{ head_row(loop.first) }}
   <tbody>
-  <tr class="project">
-    <th scope="rowgroup" colspan="9"><span class="eyebrow">Project</span><b>{{ project.repo.key }}</b><span class="where">{{ project.place }}{% if project.branch %} · branch {{ project.branch }}{% endif %} · {{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}</th>
-  </tr>
-  {% for view in project.views %}
-  <tr class="is-{{ view.state.status if view.state else 'failed' }}">
-    <td class="name"><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a><span class="id">{{ view.loop_id }}</span></td>
-    {% if view.state %}
-    {% set s = view.state %}
-    <td><span class="pill {{ s.status }}" title="{{ status_text[s.status] }}">{{ s.status }}</span>{% if s.question and s.status != 'waiting' %}<span class="asks" title="it has a question for you">asks</span>{% endif %}{% set signs = no_progress(s) %}{% if signs %}<span class="stuck" title="{{ signs|join('; ') }}">no progress?</span>{% endif %}</td>
-    <td class="goal"><span>{{ s.manifest.brief.goal|truncate(150) }}</span></td>
-    <td class="r num">{{ s.rounds|length }}{% if s.manifest.round_cap %}<span class="grey"> / {{ s.manifest.round_cap }}</span>{% endif %}{% set trail = trail_of(s) %}{% if trail %}<span class="trail" role="img" aria-label="{{ trail|map(attribute='label')|join('; ') }}">{% for cell in trail %}<i class="{{ cell.look }}" title="{{ cell.label }}"></i>{% endfor %}</span>{% endif %}</td>
-    <td class="r num">{{ s.open_findings|length or '' }}</td>
-    <td class="r num">{{ s.minutes|minutes }}</td>
-    <td class="r num">{{ s.cost_usd|usd }}</td>
-    <td class="grey">{{ s.last_event|ago }}{% if view.problems %} · {{ view.problems|length }} unreadable line{{ 's' if view.problems|length != 1 }}{% endif %}</td>
-    {% else %}
-    <td><span class="pill failed">unreadable</span></td>
-    <td class="goal" colspan="6">{{ view.error }}</td>
-    {% endif %}
-    <td class="go" aria-hidden="true">Open<i></i></td>
-  </tr>
+  <tr class="project"><th scope="rowgroup" colspan="9" class="sr">Project {{ project.repo.key }} · {{ project.place }} · {{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</th></tr>
+  {% for view in project.views %}{{ loop_row(view) }}
   {% endfor %}
   </tbody>
-  {% endfor %}
 </table>
+</details>
+{% endfor %}
 </div>
-{% if hidden %}<p class="note">{{ hidden }} finished loop{{ 's' if hidden != 1 }} folded away. <a href="{{ here }}?finished=1{% if filters.q %}&amp;q={{ filters.q|urlencode }}{% endif %}">Show {{ 'them' if hidden != 1 else 'it' }}</a>.</p>{% endif %}
 {% endif %}
 {% endif %}
 {% else %}
