@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import fnmatch
+import os
+import stat
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -163,3 +165,32 @@ def inside(repo: Path, relative: str) -> Path:
     if any(is_private(part) for part in parts):
         raise HTTPException(404, "no such file in this repository")
     return target
+
+
+def read_bounded(repo: Path, target: Path, limit: int = MAX_FILE_BYTES) -> tuple[int, bytes | None]:
+    """The size and the bytes of a file `inside` has passed; no bytes for one larger than `limit`.
+
+    Between the check of a path and the reading, a loop could put a symbolic link in the place of
+    a folder or of the file, and the board would read whatever it leads to. So the file is opened
+    step by step from the repository's root, each part without following a link, and a part that
+    has turned into a link since is refused. Raises `OSError` where the file cannot be opened so.
+    """
+    root = repo.resolve()
+    parts = target.relative_to(root).parts
+    if not parts:
+        raise IsADirectoryError(str(target))
+    folder = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for part in parts[:-1]:
+            deeper = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=folder)
+            os.close(folder)
+            folder = deeper
+        # O_NONBLOCK: a name that has become a pipe must not hold the page.
+        descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=folder)
+    finally:
+        os.close(folder)
+    with os.fdopen(descriptor, "rb") as handle:
+        status = os.fstat(handle.fileno())
+        if not stat.S_ISREG(status.st_mode):
+            raise OSError(f"{target.name} is not a file")
+        return status.st_size, (handle.read(limit) if status.st_size <= limit else None)

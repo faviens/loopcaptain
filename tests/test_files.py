@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import fnmatch
+import os
 from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
-from loopcaptain.board.files import PRIVATE_PARTS, PRIVATE_PATTERNS, inside, is_private
+from loopcaptain.board import app as board_app
+from loopcaptain.board.app import create_app
+from loopcaptain.board.discover import Config
+from loopcaptain.board.files import PRIVATE_PARTS, PRIVATE_PATTERNS, inside, is_private, read_bounded
+from loopcaptain.board.steer import Runner
 
 #: One name per pattern, in the order of `PRIVATE_PATTERNS`: the test below holds the two together.
 NAME_FOR_PATTERN = {
@@ -111,3 +117,73 @@ def test_an_ordinary_name_is_still_shown(tmp_path: Path, name: str) -> None:
     (tmp_path / name).write_text("x")
 
     assert inside(tmp_path, name) == (tmp_path / name).resolve()
+
+
+def test_a_file_is_read_whole_up_to_the_limit_and_only_measured_above_it(tmp_path: Path) -> None:
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes" / "plan.md").write_text("twelve bytes")
+    target = inside(tmp_path, "notes/plan.md")
+
+    assert read_bounded(tmp_path, target) == (12, b"twelve bytes")
+    assert read_bounded(tmp_path, target, limit=5) == (12, None)
+
+
+def test_a_folder_swapped_for_a_link_after_the_check_is_not_followed(tmp_path: Path) -> None:
+    repo, outside = tmp_path / "repo", tmp_path / "outside"
+    (repo / "notes").mkdir(parents=True)
+    (repo / "notes" / "plan.md").write_text("the plan")
+    outside.mkdir()
+    (outside / "plan.md").write_text("not the loop's to show")
+    target = inside(repo, "notes/plan.md")
+
+    (repo / "notes" / "plan.md").unlink()
+    (repo / "notes").rmdir()
+    (repo / "notes").symlink_to(outside)
+
+    with pytest.raises(OSError):
+        read_bounded(repo, target)
+
+
+def test_a_file_swapped_for_a_link_or_a_pipe_after_the_check_is_not_read(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (tmp_path / "outside.md").write_text("not the loop's to show")
+    for name in ("plan.md", "feed.md"):
+        (repo / name).write_text("the plan")
+    plan, feed = inside(repo, "plan.md"), inside(repo, "feed.md")
+
+    plan.unlink()
+    plan.symlink_to(tmp_path / "outside.md")
+    feed.unlink()
+    os.mkfifo(feed)
+
+    for target in (plan, feed):
+        with pytest.raises(OSError):
+            read_bounded(repo, target)
+
+
+def test_the_page_answers_no_such_file_when_the_file_became_a_link_after_the_check(
+    scan: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "outside.md").write_text("not the loop's to show")
+    (scan / "plan.md").write_text("the plan")
+    app = create_app(
+        config=lambda: Config(repos=(scan,)),
+        runner=Runner(tmp_path / "state"),
+        allowed_hosts=frozenset({"board.test"}),
+    )
+    client = TestClient(app, base_url="http://board.test", follow_redirects=False)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
+    shown = client.get("/loop/some-repo/scan/file", params={"path": "plan.md"})
+
+    def checked_then_swapped(repo: Path, relative: str) -> Path:
+        target = inside(repo, relative)
+        target.unlink()
+        target.symlink_to(tmp_path / "outside.md")
+        return target
+
+    monkeypatch.setattr(board_app, "inside", checked_then_swapped)
+    swapped = client.get("/loop/some-repo/scan/file", params={"path": "plan.md"})
+
+    assert shown.status_code == 200 and "the plan" in shown.text
+    assert swapped.status_code == 404 and "not the loop" not in swapped.text

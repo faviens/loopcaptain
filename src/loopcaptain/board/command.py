@@ -13,7 +13,7 @@ import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
-from loopcaptain.board.files import MAX_FILE_BYTES, TEXT_SUFFIXES, is_private
+from loopcaptain.board.files import TEXT_SUFFIXES, is_private, read_bounded
 
 #: Unicode categories of characters that do not show as themselves: control and format characters
 #: (among them the ones that turn the reading direction), line and paragraph separators, private
@@ -88,9 +88,9 @@ def named_files(root: Path, argv: tuple[str, ...]) -> dict[str, str]:
             relative = target.relative_to(base)
             if any(is_private(part) for part in relative.parts) or target.suffix.lower() not in TEXT_SUFFIXES:
                 continue
-            if target.stat().st_size > MAX_FILE_BYTES:
-                continue
-            found[relative.as_posix()] = hashlib.sha256(target.read_bytes()).hexdigest()
+            _, data = read_bounded(base, target)
+            if data is not None:
+                found[relative.as_posix()] = hashlib.sha256(data).hexdigest()
         except (OSError, ValueError):  # a null byte, a name too long, a file that went away
             continue
     return found

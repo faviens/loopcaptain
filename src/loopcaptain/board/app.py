@@ -43,7 +43,7 @@ from loopcaptain.board.discover import (
     unreadable_folders,
 )
 from loopcaptain.board.errors import add_error_pages, secured
-from loopcaptain.board.files import MAX_FILE_BYTES, TEXT_SUFFIXES, inside
+from loopcaptain.board.files import TEXT_SUFFIXES, inside, read_bounded
 from loopcaptain.board.filters import ago, lead, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
 from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of
@@ -403,19 +403,24 @@ def create_app(
     def loop_file(request: Request, repo_key: str, loop_id: str, path: str) -> Response:
         repo, manifest, view = view_of(repo_key, loop_id)
         target = inside(repo.path, path)
-        size = target.stat().st_size
         body: Markup | None = None
         text = ""
         reason = ""
         if target.suffix.lower() not in TEXT_SUFFIXES:
             reason = "not shown: the board opens only text files it knows"
-        elif size > MAX_FILE_BYTES:
-            reason = f"{size // 1000} kB: too large to show here"
         else:
             try:
-                text = target.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                reason = "not a text file"
+                size, data = read_bounded(repo.path, target)
+            except OSError as problem:
+                # Gone, or turned into a link, since the path was checked.
+                raise HTTPException(404, "no such file in this repository") from problem
+            if data is None:
+                reason = f"{size // 1000} kB: too large to show here"
+            else:
+                try:
+                    text = data.decode("utf-8")
+                except UnicodeDecodeError:
+                    reason = "not a text file"
         if not reason and target.suffix.lower() in {".md", ".markdown"}:
             body = Markup(MARKDOWN.render(text))
         context = {
