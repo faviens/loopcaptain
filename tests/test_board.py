@@ -1060,6 +1060,23 @@ def test_the_state_folder_is_made_the_users_alone_by_whichever_write_comes_first
         assert runner.state_dir.stat().st_mode & 0o777 == 0o700, runner.state_dir
 
 
+def test_a_state_folder_that_was_there_and_open_to_others_is_closed_by_the_first_write(
+    scan: Path, tmp_path: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    confirmed_first, started_first = Runner(tmp_path / "a"), Runner(tmp_path / "b")
+    for runner in (confirmed_first, started_first):
+        runner.state_dir.mkdir(mode=0o755)
+        runner.state_dir.chmod(0o755)
+
+    confirmed_first.confirm(repo, "x")
+    started_first.start(repo, store.read_manifest(scan, "scan"))
+
+    for runner in (confirmed_first, started_first):
+        assert runner.state_dir.stat().st_mode & 0o777 == 0o700, runner.state_dir
+
+
 def test_a_record_made_for_a_repository_of_the_same_name_elsewhere_is_not_this_loops(
     scan: Path, tmp_path: Path, helper: types.ModuleType
 ) -> None:

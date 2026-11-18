@@ -17,6 +17,7 @@ import logging
 import os
 import shlex
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -145,10 +146,25 @@ def command_hash(repo: Repo, command: str) -> str:
 
 def write_private(path: Path, text: str) -> None:
     """Write a file only this user can read: the board's state names repositories and commands."""
-    path.parent.mkdir(parents=True, exist_ok=True, mode=PRIVATE_FOLDER_MODE)
+    private_folder(path.parent)
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, PRIVATE_MODE)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         handle.write(text)
+
+
+def private_folder(path: Path) -> None:
+    """Make the state folder, the user's alone; close one that was already there and open to others.
+
+    `mkdir` sets the mode only of a folder it creates, so a folder made earlier (by hand, by an
+    older board) would keep letting other accounts list which repositories and commands it names.
+    """
+    path.mkdir(parents=True, exist_ok=True, mode=PRIVATE_FOLDER_MODE)
+    try:
+        if stat.S_IMODE(path.stat().st_mode) & ~PRIVATE_FOLDER_MODE:
+            path.chmod(PRIVATE_FOLDER_MODE)
+            log.info("closed %s to other accounts (mode 0700)", path)
+    except OSError as error:
+        log.warning("%s is open to other accounts and could not be closed: %s", path, error)
 
 
 def same_process(pid: int, recorded_start: float | None) -> bool | None:
@@ -269,7 +285,7 @@ class Runner:
             raise StoreError(f"start command cannot be read: {error}") from error
         if not argv:
             raise StoreError("start command is empty")
-        self.state_dir.mkdir(parents=True, exist_ok=True, mode=PRIVATE_FOLDER_MODE)
+        private_folder(self.state_dir)
         started = now()
         descriptor = os.open(
             self.log_path(repo, manifest.id), os.O_WRONLY | os.O_CREAT | os.O_APPEND, PRIVATE_MODE
