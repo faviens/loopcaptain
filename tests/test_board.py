@@ -882,7 +882,9 @@ def test_a_fresh_board_offers_the_two_prompts_and_the_demo(tmp_path: Path) -> No
 
     page = let_in(TestClient(app, base_url=f"http://{HOST}")).get("/").text
 
-    assert "Help me build an agent loop" in page and "Help me see and steer" in page
+    assert (
+        "Use Loopcaptain to build an agent loop" in page and "Connect the agent loops on this machine" in page
+    )
     assert "loopcaptain demo" in page
 
 

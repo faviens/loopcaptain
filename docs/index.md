@@ -18,20 +18,18 @@ Invented loops, photographed from the board itself.
 **Look first.** [Install it](installation.md) and [get started](get-started.md)
 with the example loop, which costs nothing: no model, no network.
 
-**Monitor the loops you already run.** Paste this into your coding
-agent, whichever you use. It finds the loops on your machine, sets up the
-board and proposes the smallest change that connects each one:
+Paste one line into your coding agent, whichever you use.
 
-```text
---8<-- "standard/prompts/watch-my-loops.md"
-```
-
-**Set up a new loop that speaks the protocol.** Paste this one. It
-asks what the loop is for, builds it in your repository and shows you one
-real round on the board:
+**Start a new loop.**
 
 ```text
 --8<-- "standard/prompts/build-a-loop.md"
+```
+
+**Connect a loop you have.**
+
+```text
+--8<-- "standard/prompts/watch-my-loops.md"
 ```
 
 ## What you see
