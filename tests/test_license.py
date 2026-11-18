@@ -23,3 +23,11 @@ def test_every_place_that_names_the_licence_agrees() -> None:
     assert f"license: {SPDX}" in (ROOT / "CITATION.cff").read_text()
     assert "Apache License, Version 2.0" in (ROOT / "NOTICE").read_text()
     assert "## License" in (ROOT / "README.md").read_text()
+
+
+def test_the_citation_names_where_the_code_and_the_documentation_live() -> None:
+    citation = (ROOT / "CITATION.cff").read_text()
+    urls = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["urls"]
+
+    assert f'repository-code: "{urls["Repository"]}"' in citation
+    assert f'url: "{urls["Documentation"]}"' in citation

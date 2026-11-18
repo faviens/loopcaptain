@@ -107,11 +107,18 @@ def llms_txt() -> str:
     )
 
 
+#: What a search engine shows under the agents page; the command line prints the page without it.
+AGENTS_DESCRIPTION = (
+    "Use Loopcaptain from Claude Code, Codex, Gemini CLI, Cursor, VS Code, opencode, Amp or any agent: "
+    "the MCP line for each, or plain files."
+)
+
+
 def pages() -> dict[Path, str]:
     return {
         DOCS / "reference" / "cli.md": cli_page(),
         DOCS / "reference" / "mcp.md": mcp_page(),
-        DOCS / "agents.md": agents.markdown(),
+        DOCS / "agents.md": f'---\ndescription: "{AGENTS_DESCRIPTION}"\n---\n\n' + agents.markdown(),
         DOCS / "llms.txt": llms_txt(),
     }
 

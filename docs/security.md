@@ -1,3 +1,7 @@
+---
+description: "What the board reads, runs and writes: how a browser gets in, how an answer reaches a loop signed, and what Start may run."
+---
+
 --8<-- "SECURITY.md:head"
 
 <picture>

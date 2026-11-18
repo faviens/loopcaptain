@@ -6,6 +6,8 @@ authors:
   - family-names: Vogler
     given-names: Daniel
 license: Apache-2.0
+repository-code: "https://github.com/faviens/loopcaptain"
+url: "https://faviens.github.io/loopcaptain/"
 keywords:
   - agent loop
   - agentic loop

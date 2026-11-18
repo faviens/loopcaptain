@@ -1,3 +1,7 @@
+---
+description: "Put the repositories that run agent loops on the board, find the loops that already report, and connect the ones that do not."
+---
+
 # Setup
 
 How to set the board up for the loops on your machine: what to watch, how

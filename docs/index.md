@@ -1,3 +1,7 @@
+---
+title: "Monitor and steer agent loops"
+---
+
 # Loopcaptain
 
 **An open protocol for agent loops and a local dashboard to monitor and

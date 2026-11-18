@@ -1,3 +1,7 @@
+---
+description: "Use Loopcaptain from Claude Code, Codex, Gemini CLI, Cursor, VS Code, opencode, Amp or any agent: the MCP line for each, or plain files."
+---
+
 # Works with every agent
 
 The protocol names no vendor: a loop writes its files, whatever runs it. Around it, each

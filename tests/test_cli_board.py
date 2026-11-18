@@ -141,6 +141,18 @@ def test_the_demo_says_how_to_start_the_board_from_where_it_was_written(
     assert "8484" not in installed + checkout
 
 
+def test_the_demo_run_through_uvx_says_to_start_the_board_through_uvx(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("UV", "uv")
+    monkeypatch.setattr("sys.prefix", str(tmp_path / "cache" / "archive-v0" / "a1b2"))
+
+    cli_main(["demo", "--target", str(tmp_path / "demo"), "--no-watch"])
+
+    assert "`uvx loopcaptain serve` and open the address it prints" in capsys.readouterr().out
+
+
 # ---- a wrong path says so ----
 
 

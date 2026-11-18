@@ -1,3 +1,7 @@
+---
+description: "How a loop's events map onto OpenTelemetry and the GenAI conventions, for loops beside agent traces. Loopcaptain sends no telemetry."
+---
+
 # Loopcaptain and OpenTelemetry
 
 Loopcaptain sends no telemetry and takes none. The files in `.loops/` are

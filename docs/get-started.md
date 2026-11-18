@@ -1,3 +1,7 @@
+---
+description: "Run the free example loop on the board: no model, no network. Start it, answer its question with a button and watch it finish."
+---
+
 # Get started
 
 Five minutes, no model, no network, no cost: run the example loop, steer

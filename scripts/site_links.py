@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tomllib
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
@@ -50,14 +51,18 @@ def read_page(path: Path) -> Page:
     return reader.page
 
 
-def target_of(site: Path, page: Path, link: str) -> tuple[Path, str] | None:
-    """The file and fragment an internal link names; None for another host, a mail address, a script."""
+def target_of(site: Path, page: Path, link: str, base: str = "/") -> tuple[Path, str] | None:
+    """The file and fragment an internal link names; None for another host, a mail address, a script.
+
+    `base` is the path the site is served under: `/thing/setup/` is `setup/` of a site at `/thing/`."""
     parts = urlsplit(link)
     if parts.scheme or parts.netloc:
         return None
     path = unquote(parts.path)
     if not path:
         return page, parts.fragment
+    if path.startswith(base):
+        path = "/" + path.removeprefix(base)
     target = (site / path.lstrip("/")) if path.startswith("/") else (page.parent / path)
     target = Path(os.path.normpath(target))
     if target.is_dir():
@@ -78,14 +83,14 @@ def is_file_as_written(site: Path, target: Path) -> bool:
     return True
 
 
-def dead_links(site: Path) -> list[str]:
+def dead_links(site: Path, base: str = "/") -> list[str]:
     """One line per link that leads nowhere: the page, the link, and what is missing."""
     site = site.resolve()
     pages = {path: read_page(path) for path in sorted(site.rglob("*.html"))}
     dead = []
     for path, page in pages.items():
         for link in page.links:
-            found = target_of(site, path, link)
+            found = target_of(site, path, link, base)
             if found is None:
                 continue
             target, fragment = found
@@ -97,12 +102,20 @@ def dead_links(site: Path) -> list[str]:
     return dead
 
 
+def site_path(config: Path = Path("zensical.toml")) -> str:
+    """The path the site is served under, from its `site_url`: `/` without one."""
+    if not config.is_file():
+        return "/"
+    address = tomllib.loads(config.read_text(encoding="utf-8"))["project"].get("site_url", "/")
+    return urlsplit(address).path or "/"
+
+
 def main(arguments: list[str]) -> int:
     site = Path(arguments[0]) if arguments else Path("site")
     if not (site / "index.html").is_file():
         sys.stderr.write(f"{site}: no built site here; run `make docs` first\n")
         return 2
-    dead = dead_links(site)
+    dead = dead_links(site, site_path())
     for line in dead:
         sys.stdout.write(f"{line}\n")
     count = len(list(site.rglob("*.html")))
