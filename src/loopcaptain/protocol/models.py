@@ -326,6 +326,9 @@ class RoundStarted(Event):
     event: Literal["round_started"] = "round_started"
     round: int = Field(ge=1)
     plan: str = ""
+    #: The kind of round, for a loop that alternates (breadth and depth, research and write): a step
+    #: such a round leaves out by design is skipped, not missing.
+    mode: str = ""
     artifact: str | None = None
 
     _artifact = field_validator("artifact")(relative_path)
@@ -345,6 +348,9 @@ class StepFinished(Event):
     step: str
     label: str = ""
     status: StepStatus = "ok"
+    #: A gate's answer: true it let the work through, false it said no. A gate that said no ran
+    #: well (`status` ok); `failed` is for a step that broke.
+    passed: bool | None = None
     summary: str = ""
     artifact: str | None = None
     findings: list[Finding] = Field(default_factory=list)
@@ -397,6 +403,16 @@ class RoundFinished(Event):
     _next_at = field_validator("next_at")(aware_time)
 
 
+class LoopStarted(Event):
+    """A start of the loop's process: one command, a number of rounds, then it ends.
+
+    A loop started many times in one folder says so here, with `rounds`, what this start may run: a
+    start whose rounds are used up has ended, and is not a loop that went quiet."""
+
+    event: Literal["loop_started"] = "loop_started"
+    rounds: int | None = Field(default=None, ge=1)
+
+
 class LoopStopped(Event):
     """The loop ended between rounds: a stop that came after the last round finished, a cap."""
 
@@ -427,6 +443,8 @@ class Question(Event):
     #: Lets a reply or a `question_closed` name this question; `options` become buttons.
     id: str | None = None
     options: list[Option] = Field(default_factory=list)
+    #: What the loop goes on with if no answer comes: the id of one of `options`, or a sentence.
+    default: str = ""
 
 
 class QuestionClosed(Event):
@@ -471,6 +489,7 @@ EVENT_NAMES = (
     "question_closed",
     "check",
     "inbox_read",
+    "loop_started",
     "loop_stopped",
     "heartbeat",
 )
@@ -504,6 +523,7 @@ AnyEvent = Annotated[
     | Annotated[QuestionClosed, Tag("question_closed")]
     | Annotated[Check, Tag("check")]
     | Annotated[InboxRead, Tag("inbox_read")]
+    | Annotated[LoopStarted, Tag("loop_started")]
     | Annotated[LoopStopped, Tag("loop_stopped")]
     | Annotated[Heartbeat, Tag("heartbeat")]
     | Annotated[OtherEvent, Tag(OTHER)],

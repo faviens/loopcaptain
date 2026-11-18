@@ -45,9 +45,10 @@ Append one event to the loop's log; the time is set here.
 
 event and its fields (see `protocol` for all of them); any event may carry `at`, when it really
 happened, if that was earlier than now:
-- round_started: round, plan
+- round_started: round, plan, mode (the kind of round, for a loop that alternates)
 - step_started: round, step, label
-- step_finished: round, step, label, status (ok|failed|skipped), summary, artifact (a path),
+- step_finished: round, step, label, status (ok|failed|skipped), passed (a gate's yes or no),
+  summary, artifact (a path),
   findings [{"id", "text", "severity": material|minor}], cost {"usd", "tokens_in", "tokens_out",
   "tokens_cache_read", "tokens_cache_write", "turns", "estimated"}, metrics [{"name", "value",
   "target", "better": higher|lower, "unit"}], attempt, error {"kind": transient|needs_person,
@@ -55,8 +56,10 @@ happened, if that was earlier than now:
 - finding_closed: round, step, id, label, resolution, reason
 - round_finished: round, verdict (continue|done|wait|stopped|failed), stop_reason, summary, next,
   commit, cost, metrics, outcome (kept|discarded), next_at
-- question: text, round, blocks, timeout_s, id, options [{"id", "label"}]
+- question: text, round, blocks, timeout_s, id, options [{"id", "label"}], default (an option's
+  id or a sentence: what the loop goes on with without an answer)
 - question_closed: question (its id), reason (answered|superseded|withdrawn), answer
+- loop_started: rounds (how many this start may run)
 - loop_stopped: stop_reason, summary
 - heartbeat: text, next_at
 - check: item, kind, result (pass|partly|fail|blocked), who, finding, evidence

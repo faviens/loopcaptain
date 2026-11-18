@@ -21,6 +21,7 @@ from loopcaptain.protocol.models import (
     Heartbeat,
     InboxEntry,
     InboxRead,
+    LoopStarted,
     LoopStopped,
     Manifest,
     Metric,
@@ -81,6 +82,8 @@ class StepRun:
     step: str
     label: str = ""
     status: RunStatus = "running"
+    #: A gate's answer, where the step gave one: passed or not, apart from a step that broke.
+    passed: bool | None = None
     started: datetime | None = None
     finished: datetime | None = None
     summary: str = ""
@@ -109,6 +112,7 @@ class RoundState:
     finished: datetime | None = None
     plan: str = ""
     plan_artifact: str | None = None
+    mode: str = ""
     runs: tuple[StepRun, ...] = ()
     verdict: str | None = None
     stop_reason: str | None = None
@@ -122,16 +126,28 @@ class RoundState:
     metrics: tuple[Metric, ...] = ()
     outcome: str | None = None
     next_at: datetime | None = None
+    #: What earlier tries of this round spent before it started again: gone from the page, not
+    #: from the bill.
+    earlier_costs: tuple[Cost, ...] = ()
 
     @property
     def running(self) -> bool:
         return self.verdict is None
 
     @property
-    def costs(self) -> tuple[Cost, ...]:
+    def own_costs(self) -> tuple[Cost, ...]:
+        """What this try of the round spent."""
         if self.round_cost is not None:
             return (self.round_cost,)
         return tuple(run.cost for run in self.runs if run.cost)
+
+    @property
+    def costs(self) -> tuple[Cost, ...]:
+        return (*self.earlier_costs, *self.own_costs)
+
+    @property
+    def earlier_usd(self) -> float:
+        return finite_sum(cost.usd for cost in self.earlier_costs)
 
     @property
     def cost_usd(self) -> float:
@@ -177,6 +193,13 @@ class OpenQuestion:
     options: tuple[Option, ...] = ()
     #: Not a question the loop asked but a step that failed in a way only the person can fix.
     needs_person: bool = False
+    #: What the loop goes on with without an answer: an option's id, or a sentence.
+    default: str = ""
+
+    @property
+    def default_text(self) -> str:
+        """The default as the person reads it: the label of the option it names, else as written."""
+        return next((option.label for option in self.options if option.id == self.default), self.default)
 
     @property
     def gives_up(self) -> datetime | None:
@@ -222,6 +245,22 @@ class ItemState:
 
 
 @dataclass(frozen=True)
+class StartState:
+    """The latest start of the loop's process: which start it is, its round budget, the rounds it ran."""
+
+    number: int
+    budget: int | None = None
+    #: The rounds this start began, in order, and those of them that finished.
+    begun: tuple[int, ...] = ()
+    finished: tuple[int, ...] = ()
+
+    @property
+    def used_up(self) -> bool:
+        """This start has finished as many rounds as it was given: it has ended, not gone quiet."""
+        return self.budget is not None and len(self.finished) >= self.budget
+
+
+@dataclass(frozen=True)
 class LoopState:
     manifest: Manifest
     rounds: tuple[RoundState, ...] = ()
@@ -238,6 +277,8 @@ class LoopState:
     expected: datetime | None = None
     #: The last line in words, for a loop that went silent.
     last_line: str = ""
+    #: The latest `loop_started`, for a loop that says when its process starts.
+    start: StartState | None = None
 
     @property
     def last_round(self) -> RoundState | None:
@@ -305,8 +346,10 @@ def fold(
     last_question: Question | None = None
     ended: LoopStopped | None = None
     expected: datetime | None = None
+    start: StartState | None = None
 
     for event in events:
+        start = count_start(start, event)
         if isinstance(event, RoundStarted):
             ended = None
             expected = None  # a new round is its own sign of life; an older promise is spent
@@ -314,9 +357,16 @@ def fold(
                 # The loop stood still for this question and has now started a round: it went on,
                 # with an answer or without one.
                 last_question = None
-            # A round that starts again starts clean: its earlier runs and verdict are history.
+            # A round that starts again starts clean: its earlier runs and verdict are history, and
+            # what they spent still counts.
+            before = rounds.get(event.round)
             rounds[event.round] = RoundState(
-                event.round, started=event.when, plan=event.plan, plan_artifact=event.artifact
+                event.round,
+                earlier_costs=before.costs if before else (),
+                started=event.when,
+                plan=event.plan,
+                plan_artifact=event.artifact,
+                mode=event.mode,
             )
         elif isinstance(event, StepStarted | StepFinished | FindingClosed | RoundFinished):
             current = rounds.get(event.round, RoundState(event.round, started=event.when))
@@ -341,6 +391,8 @@ def fold(
             read_ids.update(event.ids)
         elif isinstance(event, LoopStopped):
             ended = event
+        elif isinstance(event, LoopStarted):
+            ended = None  # started again: an earlier end is history
         elif isinstance(event, Heartbeat):
             expected = promise(event.next_at, event.ts, at) or expected
 
@@ -355,6 +407,8 @@ def fold(
             if run.step not in declared and run.step not in undeclared:
                 undeclared.append(run.step)
     status = status_of(manifest, ordered, question, last_event, at, process_alive, expected)
+    if status == "idle" and start is not None and start.used_up:
+        status = "capped"
     if ended is not None and not process_alive and not (ordered and ordered[-1].running):
         status = ended_status(ended)
     return LoopState(
@@ -369,7 +423,21 @@ def fold(
         ended=ended,
         expected=expected,
         last_line=describe(events[-1]) if events else "",
+        start=start,
     )
+
+
+def count_start(start: StartState | None, event: AnyEvent) -> StartState | None:
+    """The latest start after this event: a `loop_started` opens the next, a round counts in the open one."""
+    if isinstance(event, LoopStarted):
+        return StartState(start.number + 1 if start else 1, event.rounds)
+    if start is None:
+        return None
+    if isinstance(event, RoundStarted) and event.round not in start.begun:
+        return replace(start, begun=(*start.begun, event.round))
+    if isinstance(event, RoundFinished) and event.round in start.begun and event.round not in start.finished:
+        return replace(start, finished=(*start.finished, event.round))
+    return start
 
 
 def describe(event: AnyEvent) -> str:
@@ -516,6 +584,7 @@ def apply_to_round(
         before,
         label=event.label,
         status=event.status,
+        passed=event.passed,
         finished=event.when,
         summary=event.summary,
         artifact=event.artifact,
@@ -558,7 +627,14 @@ def open_question(last: Question | None, inbox: list[InboxEntry], at: datetime) 
     if any(entry.kind == "reply" and entry.ts >= last.ts for entry in inbox):
         return None
     question = OpenQuestion(
-        last.text, last.ts, last.round, last.blocks, last.timeout_s, last.id, tuple(last.options)
+        last.text,
+        last.ts,
+        last.round,
+        last.blocks,
+        last.timeout_s,
+        last.id,
+        tuple(last.options),
+        default=last.default,
     )
     return None if question.gives_up and question.gives_up < at else question
 

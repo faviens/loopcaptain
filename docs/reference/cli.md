@@ -36,7 +36,7 @@ Append one event: loopcaptain emit <loop> <event> key=value ....
 ```text
 loopcaptain emit [-h] [--repo REPO]
                         loop
-                        {round_started,step_started,step_finished,finding_closed,round_finished,question,question_closed,check,inbox_read,loop_stopped,heartbeat}
+                        {round_started,step_started,step_finished,finding_closed,round_finished,question,question_closed,check,inbox_read,loop_started,loop_stopped,heartbeat}
                         [fields ...]
 ```
 

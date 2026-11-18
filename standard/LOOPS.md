@@ -107,13 +107,14 @@ its time has come.
 
 | `event` | Fields | When |
 |---|---|---|
-| `round_started` | `round`, `plan`, `artifact` | A round begins. `plan` is a few lines. |
+| `round_started` | `round`, `plan`, `artifact`, `mode` | A round begins. `plan` is a few lines. |
 | `step_started` | `round`, `step`, `label` | Optional: shows the step as running. |
-| `step_finished` | `round`, `step`, `label`, `status`, `summary`, `artifact`, `findings`, `cost`, `metrics`, `attempt`, `error`, `session`, `model` | A step ends. |
+| `step_finished` | `round`, `step`, `label`, `status`, `passed`, `summary`, `artifact`, `findings`, `cost`, `metrics`, `attempt`, `error`, `session`, `model` | A step ends. |
 | `finding_closed` | `round`, `step`, `id`, `label`, `resolution`, `reason` | A finding of this round is settled. |
 | `round_finished` | `round`, `verdict`, `stop_reason`, `summary`, `next`, `commit`, `artifact`, `cost`, `metrics`, `outcome`, `next_at` | A round ends. |
-| `question` | `text`, `round`, `blocks`, `timeout_s`, `id`, `options` | The loop needs the person. |
+| `question` | `text`, `round`, `blocks`, `timeout_s`, `id`, `options`, `default` | The loop needs the person. |
 | `question_closed` | `question`, `reason`, `answer` | The loop ends its own question. |
+| `loop_started` | `rounds` | The loop's process starts. |
 | `loop_stopped` | `stop_reason`, `summary` | The loop ends between rounds. |
 | `heartbeat` | `text`, `next_at` | Alive; when to expect the next line. |
 | `check` | `item`, `kind`, `result`, `who`, `finding`, `evidence`, `round` | One check of one thing the loop evaluates. |
@@ -125,11 +126,16 @@ line still needs `ts`, and still shows that the loop is alive.
 
 1. `round` counts from 1. `step` is a step id from `loop.json`. A
    `round_started` for a round that already ran starts that round again,
-   clean.
+   clean; what its earlier try spent still counts in the round's cost. `mode` names the kind of round, for a loop that alternates
+   (`breadth` and `depth`, `research` and `write`): the board shows it,
+   and reads a step such a round skips, or leaves out, as meant.
 2. `label` tells runs of one step apart within a round: a research step
    with eight agents sends eight `step_finished`, each with its angle as
    `label`.
-3. `status`: `ok`, `failed` or `skipped`. Left out, it is `ok`.
+3. `status`: `ok`, `failed` or `skipped`. Left out, it is `ok`. `failed`
+   means the step broke. A gate that ran and said no did not fail: send
+   `status` `ok` and `passed` `false`, and `passed` `true` where it let
+   the work through.
 4. `summary`: one or two sentences. `artifact`: the path of the file the
    step wrote (the plan, the review, the gate report). The board links to it
    and never copies it.
@@ -167,7 +173,10 @@ line still needs `ts`, and still shows that the loop is alive.
    also over once its `timeout_s` has passed or the loop starts another
    round: it went on. `id` names the question; `options`,
    `[{"id": "a", "label": "Forty people"}]`, become buttons, and the reply
-   carries `question` and `choice`. `question_closed` ends a question the
+   carries `question` and `choice`. `default` is what the loop goes on
+   with if no answer comes: the `id` of one of the options, or a
+   sentence; the board shows it beside the question, with the time the
+   loop stops waiting. `question_closed` ends a question the
    loop settled itself: `reason` is `answered` (elsewhere, `answer` says
    how), `superseded` (it went on with a default) or `withdrawn`;
    `question` is the id, left out the last open question.
@@ -191,6 +200,12 @@ line still needs `ts`, and still shows that the loop is alive.
 13. `heartbeat`: a loop that works quietly or sleeps says it is alive and,
     with `next_at`, when its next line comes. Until then it is not
     stalled.
+14. `loop_started`: optional, for a loop whose process runs a number of
+    rounds and ends, and is started again. `rounds` is how many rounds
+    this start may run. The board counts the starts and the rounds of the
+    latest one, and a start that has finished its `rounds` reads as
+    capped, not as a loop that went quiet. It ends no round and changes
+    no count: rounds still count on from the last one.
 
 A round of the example above, as lines:
 
@@ -294,14 +309,17 @@ def register(loop_id, manifest, repo="."):
     tmp.replace(target)
 
 
-def emit(loop_id, event, fields=None, repo="."):
-    """Append one event line. Fields that are None are left out."""
+def emit(loop_id, event, fields=None, repo=".", at=None):
+    """Append one event line, stamped now; `at` (a datetime or text) is when it really happened."""
+    if {"ts", "event", "at"} & set(fields or {}):
+        raise ValueError("emit sets `ts` and `event`; pass when it happened as `at=`, not a field")
     now = time.time()
     line = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + f".{int(now % 1 * 1000):03d}Z",
         "event": event,
     }
-    line.update({key: value for key, value in (fields or {}).items() if value is not None})
+    stamp = at.astimezone(timezone.utc).isoformat() if isinstance(at, datetime) else at
+    line.update({key: value for key, value in {"at": stamp, **(fields or {})}.items() if value is not None})
     with open(folder(loop_id, repo) / "events.jsonl", "a") as log:
         log.write(json.dumps(line) + "\n")
 
@@ -386,6 +404,7 @@ import loops as board
 
 board.register("market-scan", {"title": "Market scan", "steps": STEPS, "commands": {"start": "make loop"}})
 first = board.last_round("market-scan") + 1  # a second start counts on; it never begins at 1 again
+board.emit("market-scan", "loop_started", {"rounds": ROUNDS})
 for n in range(first, first + ROUNDS):
     messages = board.inbox("market-scan")
     if any(m["kind"] == "stop" and m["signed"] is True for m in messages):

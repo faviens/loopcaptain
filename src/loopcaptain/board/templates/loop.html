@@ -17,6 +17,7 @@
 <section class="ask" aria-label="{{ 'A step needs you' if q.needs_person else 'The loop' ~ "'s question" }}">
   <p class="eyebrow">{{ 'A step needs you' if q.needs_person else 'The loop asks' }}{% if q.round %}, round {{ q.round }}{% endif %} · {{ q.asked|ago }}{% if q.blocks %} · it stands still until you answer{% if q.gives_up %}, at most until {{ q.gives_up|stamp }}{% endif %}{% endif %}</p>
   <p class="q">{{ q.text }}</p>
+  {% if q.default %}<p class="grey">{% if q.gives_up %}Without an answer by {{ q.gives_up|stamp }} it goes on with{% elif q.blocks %}If it goes on without an answer, it goes on with{% else %}Until you answer, it goes on with{% endif %}: <b>{{ q.default_text }}</b></p>{% endif %}
   {% if q.options %}
   <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
     <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
@@ -49,7 +50,7 @@
 <table class="grid">
   <thead><tr>
     <th scope="col" class="step">Step</th>
-    {% for r in state.rounds %}<th scope="col" class="rnd"><a href="{{ here }}?tab=rounds&amp;round={{ r.number }}#round" aria-label="Round {{ r.number }}"{% if shown and r.number == shown.number %} aria-current="true"{% endif %}>{{ r.number }}</a></th>{% endfor %}
+    {% for r in state.rounds %}<th scope="col" class="rnd"><a href="{{ here }}?tab=rounds&amp;round={{ r.number }}#round" aria-label="Round {{ r.number }}{% if r.mode %}, a {{ r.mode }} round{% endif %}"{% if r.mode %} title="a {{ r.mode }} round"{% endif %}{% if shown and r.number == shown.number %} aria-current="true"{% endif %}>{{ r.number }}</a></th>{% endfor %}
   </tr></thead>
   <tbody>
   {% for step_id in state.step_ids %}
@@ -59,11 +60,12 @@
     {% for r in state.rounds %}
     {% set runs = r.runs_of(step_id) %}
     {% set on = ' on' if shown and r.number == shown.number else '' %}
-    {% if not runs %}<td class="{{ on }}"><span class="cell" title="did not run"><i class="mark"></i><span class="sr">did not run</span></span></td>
+    {% set not_run = 'not in a ' ~ r.mode ~ ' round' if r.mode else 'did not run' %}
+    {% if not runs %}<td class="{{ on }}"><span class="cell" title="{{ not_run }}"><i class="mark"></i><span class="sr">{{ not_run }}</span></span></td>
     {% else %}
       {% set finds = runs|sum(attribute='material_open') %}
-      {% set st = 'running' if runs|selectattr('status', 'equalto', 'running')|list else ('failed' if runs|selectattr('status', 'equalto', 'failed')|list else ('ok' if runs|selectattr('status', 'equalto', 'ok')|list else 'skipped')) %}
-      <td class="{{ on }}">{% if finds %}<span class="cell h{{ 1 if finds == 1 else (2 if finds == 2 else (3 if finds <= 4 else 4)) }}" title="{{ finds }} open material finding{{ 's' if finds != 1 }}{% if st == 'failed' %}, failed{% endif %}">{{ finds }}</span>{% else %}<span class="cell" title="{{ st }}{% if runs|length > 1 %}, {{ runs|length }} runs{% endif %}"><i class="mark {{ st }}"></i><span class="sr">{{ st }}</span></span>{% endif %}</td>
+      {% set st = 'running' if runs|selectattr('status', 'equalto', 'running')|list else ('failed' if runs|selectattr('status', 'equalto', 'failed')|list else ('no' if runs|selectattr('passed', 'false')|list else ('ok' if runs|selectattr('status', 'equalto', 'ok')|list else 'skipped'))) %}
+      <td class="{{ on }}">{% if finds %}<span class="cell h{{ 1 if finds == 1 else (2 if finds == 2 else (3 if finds <= 4 else 4)) }}" title="{{ finds }} open material finding{{ 's' if finds != 1 }}{% if st == 'failed' %}, failed{% endif %}">{{ finds }}</span>{% else %}<span class="cell" title="{{ 'said no' if st == 'no' else st }}{% if st == 'skipped' and r.mode %}, as a {{ r.mode }} round does{% endif %}{% if runs|length > 1 %}, {{ runs|length }} runs{% endif %}"><i class="mark {{ st }}"></i><span class="sr">{{ 'said no' if st == 'no' else st }}</span></span>{% endif %}</td>
     {% endif %}
     {% endfor %}
   </tr>
@@ -78,7 +80,7 @@
 {% if shown %}
 <div class="round-head" id="round">
   <h2>Round {{ shown.number }}</h2>
-  <span class="facts">{{ shown.started|stamp }}{% if shown.minutes is not none %} · {{ shown.minutes }} min{% endif %}{% if shown.cost_usd %} · {{ shown.cost_usd|usd }}{% if shown.round_cost %} for the round{% endif %}{% elif shown.tokens %} · {{ shown.tokens|tokens }} tokens{% endif %}{% if shown.outcome == 'discarded' %} · <span class="v discarded">discarded</span>{% endif %} · {% if shown.verdict %}<span class="v {{ shown.verdict }}">{{ shown.verdict }}{% if shown.stop_reason %}: {{ shown.stop_reason|replace('_', ' ') }}{% endif %}</span>{% else %}<span class="v live">under way</span>{% endif %}{% if shown.commit %} · commit <code>{{ shown.commit[:10] }}</code>{% endif %} · {{ shown.findings_open }} open, {{ shown.findings_closed }} closed</span>
+  <span class="facts">{% if shown.mode %}{{ shown.mode }} round · {% endif %}{{ shown.started|stamp }}{% if shown.minutes is not none %} · {{ shown.minutes }} min{% endif %}{% if shown.cost_usd %} · {{ shown.cost_usd|usd }}{% if shown.round_cost %} for the round{% endif %}{% if shown.earlier_usd %}, {{ shown.earlier_usd|usd }} of it in an earlier try{% endif %}{% elif shown.tokens %} · {{ shown.tokens|tokens }} tokens{% endif %}{% if shown.outcome == 'discarded' %} · <span class="v discarded">discarded</span>{% endif %} · {% if shown.verdict %}<span class="v {{ shown.verdict }}">{{ shown.verdict }}{% if shown.stop_reason %}: {{ shown.stop_reason|replace('_', ' ') }}{% endif %}</span>{% else %}<span class="v live">under way</span>{% endif %}{% if shown.commit %} · commit <code>{{ shown.commit[:10] }}</code>{% endif %} · {{ shown.findings_open }} open, {{ shown.findings_closed }} closed</span>
 </div>
 {% if shown.all_metrics %}
 <p class="metrics">{% for m in shown.all_metrics %}<span class="{{ 'met' if m.met is true else ('short' if m.met is false else '') }}"><b>{{ m.value|figure(m.unit) }}</b> {{ m.name }}{% if m.target is not none %} <span class="grey">target {{ m.target|figure(m.unit) }}</span>{% endif %}</span>{% endfor %}</p>
@@ -95,7 +97,7 @@
   {% set step = manifest.step(run.step) %}
   <tr>
     <td class="what"><b>{{ (step.name if step else '') or run.step }}</b>{% if run.label %}<span>{{ run.label }}</span>{% endif %}<span>{{ step.kind if step else '' }}{% if step and step.backend %} · {{ step.backend }}{% endif %}{% if step and step.model %} · {{ step.model }}{% endif %}</span></td>
-    <td><span class="st {{ run.status }}"><i class="mark {{ run.status }}"></i>{{ run.status }}</span>{% if run.attempt and run.attempt > 1 %}<span class="grey"> · try {{ run.attempt }}</span>{% endif %}</td>
+    <td>{% if run.status == 'ok' and run.passed is false %}<span class="st no"><i class="mark no"></i>said no</span>{% elif run.status == 'ok' and run.passed %}<span class="st ok"><i class="mark ok"></i>passed</span>{% else %}<span class="st {{ run.status }}"><i class="mark {{ run.status }}"></i>{{ run.status }}</span>{% if run.status == 'skipped' and shown.mode %}<span class="grey"> · as a {{ shown.mode }} round does</span>{% endif %}{% endif %}{% if run.attempt and run.attempt > 1 %}<span class="grey"> · try {{ run.attempt }}</span>{% endif %}</td>
     <td class="sum">{% if run.error %}<p class="err{{ ' person' if run.error.kind == 'needs_person' }}">{{ 'Needs you: ' if run.error.kind == 'needs_person' else 'Error: ' }}{{ run.error.text }}</p>{% endif %}{{ run.summary }}{% if run.metrics %}<span class="grey"> · {% for m in run.metrics %}{{ m.name }} {{ m.value|figure(m.unit) }}{{ ', ' if not loop.last }}{% endfor %}</span>{% endif %}{% if run.model %}<span class="grey"> · model <code>{{ run.model }}</code></span>{% endif %}{% if run.session %}<span class="grey"> · session <code>{{ run.session }}</code></span>{% endif %}{% if run.findings %}
       <ol>{% for f in run.findings %}<li data-id="{{ f.id }}" class="{{ 'closed' if f.closed }} {{ 'minor' if f.severity == 'minor' }}">{% if f.closed %}<s>{{ f.text }}</s> <em>{{ (f.resolution or 'closed')|replace('_', ' ') }}{% if f.reason %}: {{ f.reason }}{% endif %}</em>{% else %}{{ f.text }}{% if f.severity == 'minor' %} <span class="grey">(minor)</span>{% endif %}{% endif %}</li>{% endfor %}</ol>
     {% endif %}</td>
@@ -334,7 +336,7 @@
     {% if graph.back %}<path class="back" d="{{ graph.back }}" marker-end="url(#tip)"/><text class="backlabel" x="{{ graph.width // 2 }}" y="{{ graph.height - 16 }}">next round, until the verdict says done</text>{% endif %}
     {% for node in graph.nodes %}
     <g class="node {{ node.state }}">
-      <title>{{ node.name }}: {{ node.state }}{% if node.runs > 1 %}, {{ node.runs }} runs{% endif %}{% if node.findings %}, {{ node.findings }} open finding(s){% endif %}</title>
+      <title>{{ node.name }}: {{ 'said no' if node.state == 'no' else node.state }}{% if node.state == 'skipped' and shown and shown.mode %}, as a {{ shown.mode }} round does{% endif %}{% if node.runs > 1 %}, {{ node.runs }} runs{% endif %}{% if node.findings %}, {{ node.findings }} open finding(s){% endif %}</title>
       <rect class="box" x="{{ node.x }}" y="{{ node.y }}" width="{{ graph.node_w }}" height="{{ graph.node_h }}" rx="10"/>
       <rect class="bar" x="{{ node.x + 7 }}" y="{{ node.y + 9 }}" width="3" height="{{ graph.node_h - 18 }}" rx="1.5"/>
       <text class="kind" x="{{ node.x + 18 }}" y="{{ node.y + 18 }}">{{ node.kind }}</text>
@@ -344,7 +346,7 @@
     </g>
     {% endfor %}
   </svg></div>
-  <p class="legend"><span><i class="mark ok"></i>finished</span><span><i class="mark running"></i>running</span><span><i class="mark failed"></i>failed</span><span><i class="mark skipped"></i>skipped</span><span><i class="mark"></i>not run</span><span><i class="mark find">3</i>open material findings</span></p>
+  <p class="legend"><span><i class="mark ok"></i>finished</span><span><i class="mark running"></i>running</span><span><i class="mark no"></i>a gate said no</span><span><i class="mark failed"></i>failed</span><span><i class="mark skipped"></i>skipped</span><span><i class="mark"></i>not run</span><span><i class="mark find">3</i>open material findings</span></p>
 </div>
 {% endif %}
 

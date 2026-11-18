@@ -9,6 +9,7 @@ finished ones. `scripts/shots.py` photographs the result.
 from __future__ import annotations
 
 import importlib.util
+import json
 import types
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -243,7 +244,10 @@ def write_loop(show: Show, base: Path, now: datetime, loops: types.ModuleType) -
     def emit(event: str, fields: dict[str, object], minutes: int) -> None:
         nonlocal clock
         clock += timedelta(minutes=minutes)
-        loops.emit(show.loop, event, {**fields, "ts": clock.strftime(STAMP)}, repo)
+        # Lines written as if at their time, which the helper refuses: a showcase invents its past.
+        line = {"ts": clock.strftime(STAMP), "event": event, **fields}
+        with (repo / ".loops" / show.loop / "events.jsonl").open("a", encoding="utf-8") as log:
+            log.write(json.dumps(line) + "\n")
 
     def work(number: int) -> None:
         emit("round_started", {"round": number, "plan": f"Close what round {number - 1} left open."}, 1)

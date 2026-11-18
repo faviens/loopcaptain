@@ -42,6 +42,8 @@ def test_the_demo_writes_the_helper_as_the_spec_prints_it_and_a_history_that_val
     state = state_of(repo)
     assert len(state.rounds) == SEEDED_ROUNDS and state.status == "idle"
     assert state.rounds[0].finished is not None and state.rounds[0].finished < now()
+    gates = [run for round_ in state.rounds for run in round_.runs_of("gate")]
+    assert [(gate.status, gate.passed) for gate in gates] == [("ok", False)] * SEEDED_ROUNDS
 
 
 def test_the_example_converges_and_ends_done(tmp_path: Path) -> None:
@@ -151,4 +153,5 @@ def test_the_example_does_not_take_a_stop_it_cannot_check(tmp_path: Path, inbox_
 
     state = state_of(repo)
     assert not inbox_key.exists()
-    assert len(state.rounds) == SEEDED_ROUNDS + 1 and state.ended is None and state.status == "idle"
+    # It ran its one round and ended: its start is used up, not ended by the stop it could not check.
+    assert len(state.rounds) == SEEDED_ROUNDS + 1 and state.ended is None and state.status == "capped"

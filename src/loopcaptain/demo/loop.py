@@ -76,7 +76,7 @@ class Clock:
             time.sleep(self.pace_s)
             return {}
         self.at += timedelta(minutes=minutes)
-        return {"ts": self.at.strftime("%Y-%m-%dT%H:%M:%SZ")}
+        return {"at": self.at.strftime("%Y-%m-%dT%H:%M:%SZ")}
 
 
 def write(relative: str, text: str) -> str:
@@ -113,7 +113,12 @@ def run_round(
     number: int, clock: Clock, audience: str = "a team about to run its first loop", steering: str = ""
 ) -> bool:
     """One round, reported as it happens. Returns True when the gate passes and the loop is done."""
-    emit = loops.emit
+
+    def emit(loop_id: str, event: str, fields: dict[str, object]) -> None:
+        """The helper's emit, with the clock's time passed as `at=`, as the helper asks."""
+        rest = {key: value for key, value in fields.items() if key != "at"}
+        loops.emit(loop_id, event, rest, at=fields.get("at"))
+
     plan = f"Add sources to the claims that lack one; {len(PRACTICES) - sourced_in(number - 1)} to go."
     plan_file = write(f"work/rounds/{number}-plan.md", f"# Round {number}\n\n{plan}\n{steering}\n")
     emit(LOOP, "round_started", {"round": number, "plan": plan, "artifact": plan_file, **clock.tick(0)})
@@ -198,7 +203,7 @@ def run_round(
         {
             "round": number,
             "step": "gate",
-            "status": "ok" if passed else "failed",
+            "passed": passed,  # a gate that says no ran well: `failed` is for a step that broke
             "summary": "No material finding." if passed else f"{material} material finding(s) open.",
             **clock.tick(1),
         },
@@ -287,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
     loops.register(LOOP, MANIFEST)
     audience, carried, done = "a team about to run its first loop", kept_steering(), False
     first = loops.last_round(LOOP) + 1  # a second start goes on counting
+    loops.emit(LOOP, "loop_started", {"rounds": args.rounds})
     for number in range(first, first + args.rounds):
         messages = loops.inbox(LOOP)
         if any(m["kind"] == "stop" and m["signed"] is True for m in messages):
