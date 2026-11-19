@@ -873,7 +873,24 @@ the move read as not from the board. A loop with an earlier helper is as exposed
 until its helper is pasted again; `sig` goes with protocol 2. A process with the user's full
 file access reads the secret, as it read the one key.
 
-## 37. A step's card is drawn in the picture, shown by CSS alone
+## 37. The phone reaches the board through a private network and a chat bridge
+
+**Decision.** Two pieces, both kept: the board itself on the phone, served into the person's
+own tailnet by `tailscale serve` (`loopcaptain serve --host-name` names the host the board
+then answers to), and a Telegram bridge (`loopcaptain telegram`): long polling, buttons for
+the answers a question offers, every reply written to the inbox as a signed line. Neither is in
+a release yet; the real-device checks become rows in `.agent/DEFERRED_VERIFICATION.md` when
+the code lands.
+
+**Why.** A person running loops wants to see where they stand and steer them when away from
+the laptop. The board answers only on 127.0.0.1 and asks for its session cookie, so the phone
+needs a private route to the board, or a channel that carries the steering for it.
+
+**Rejected.** A native phone app, email, SMS and Signal. A public tunnel: it would put the
+board, and the command it may start, on the internet. A push service such as ntfy stays a
+possible later channel.
+
+## 38. A step's card is drawn in the picture, shown by CSS alone
 
 **Decision.** Each step of the round's graph has a card (name, state, agent and model, prompt
 file, purpose) in a `foreignObject` inside the SVG (`templates/loop.html`). The cards sit in a
@@ -892,7 +909,7 @@ graph: its place would need a `style` attribute per step. Cards inside each step
 step is drawn over an earlier step's card. **What it costs.** The card scales with the picture,
 as the steps' own labels do; a wide graph draws it smaller.
 
-## 38. A loop id that two repositories share is named, not refused
+## 39. A loop id that two repositories share is named, not refused
 
 **Decision.** When two watched repositories have a loop with the same id, the overview says so
 in one line and each such loop's page names the other repositories, with links
