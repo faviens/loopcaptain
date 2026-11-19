@@ -801,6 +801,26 @@ def test_a_loop_that_stalled_weeks_ago_stays_listed_and_leaves_the_alarm(
     assert 'class="pill stalled"' in old and 'class="old"' in old
 
 
+def test_a_tab_in_the_background_learns_how_many_loops_wait_and_may_say_so(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    """A tab that is not in front is not drawn again, so its title kept an old count and nothing told the person."""
+    before = (
+        client.get("/pulse").json()["waiting"],
+        client.get("/loop/some-repo/scan/pulse").json()["waiting"],
+    )
+    helper.emit("scan", "question", {"id": "seats", "text": "Per seat?"}, scan)
+    after = client.get("/pulse").json()["waiting"], client.get("/loop/some-repo/scan/pulse").json()["waiting"]
+    page = client.get("/").text
+    script = (Path(steer.__file__).parent / "static" / "board.js").read_text(encoding="utf-8")
+
+    assert before == (0, 0) and after == (1, 1)
+    assert "data-notify hidden" in page and "data-notify-on hidden" in page
+    assert "if (document.hidden) showWaiting(data.waiting);" in script
+    assert 'Notification.permission === "granted"' in script and "Notification.requestPermission()" in script
+    assert "http" not in script.split("new Notification")[1].split("};")[0]  # nothing fetched to say it
+
+
 def test_every_status_has_a_place_on_the_overview_and_a_meaning() -> None:
     assert set(get_args(Status)) == set(STATUS_ORDER) == set(STATUS_TEXT)
 

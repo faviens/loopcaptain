@@ -26,8 +26,25 @@
     return typed || document.querySelector("table.items details[open]") !== null;
   }
 
+  // A tab in the background is not drawn again, but it still says how many loops wait: in its
+  // title, and in a notification where the person allowed one. Nothing leaves this machine.
+  var canNotify = "Notification" in window;
+  var waiting = Number((document.title.match(/^\((\d+)\) /) || [0, 0])[1]);
+
+  function showWaiting(count) {
+    if (typeof count !== "number" || count === waiting) return;
+    document.title = (count ? "(" + count + ") " : "") + document.title.replace(/^\(\d+\) /, "");
+    if (count > waiting && canNotify && Notification.permission === "granted") {
+      var note = new Notification(count === 1 ? "A loop waits for you" : count + " loops wait for you", {
+        body: "Loopcaptain: open the board to answer.",
+        tag: "loopcaptain-waiting"
+      });
+      note.onclick = function () { window.focus(); note.close(); };
+    }
+    waiting = count;
+  }
+
   function poll() {
-    if (document.hidden) return;
     fetch(url, { cache: "no-store" })
       .then(function (response) {
         // 401: the board was started again and no longer knows this browser; the reload says so.
@@ -35,12 +52,32 @@
         return response.ok ? response.json() : null;
       })
       .then(function (data) {
-        if (data && data.pulse !== seen && !busy()) window.location.reload();
+        if (!data) return;
+        if (document.hidden) showWaiting(data.waiting);
+        else if (data.pulse !== seen && !busy()) window.location.reload();
       })
       .catch(function () { /* the board is restarting; the next poll tries again */ });
   }
 
-  if (url) window.setInterval(poll, POLL_MS);
+  if (url) {
+    window.setInterval(poll, POLL_MS);
+    // Back in front: draw what changed meanwhile at once, not at the next tick.
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
+  }
+
+  // Asking for a notification needs the person's own click; the footer offers it once.
+  var ask = document.querySelector("[data-notify]");
+  var asked = document.querySelector("[data-notify-on]");
+  if (ask && canNotify) {
+    ask.hidden = Notification.permission !== "default";
+    asked.hidden = Notification.permission !== "granted";
+    ask.addEventListener("click", function () {
+      Notification.requestPermission().then(function (answer) {
+        ask.hidden = true;
+        asked.hidden = answer !== "granted";
+      });
+    });
+  }
 
   // A loop that said when it is back turns to stalled when that time passes, and no file changes
   // then, so the pulse stays as it is. The page names the moment; look again once it has come.

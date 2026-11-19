@@ -99,6 +99,7 @@ nav.strip a[aria-current] { background: var(--surface); color: var(--text); font
    the menu at its edges. */
 :root { --page: 1560px; }
 main { width: 100%; max-width: var(--page); margin: 0 auto; padding: var(--s4) var(--s4) var(--s6); flex: 1; }
+.foot button.link { min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; box-shadow: none; }
 .foot { width: 100%; max-width: var(--page); margin: 0 auto; padding: var(--s3) var(--s4) var(--s5); color: var(--text-2); font-size: var(--t12); border-top: 1px solid var(--line); }
 .crumb { font-size: var(--t14); color: var(--text-2); margin: 0; }
 /* the way back to the list: a link that reads as one and a target as tall as any control */
