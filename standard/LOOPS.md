@@ -177,9 +177,10 @@ line still needs `ts`, and still shows that the loop is alive.
    A question is open until the person replies. A blocking question is
    also over once its `timeout_s` has passed or the loop starts another
    round: it went on. Several questions may be open at once: give each
-   an `id`, since a reply answers the one question it names; the board
-   shows the earliest one the loop stands still for first, and the next
-   after each answer. `id` names the question; `options`,
+   an `id`, since a reply answers the one question it names, and a
+   question without an `id` takes the place of the last one without; the
+   board shows the earliest one the loop stands still for first, and the
+   next after each answer. `id` names the question; `options`,
    `[{"id": "a", "label": "Forty people"}]`, become buttons, and the reply
    carries `question` and `choice`. `default` is what the loop goes on
    with if no answer comes: the `id` of one of the options, or a
@@ -212,7 +213,10 @@ line still needs `ts`, and still shows that the loop is alive.
     While a round is open it ends nothing: finish the round first.
 13. `heartbeat`: a loop that works quietly or sleeps says it is alive and,
     with `next_at`, when its next line comes. Until then it is not
-    stalled.
+    stalled. Without one, the board shows a round under way as stalled
+    once 45 minutes have passed since the loop's last line, and a loop
+    past its `next_at` 45 minutes after that time: a step that runs
+    longer without writing a line sends a `heartbeat`.
 14. `loop_started`: optional, for a loop whose process runs a number of
     rounds and ends, and is started again. `rounds` is how many rounds
     this start may run. The board counts the starts and the rounds of the

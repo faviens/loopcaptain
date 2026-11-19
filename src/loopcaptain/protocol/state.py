@@ -396,8 +396,9 @@ def fold(
             if isinstance(event, RoundFinished):
                 expected = promise(event.next_at, event.ts, at)
         elif isinstance(event, Question):
-            # A question asked again under its id takes the place of the earlier asking.
-            asked = [q for q in asked if event.id is None or q.id != event.id] + [event]
+            # A question asked again under its id takes the place of the earlier asking, and one
+            # without an id the place of the last one without: only named questions stand side by side.
+            asked = [q for q in asked if q.id != event.id] + [event]
             if event.round is not None and event.round in rounds:
                 within = rounds[event.round]
                 rounds[event.round] = replace(within, questions=(*within.questions, event.text))

@@ -417,3 +417,21 @@ def test_a_config_that_cannot_be_read_is_one_line_and_is_left_as_it_is(
     err = capsys.readouterr().err
     assert err.count("loopcaptain: ") == 2 and "nothing was written" in err and "Traceback" not in err
     assert config.read_text() == "roots: [unclosed\n"
+
+
+def test_a_config_is_written_beside_its_place_and_moved_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A write that fails half-way must leave the config a person wrote as it was."""
+    config, folder = tmp_path / "config.yaml", tmp_path / "folder"
+    folder.mkdir()
+    config.write_text("# mine\nrepos: []\n")
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+
+    def fails(source: object, target: object) -> None:
+        raise OSError(28, "No space left on device", str(target))
+
+    monkeypatch.setattr("loopcaptain.board.discover.os.replace", fails)
+
+    assert cli_main(["watch", str(folder)]) == 1
+    assert config.read_text() == "# mine\nrepos: []\n" and "No space left" in capsys.readouterr().err

@@ -463,10 +463,20 @@ def create_app(
         back_to: Annotated[str, Form()] = "",
         text: Annotated[str, Form()] = "",
         choice: Annotated[str, Form()] = "",
+        asked_at: Annotated[str, Form()] = "",
     ) -> Response:
         check_token(token, repo_key, loop_id)
         repo, _, view = view_of(repo_key, loop_id)
         asked = view.state.question if view.state else None
+        if asked_at and (asked is None or asked.asked.isoformat() != asked_at):
+            # The page was drawn for another asking: the loop has asked again, or something else, since.
+            return back(
+                repo_key,
+                loop_id,
+                tab=tab,
+                back_to=back_to,
+                error="Nothing was sent: the loop no longer asks the question this answered.",
+            )
         picked = next((option for option in asked.options if option.id == choice), None) if asked else None
         if choice and picked is None:
             return back(
@@ -506,7 +516,8 @@ def create_app(
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, back_to=back_to, error=str(problem))
         status = view.state.status if view.state else ""
-        when = "at its next round" if status in STOPPABLE else f"when it is started again: it is {status} now"
+        ended = status in ("done", "failed", "stopped", "capped")
+        when = f"when it is started again: it is {status} now" if ended else "at its next round"
         return back(repo_key, loop_id, tab=tab, back_to=back_to, note=f"Sent. The loop reads it {when}.")
 
     @app.post("/loop/{repo_key}/{loop_id}/finding", name="loop_settle")
@@ -586,7 +597,9 @@ def create_app(
             store.append_inbox(repo.path, loop_id, "stop", keys=board_keys())
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, error=str(problem))
-        return back(repo_key, loop_id, tab=tab, note="Stop sent. The loop ends after its current round.")
+        under_way = view.state is not None and view.state.status in ("running", "stalled", "waiting")
+        then = "ends after its current round" if under_way else "reads it at its next start and runs no round"
+        return back(repo_key, loop_id, tab=tab, note=f"Stop sent. The loop {then}.")
 
     @app.post("/loop/{repo_key}/{loop_id}/start", name="loop_start")
     def loop_start(

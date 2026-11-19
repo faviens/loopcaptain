@@ -70,8 +70,10 @@ reaches a loop:
    a line whose signature fails. `inbox.key`, the one key of earlier
    versions, still signs a second mark, `sig`, for loops with a helper
    pasted from an earlier text: whoever holds it can deceive such a loop,
-   and no other loop and not the board. A process with the user's full
-   file access can read all of these too.
+   and no other loop and not the board. The board takes a line under
+   that key as its own only if the inbox already held it when the board
+   first made the loop's key; the date a line claims counts for nothing.
+   A process with the user's full file access can read all of these too.
 6. **The network:** the board listens on `127.0.0.1` only and answers only
    to its own host name. No page loads anything from another origin.
    Nothing is sent off the machine.

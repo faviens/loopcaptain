@@ -103,6 +103,20 @@ def test_two_open_questions_are_both_kept_and_a_reply_answers_the_one_it_names(
     assert state_at(repo, later).questions == () and state_at(repo, later).question is None
 
 
+def test_a_question_without_an_id_takes_the_place_of_the_last_one_without(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    """A loop that asks the same thing every round, unnamed, has one question open, the latest."""
+    fresh_loop(repo, helper)
+    for number in (1, 2, 3):
+        line(repo, "round_started", round=number, ts=iso(T0 + timedelta(minutes=number)))
+        line(repo, "question", text=f"Progress fine? Round {number}", ts=iso(T0 + timedelta(minutes=number)))
+
+    state = state_at(repo, T0 + timedelta(minutes=4))
+
+    assert [question.text for question in state.questions] == ["Progress fine? Round 3"]
+
+
 def test_a_blocking_question_is_shown_before_one_asked_in_passing(
     repo: Path, helper: types.ModuleType
 ) -> None:

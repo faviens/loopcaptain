@@ -63,12 +63,12 @@
   <p class="q">{% if view.state.question.needs_person %}<b>A step needs you.</b> {% endif %}{{ view.state.question.text }}</p>
   {% if view.state.question.options %}
   <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting"><input type="hidden" name="asked_at" value="{{ q.asked.isoformat() }}">
     {% for option in view.state.question.options %}<button type="submit" name="choice" value="{{ option.id }}">{{ option.label }}</button>{% endfor %}
   </form>
   {% endif %}
   <form class="say" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting"><input type="hidden" name="asked_at" value="{{ q.asked.isoformat() }}">
     <textarea name="text" required aria-label="Your answer to {{ view.title }}" placeholder="Your answer. The loop reads it at its next round."></textarea>
     <button type="submit">Send answer</button>
   </form>

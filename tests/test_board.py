@@ -977,6 +977,69 @@ def test_a_table_of_open_findings_lists_the_first_rows_and_says_how_many_there_a
     assert ">gap 299<" in page and ">gap 300<" not in page
 
 
+def test_a_stop_for_a_loop_between_rounds_is_not_answered_as_if_a_round_were_under_way(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "continue"}, scan)
+
+    sent = client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+
+    assert "reads%20it%20at%20its%20next%20start%20and%20runs%20no%20round" in sent.headers["location"]
+
+
+def test_an_answer_typed_for_one_question_is_not_sent_to_the_one_asked_since(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    """The page holds its reload while an answer is typed, so the loop may ask again meanwhile."""
+    helper.emit("scan", "question", {"id": "seats", "text": "Per seat?"}, scan)
+    page = client.get("/loop/some-repo/scan").text
+    found = re.search(r'name="asked_at" value="([^"]+)"', page)
+    assert found is not None and page.count('name="asked_at"') == 1
+    time.sleep(0.01)
+    helper.emit("scan", "question", {"id": "ship", "text": "Ship it?", "blocks": True}, scan)
+    form = {"token": token_of(client), "text": "Per seat.", "asked_at": found.group(1)}
+
+    late = client.post("/loop/some-repo/scan/reply", data=form)
+
+    assert "no%20longer%20asks%20the%20question" in late.headers["location"]
+    assert store.read_inbox(scan, "scan")[0] == []
+    again = re.search(r'name="asked_at" value="([^"]+)"', client.get("/loop/some-repo/scan").text)
+    assert again is not None
+    client.post("/loop/some-repo/scan/reply", data={**form, "asked_at": again.group(1)})
+    assert store.read_inbox(scan, "scan")[0][-1].question == "ship"
+
+
+def test_a_note_to_a_loop_that_never_ran_is_read_at_its_next_round(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    repo = tmp_path / "fresh"
+    helper.register("scan", {"title": "Scan"}, repo)
+    app = create_app(
+        config=lambda: Config(repos=(repo,)), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST})
+    )
+    fresh = let_in(TestClient(app, base_url=f"http://{HOST}", follow_redirects=False))
+
+    sent = fresh.post("/loop/fresh/scan/reply", data={"token": app.state.token, "text": "Start with prices."})
+
+    assert "reads%20it%20at%20its%20next%20round" in sent.headers["location"]
+
+
+def test_a_loop_is_read_from_the_worktree_it_runs_in_not_the_one_a_checkout_touched(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    root = tmp_path / "work"
+    main_checkout, worktree = root / "tool", root / "tool-loop"
+    linked_worktree(main_checkout, worktree)
+    helper.register("scan", {"title": "Runs here"}, worktree)
+    helper.emit("scan", "round_started", {"round": 1}, worktree)
+    time.sleep(0.01)
+    helper.register("scan", {"title": "A checkout wrote this"}, main_checkout)  # loop.json only, later
+
+    found = find_loop(Config(roots=(root,)), "tool", "scan")
+
+    assert found is not None and found[0].path == worktree and found[1].title == "Runs here"
+
+
 def test_the_page_says_beside_start_that_a_stop_is_waiting(
     client: TestClient, scan: Path, helper: types.ModuleType
 ) -> None:

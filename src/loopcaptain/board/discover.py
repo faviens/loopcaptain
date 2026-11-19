@@ -70,15 +70,24 @@ def git_common_dir(path: Path) -> Path:
     return git_dir.parent.parent if git_dir is not None else path.resolve()
 
 
-def loop_written(path: Path, loop_id: str) -> int:
+LOOP_FILES = ("loop.json", "events.jsonl", "inbox.jsonl")
+
+
+def loop_written(path: Path, loop_id: str, names: tuple[str, ...] = LOOP_FILES) -> int:
     """When one loop's files in one checkout were last written, in nanoseconds; 0 if never."""
     stamps = [0]
-    for name in ("loop.json", "events.jsonl", "inbox.jsonl"):
+    for name in names:
         try:
             stamps.append((path / FOLDER / loop_id / name).lstat().st_mtime_ns)
         except OSError:
             continue
     return max(stamps)
+
+
+def loop_ran(path: Path, loop_id: str) -> tuple[int, int]:
+    """How lately a loop ran in a checkout: by its log first, which only the loop writes. A
+    checkout or a pull rewrites `loop.json` in a worktree the loop does not run in."""
+    return loop_written(path, loop_id, ("events.jsonl",)), loop_written(path, loop_id)
 
 
 def last_written(path: Path) -> int:
@@ -108,7 +117,7 @@ def loops_of(repo: Repo) -> list[tuple[Repo, str]]:
     for path in (repo.path, *repo.others):
         for loop_id in store.loop_ids(path):
             held = homes.get(loop_id)
-            if held is None or loop_written(path, loop_id) > loop_written(held, loop_id):
+            if held is None or loop_ran(path, loop_id) > loop_ran(held, loop_id):
                 homes[loop_id] = path
     everywhere = (repo.path, *repo.others)
     return [
@@ -287,9 +296,9 @@ def load_loop(repo: Repo, loop_id: str, at: datetime | None = None, process_aliv
         events, event_problems = store.read_events(repo.path, loop_id)
         inbox, inbox_problems = store.read_inbox(repo.path, loop_id)
         folder = store.loop_dir(repo.path, loop_id)
+        give_its_key(folder)  # first: it lists the lines an inbox held before the loop had a key
         untrusted = untrusted_ids(inbox, loop_id, folder)
         state = fold(manifest, events, inbox, at or now(), process_alive, untrusted)
-        give_its_key(folder)
     except StoreError as error:
         return LoopView(repo, loop_id, None, error=str(error))
     except Exception as error:
@@ -496,8 +505,11 @@ def edit_config(path: Path, *, add: tuple[str, str] | None = None, remove: str |
             return [f"{remove} is not in {target}"]
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        # Written anew, without its comments, only where the lists were not one item per line.
-        target.write_text(text or yaml.safe_dump({**loaded, **data}, sort_keys=False), encoding="utf-8")
+        # Written anew, without its comments, only where the lists were not one item per line. Beside
+        # its place and moved in: a write that stops half-way leaves the config a person wrote whole.
+        draft = target.with_name(f"{target.name}.tmp")
+        draft.write_text(text or yaml.safe_dump({**loaded, **data}, sort_keys=False), encoding="utf-8")
+        os.replace(draft, target)
     except OSError as error:
         raise StoreError(f"{target}: cannot be written ({reason(error)})") from error
     return [f"{target}: {change}" for change in changes]

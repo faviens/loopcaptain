@@ -200,7 +200,14 @@ def list_earlier(keys: BoardKeys, folder: Path) -> None:
     if keys.machine is None or path.exists() or loop_key_file(folder).exists():
         return
     lines = [e for e in earlier_lines(folder) if is_earlier_signed(e, keys.machine, folder.name)]
-    write_private(path, "".join(f"{entry['sig']}\n" for entry in lines))
+    draft = path.with_name(f"{path.name}.{secrets.token_hex(4)}.new")
+    write_private(draft, "".join(f"{entry['sig']}\n" for entry in lines))
+    try:
+        os.link(draft, path)  # the first list stands: a second writer's later look at the inbox does not
+    except FileExistsError:
+        pass
+    finally:
+        draft.unlink(missing_ok=True)
 
 
 def earlier_marks(folder: Path) -> frozenset[str]:
