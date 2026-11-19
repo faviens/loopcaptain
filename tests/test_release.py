@@ -71,6 +71,22 @@ def test_the_notes_list_what_users_notice_under_headings(release: types.ModuleTy
     assert "keep the table readable" not in text
 
 
+def test_a_note_carries_the_reasons_its_commit_gives(release: types.ModuleType) -> None:
+    """A release note was one subject line; why the change was made stayed in the commit."""
+    body = (
+        "- A reply closed whichever question was asked last,\n  whatever it named.\n"
+        "- Open questions are kept per asking.\n\nNot a bullet.\n- [x] A check box of a pull request.\n"
+    )
+
+    text = release.notes([release.Commit("1234567890", "fix(board): keep every open question", body)])
+
+    assert text == (
+        "## Fixed\n\n- **board**: keep every open question (1234567)\n"
+        "  - A reply closed whichever question was asked last, whatever it named.\n"
+        "  - Open questions are kept per asking."
+    )
+
+
 def test_the_checkout_carries_no_version_of_its_own() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
