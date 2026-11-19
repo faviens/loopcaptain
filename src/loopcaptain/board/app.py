@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+import posixpath
 import secrets
 import time
 from collections import Counter
@@ -43,7 +44,7 @@ from loopcaptain.board.discover import (
     unreadable_folders,
 )
 from loopcaptain.board.errors import add_error_pages, secured
-from loopcaptain.board.files import TEXT_SUFFIXES, inside, read_bounded
+from loopcaptain.board.files import TEXT_SUFFIXES, inside, is_named, named_paths, read_bounded
 from loopcaptain.board.filters import ago, lead, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
 from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of
@@ -51,8 +52,8 @@ from loopcaptain.board.steer import Runner
 from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
 from loopcaptain.protocol import spec_text, store
-from loopcaptain.protocol.models import FindingRef, Manifest
-from loopcaptain.protocol.signing import board_keys, is_from_board, read_board_keys
+from loopcaptain.protocol.models import EVENTS_FILE, INBOX_FILE, MANIFEST_FILE, FindingRef, Manifest
+from loopcaptain.protocol.signing import board_keys, earlier_marks, is_from_board, read_board_keys
 from loopcaptain.protocol.state import STATUS_TEXT, LoopState, no_progress_signs
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import validate_loop
@@ -404,6 +405,10 @@ def create_app(
     @app.get("/loop/{repo_key}/{loop_id}/file", response_class=HTMLResponse, name="loop_file")
     def loop_file(request: Request, repo_key: str, loop_id: str, path: str) -> Response:
         repo, manifest, view = view_of(repo_key, loop_id)
+        # One spelling for the check and for the read: `a/../x` names `x`, whatever `a` links to.
+        path = posixpath.normpath(path)
+        if not is_named(path, files_of(repo, manifest)):
+            raise HTTPException(404, "this loop names no such file")
         target = inside(repo.path, path)
         body: Markup | None = None
         text = ""
@@ -667,11 +672,26 @@ def runs_elsewhere(view: LoopView, steer: Runner) -> bool:
     return not (process and process.alive)
 
 
+def files_of(repo: Repo, manifest: Manifest) -> frozenset[str]:
+    """The files this loop names: in its `loop.json`, in its events, and as arguments of its start
+    command, and the three files that are the loop. The board opens no other file of the repository."""
+    events, _ = store.read_events(repo.path, manifest.id)
+    records = [manifest.model_dump(mode="json"), *(event.model_dump(mode="json") for event in events)]
+    command = read_command(manifest.commands.get("start", ""))
+    folder = store.loop_dir(repo.path, manifest.id).relative_to(repo.path).as_posix()
+    own = frozenset(f"{folder}/{name}" for name in (MANIFEST_FILE, EVENTS_FILE, INBOX_FILE))
+    return named_paths(records) | frozenset(named_files(repo.path, command.argv)) | own
+
+
 def inbox_marks(repo: Repo, state: LoopState) -> dict[str, bool | None]:
     """For each inbox entry, whether this board signed it; None where the board has no key yet."""
     keys, loop_id = read_board_keys(), state.manifest.id
     folder = store.loop_dir(repo.path, loop_id)
-    return {item.entry.id: is_from_board(item.entry.body(), keys, folder, loop_id) for item in state.inbox}
+    earlier = earlier_marks(folder)
+    return {
+        item.entry.id: is_from_board(item.entry.body(), keys, folder, loop_id, earlier)
+        for item in state.inbox
+    }
 
 
 def pulse_of(repo: Repo, loop_id: str, steer: Runner) -> str:

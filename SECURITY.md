@@ -39,16 +39,19 @@ reaches a loop:
    Each repository and each loop is a boundary: one the board cannot
    enter, read or make sense of is named with the reason and left out,
    and every other loop stays readable and steerable.
-3. **The file viewer:** it opens text files inside a watched repository
-   and nothing outside it. It never shows `.git`; of git's own files the
-   board reads only the branch's name and which repository a worktree
-   belongs to, from disk, without running `git`. The viewer refuses a
-   block-list of names under which tools commonly keep keys, tokens and
-   passwords (`PRIVATE_PARTS` and `PRIVATE_PATTERNS` in
-   `src/loopcaptain/board/files.py`). The list goes by name only: a secret
-   in a file with an ordinary name, such as a password in a config file,
-   is shown like any other text. Watch only repositories whose text files
-   may be read by everyone who can use the board.
+3. **The file viewer:** it opens only text files that a loop names: in
+   its `loop.json`, in its events, or as an argument of its start command,
+   and the loop's own three files. Any other file of a watched repository
+   is not opened, whatever its name, and nothing outside the repository
+   is. It never shows `.git`; of git's own files the board reads only the
+   branch's name and which repository a worktree belongs to, from disk,
+   without running `git`. Of the files a loop names, the viewer still
+   refuses a block-list of names under which tools commonly keep keys,
+   tokens and passwords (`PRIVATE_PARTS` and `PRIVATE_PATTERNS` in
+   `src/loopcaptain/board/files.py`). A loop decides what it names: one
+   that names a config file with a password in it has that file shown.
+   Watch only repositories whose loops you would let read their text
+   files to you.
 4. **The one command it runs:** `commands.start` of a loop's `loop.json`,
    when the person presses Start, split into arguments with no shell, with
    only `PATH`, `HOME`, `LANG` and `TERM` from the board's environment,

@@ -16,6 +16,7 @@ from loopcaptain.board import steer
 from loopcaptain.board.app import create_app
 from loopcaptain.board.discover import Config, find_repos
 from loopcaptain.board.steer import Runner
+from tests.conftest import name_files
 
 HOST = "board.test"
 
@@ -52,6 +53,7 @@ def menu_link(page: str, label: str) -> str:
 )
 def test_the_menu_marks_loops_on_a_loop_and_a_file_page(client: TestClient, scan: Path, path: str) -> None:
     (scan / "brief.md").write_text("# Brief\n", encoding="utf-8")
+    name_files(scan, "brief.md")
 
     page = client.get(path).text
 

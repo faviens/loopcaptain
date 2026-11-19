@@ -26,7 +26,7 @@ from loopcaptain.protocol import signing, store
 from loopcaptain.protocol.models import Manifest
 from loopcaptain.protocol.state import STATUS_TEXT, FindingState, LoopState, RoundState, Status, StepRun, fold
 from loopcaptain.protocol.store import StoreError
-from tests.conftest import STEPS
+from tests.conftest import STEPS, name_files
 
 HOST = "board.test"
 
@@ -221,6 +221,7 @@ def test_a_message_shows_only_when_this_server_wrote_it(client: TestClient, scan
 def test_files_render_inside_the_repository_only(client: TestClient, scan: Path) -> None:
     (scan / "notes.md").write_text("# Plan\n\n<script>alert(1)</script>\n\n| a | b |\n|---|---|\n| 1 | 2 |\n")
     (scan.parent / "outside.md").write_text("secret")
+    name_files(scan, "notes.md", "../outside.md", "/etc/passwd", "missing.md")
 
     inside = client.get("/loop/some-repo/scan/file", params={"path": "notes.md"})
 
@@ -524,6 +525,7 @@ def test_git_and_secret_files_are_never_shown(client: TestClient, scan: Path, pa
 
 def test_a_file_that_is_not_known_text_is_named_not_shown(client: TestClient, scan: Path) -> None:
     (scan / "dump.bin").write_text("looks like text but is not offered")
+    name_files(scan, "dump.bin")
 
     page = client.get("/loop/some-repo/scan/file", params={"path": "dump.bin"})
 
@@ -1317,6 +1319,7 @@ def test_a_file_over_the_size_the_board_renders_is_named_not_read(client: TestCl
 
     (scan / "huge.md").write_text("# Marker of the huge file\n" + "x" * MAX_FILE_BYTES)
     (scan / "fits.md").write_text("# Marker of the small file\n" + "x" * (MAX_FILE_BYTES - 100))
+    name_files(scan, "huge.md", "fits.md")
 
     huge = client.get("/loop/some-repo/scan/file", params={"path": "huge.md"}).text
     fits = client.get("/loop/some-repo/scan/file", params={"path": "fits.md"}).text

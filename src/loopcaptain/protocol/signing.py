@@ -10,8 +10,10 @@ to their repository and to their own key, not against a process with the user's 
 which can read the board's secret too.
 
 `sig`, under the one key of earlier versions (`inbox.key`), is still put on every line: a helper
-pasted from an earlier text checks nothing else. The board itself does not trust it, except on a
-line from before its secret existed.
+pasted from an earlier text checks nothing else. Every loop can read that key, so the board itself
+does not trust `sig`, except on the lines an inbox already held when the board first made that
+loop's key: it lists their marks then (`keys/<name>.earlier`), and a line written later is not on
+the list, whatever date it claims.
 """
 
 from __future__ import annotations
@@ -23,7 +25,6 @@ import logging
 import os
 import secrets
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -42,17 +43,19 @@ KEY_BYTES = 32
 PRIVATE_MODE = 0o600
 PRIVATE_DIR_MODE = 0o700
 MARKS = ("sig", "loop_sig")
+INBOX_NAME = "inbox.jsonl"
+EARLIER_SUFFIX = ".earlier"
+#: An inbox larger than this is not read for its earlier lines; the board reads none that large.
+MAX_EARLIER_BYTES = 20_000_000
 
 
 @dataclass(frozen=True)
 class BoardKeys:
     """What the board signs with. `secret` never leaves the board: every loop's key is made from it.
-    `machine` is the one key of earlier versions, None where it cannot be read. `since` is when the
-    secret was made: a line older than that can carry only `sig`."""
+    `machine` is the one key of earlier versions, None where it cannot be read."""
 
     secret: bytes
     machine: bytes | None
-    since: float
 
 
 def key_path() -> Path:
@@ -118,7 +121,7 @@ def board_key() -> bytes:
 def board_keys() -> BoardKeys:
     """The board's secret and the earlier key, each created on first use."""
     secret = made_key(secret_path())
-    return BoardKeys(secret, board_key(), secret_path().stat().st_mtime)
+    return BoardKeys(secret, board_key())
 
 
 def read_board_keys() -> BoardKeys | None:
@@ -126,7 +129,7 @@ def read_board_keys() -> BoardKeys | None:
     secret = read_hex(secret_path())
     if secret is None:
         return None
-    return BoardKeys(secret, read_key(), secret_path().stat().st_mtime)
+    return BoardKeys(secret, read_key())
 
 
 def loop_key(secret: bytes, folder: Path) -> bytes:
@@ -146,17 +149,75 @@ def read_loop_key(folder: Path) -> bytes | None:
     return read_hex(loop_key_file(folder))
 
 
+def earlier_file(folder: Path) -> Path:
+    """The list of marks a loop's inbox held under the earlier key when the board first saw it."""
+    return loop_key_file(folder).with_suffix(EARLIER_SUFFIX)
+
+
+def write_private(path: Path, text: str) -> None:
+    """A file of this user only, in a folder of this user only, written beside its place and moved in."""
+    path.parent.mkdir(mode=PRIVATE_DIR_MODE, parents=True, exist_ok=True)
+    os.chmod(path.parent, PRIVATE_DIR_MODE)  # a folder that was already there keeps no looser mode
+    draft = path.with_name(f"{path.name}.{secrets.token_hex(4)}.tmp")
+    descriptor = os.open(draft, os.O_WRONLY | os.O_CREAT | os.O_EXCL, PRIVATE_MODE)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    os.replace(draft, path)
+
+
+def earlier_lines(folder: Path) -> list[dict[str, Any]]:
+    """The lines of a loop's inbox as plain objects; none where the file is no plain, small file."""
+    path = folder / INBOX_NAME
+    try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_EARLIER_BYTES:
+            return []
+        text = path.read_bytes().decode("utf-8", errors="replace")
+    except OSError:
+        return []
+    found = []
+    for line in text.split("\n"):
+        try:
+            entry = json.loads(line)
+        except (ValueError, RecursionError):
+            continue
+        if isinstance(entry, dict):
+            found.append(entry)
+    return found
+
+
+def is_earlier_signed(entry: dict[str, Any], machine: bytes, loop_id: str) -> bool:
+    """True for a line the board of an earlier version wrote for this loop, or anything that holds
+    the earlier key: every loop does."""
+    given = entry.get("sig")
+    named = entry.get("loop") == loop_id
+    return named and isinstance(given, str) and hmac.compare_digest(given, sign(entry, machine))
+
+
+def list_earlier(keys: BoardKeys, folder: Path) -> None:
+    """Once per loop, before its key exists: the marks of the lines its inbox holds now. A line
+    under the earlier key that turns up later is not on the list, so its date buys it nothing."""
+    path = earlier_file(folder)
+    if keys.machine is None or path.exists() or loop_key_file(folder).exists():
+        return
+    lines = [e for e in earlier_lines(folder) if is_earlier_signed(e, keys.machine, folder.name)]
+    write_private(path, "".join(f"{entry['sig']}\n" for entry in lines))
+
+
+def earlier_marks(folder: Path) -> frozenset[str]:
+    """The marks listed for a loop; none where the board made its key without a list."""
+    try:
+        return frozenset(earlier_file(folder).read_text(encoding="utf-8").split())
+    except (OSError, UnicodeDecodeError):
+        return frozenset()
+
+
 def hand_out(keys: BoardKeys, folder: Path) -> Path:
     """Put a loop's key where the loop looks for it, readable by this user only."""
     path, key = loop_key_file(folder), loop_key(keys.secret, folder)
     if read_hex(path) == key:
         return path
-    path.parent.mkdir(mode=PRIVATE_DIR_MODE, parents=True, exist_ok=True)
-    draft = path.with_name(f"{path.name}.{secrets.token_hex(4)}.tmp")
-    descriptor = os.open(draft, os.O_WRONLY | os.O_CREAT | os.O_EXCL, PRIVATE_MODE)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        handle.write(key.hex() + "\n")
-    os.replace(draft, path)
+    list_earlier(keys, folder)
+    write_private(path, key.hex() + "\n")
     return path
 
 
@@ -194,29 +255,23 @@ def is_signed(entry: dict[str, Any], key: bytes | None, loop_id: str | None = No
     return isinstance(given, str) and hmac.compare_digest(given, sign(entry, key, MARKS))
 
 
-def is_older(entry: dict[str, Any], moment: float) -> bool:
-    try:
-        return datetime.fromisoformat(str(entry.get("ts"))).timestamp() < moment
-    except ValueError:
-        return False
-
-
-def is_from_board(entry: dict[str, Any], keys: BoardKeys | None, folder: Path, loop_id: str) -> bool | None:
-    """The board's own reading of a line: its `loop_sig`, and for a line written before the board's
-    secret existed the `sig` of that time. None where this machine has no board secret."""
+def is_from_board(
+    entry: dict[str, Any], keys: BoardKeys | None, folder: Path, loop_id: str, earlier: frozenset[str]
+) -> bool | None:
+    """The board's own reading of a line: its `loop_sig`, or, for a line the inbox already held when
+    the loop's key was made (`earlier`), the `sig` of that time. None where this machine has no
+    board secret."""
     if keys is None:
         return None
-    if "loop_sig" in entry or keys.machine is None or not is_older(entry, keys.since):
+    if "loop_sig" in entry or keys.machine is None or entry.get("sig") not in earlier:
         return bool(is_signed(entry, loop_key(keys.secret, folder), loop_id))
-    given = entry.get("sig")
-    named = entry.get("loop") == loop_id
-    return named and isinstance(given, str) and hmac.compare_digest(given, sign(entry, keys.machine))
+    return is_earlier_signed(entry, keys.machine, loop_id)
 
 
 def untrusted_ids(inbox: list[InboxEntry], loop_id: str, folder: Path) -> frozenset[str]:
     """The inbox entries the board did not write. Without a secret here nothing can be told apart."""
-    keys = read_board_keys()
-    return frozenset(e.id for e in inbox if is_from_board(e.body(), keys, folder, loop_id) is False)
+    keys, earlier = read_board_keys(), earlier_marks(folder)
+    return frozenset(e.id for e in inbox if is_from_board(e.body(), keys, folder, loop_id, earlier) is False)
 
 
 def unchecked_ids(inbox: list[InboxEntry], loop_id: str, folder: Path) -> frozenset[str]:

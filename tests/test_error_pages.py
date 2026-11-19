@@ -35,7 +35,7 @@ def client(scan: Path, tmp_path: Path) -> TestClient:
     [
         ("/loop/some-repo/ghost", "no such loop on this board"),
         ("/loop/other-repo/scan", "no such loop on this board"),
-        ("/loop/some-repo/scan/file?path=missing.md", "no such file in this repository"),
+        ("/loop/some-repo/scan/file?path=missing.md", "this loop names no such file"),
         ("/nothing/here", "Not Found"),
     ],
 )

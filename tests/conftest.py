@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 import types
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +46,15 @@ def helper() -> types.ModuleType:
     module = types.ModuleType("pasted_loopcaptain")
     exec(compile(helper_source(), "LOOPS.md", "exec"), module.__dict__)
     return module
+
+
+def name_files(repo: Path, *paths: str, loop: str = "scan") -> None:
+    """Let a loop name files, as a step that made them would: the board opens no other."""
+    with (repo / ".loops" / loop / "events.jsonl").open("a", encoding="utf-8") as log:
+        for path in paths:
+            stamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            line = {"ts": stamp, "event": "step_finished", "round": 2, "step": "plan", "artifact": path}
+            log.write(json.dumps(line) + "\n")
 
 
 @pytest.fixture

@@ -98,10 +98,10 @@ stdio: `loopcaptain mcp-config <agent>` prints the line for it,
    `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs with; the first
    start of a command asks for a tick. The board runs nothing else, and nothing
    typed in a browser.
-2. **What it reads.** Only files inside a watched repository, never `.git`
-   or `.env*`, never a file whose name is on a block-list of key and
-   credential names, and the content of text files only. The block-list
-   goes by names, not by what a file holds.
+2. **What it reads.** A loop's own files, and of the other files inside
+   a watched repository only those the loop names; never `.git` or
+   `.env*`, never a file whose name is on a block-list of key and
+   credential names, and the content of text files only.
    It copies nothing and sends nothing anywhere. See
    [SECURITY.md](SECURITY.md).
 
