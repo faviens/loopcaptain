@@ -40,11 +40,13 @@ DEMO_FOLDER = "demo"
 
 @dataclass(frozen=True)
 class Config:
-    """`roots`: folders whose direct sub-folders are repositories. `repos`: single repositories."""
+    """`roots`: folders whose direct sub-folders are repositories. `repos`: single repositories.
+    `hidden`: loop folders (`<repository>/.loops/<loop-id>`) the person took off the first page."""
 
     roots: tuple[Path, ...] = ()
     repos: tuple[Path, ...] = ()
     source: Path | None = None
+    hidden: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -135,10 +137,22 @@ class LoopView:
     state: LoopState | None
     problems: tuple[Problem, ...] = ()
     error: str = ""
+    #: The person hid this loop: it is read and steered as any other, and left off the first page.
+    hidden: bool = False
 
     @property
     def title(self) -> str:
         return (self.state.manifest.title if self.state else "") or self.loop_id
+
+
+def put_aside(config: Config, repo: Repo, loop_id: str) -> bool:
+    """Whether the config lists this loop as hidden. A loop is the same loop in every worktree of
+    its repository, so the entry is matched by the repository it belongs to, not by its folder."""
+    named = [entry for entry in config.hidden if entry.name == loop_id and entry.parent.name == FOLDER]
+    if not named:
+        return False
+    home = git_common_dir(repo.path)
+    return any(git_common_dir(entry.parent.parent) == home for entry in named)
 
 
 def config_in_use(cwd: Path | None = None) -> Path | None:
@@ -188,7 +202,7 @@ def parse_config(path: Path) -> Config:
             # ValueError: a path with a null character, which no file system takes.
             raise StoreError(f"{path.name}: `{key}`: {error}") from error
 
-    return Config(roots=paths("roots"), repos=paths("repos"), source=path)
+    return Config(roots=paths("roots"), repos=paths("repos"), source=path, hidden=paths("hidden"))
 
 
 @dataclass(frozen=True)
@@ -410,7 +424,7 @@ def as_written(path: Path) -> str:
         return str(resolved)
 
 
-LISTS = ("roots", "repos")
+LISTS = ("roots", "repos", "hidden")
 
 
 def read_lists(target: Path) -> tuple[str, dict[str, object]]:

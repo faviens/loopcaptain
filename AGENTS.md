@@ -73,6 +73,7 @@ loop looks like.
 loopcaptain watch <folder> --root     # every sub-folder with .loops/
 loopcaptain watch <repository>        # one repository
 loopcaptain unwatch <folder>
+loopcaptain hide <repository> <loop>  # one loop off the first page; unhide brings it back
 ```
 
 This edits `~/.config/loopcaptain/config.yaml`, or the file

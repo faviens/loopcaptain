@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from loopcaptain.board.discover import LoopView, Repo, git_branch
 from loopcaptain.board.filters import place
+from loopcaptain.protocol.models import now
 from loopcaptain.protocol.state import no_progress_signs
 
 
@@ -125,15 +127,34 @@ GROUPS = {
     "running": "running",
     "idle": "idle",
     "finished": "finished",
+    "old": "quiet for weeks",
+    "hidden": "hidden",
 }
+#: The groups the first page leaves out until one of them is asked for.
+APART = frozenset({"hidden"})
+#: A loop that stalled or failed and has written nothing for this long is no alarm any more: it
+#: stays listed, marked old, and leaves the count of loops that need a look.
+OLD_AFTER = timedelta(days=14)
+
+
+def is_old(view: LoopView, at: datetime | None = None) -> bool:
+    """Whether a loop that stopped short did so long ago: stalled or failed, and silent for weeks."""
+    state = view.state
+    if state is None or state.status not in ("stalled", "failed") or state.last_event is None:
+        return False
+    return (at or now()) - state.last_event > OLD_AFTER
 
 
 def group_of(view: LoopView) -> str:
     """The one group a loop belongs to on the first page."""
+    if view.hidden:
+        return "hidden"
     if view.state is None:
         return "look"
     if view.state.question:
         return "waiting"
+    if is_old(view):
+        return "old"
     if needs_look(view):
         return "look"
     if view.state.status in ("running", "sleeping"):

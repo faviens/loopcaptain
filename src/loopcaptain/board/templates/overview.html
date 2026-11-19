@@ -8,7 +8,7 @@
     <td class="name"><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a><span class="id">{{ view.loop_id }}</span></td>
     {% if view.state %}
     {% set s = view.state %}
-    <td><span class="pill {{ s.status }}" title="{{ status_text[s.status] }}">{{ s.status }}</span>{% if s.question and s.status != 'waiting' %}<span class="asks" title="it has a question for you">asks</span>{% endif %}{% set signs = no_progress(s) %}{% if signs %}<span class="stuck" title="{{ signs|join('; ') }}">no progress</span>{% endif %}</td>
+    <td><span class="pill {{ s.status }}" title="{{ status_text[s.status] }}">{{ s.status }}</span>{% if group_of(view) == 'old' %}<span class="old" title="no line for over two weeks: listed, and no longer counted as needing a look">old</span>{% endif %}{% if s.question and s.status != 'waiting' %}<span class="asks" title="it has a question for you">asks</span>{% endif %}{% set signs = no_progress(s) %}{% if signs %}<span class="stuck" title="{{ signs|join('; ') }}">no progress</span>{% endif %}</td>
     <td class="goal" title="{{ s.manifest.brief.goal }}"><span>{{ s.manifest.brief.goal|truncate(150) }}</span></td>
     <td class="r num">{{ s.rounds|length }}{% if s.manifest.round_cap %}<span class="grey"> / {{ s.manifest.round_cap }}</span>{% endif %}{% set trail = trail_of(s) %}{% if trail %}<span class="trail" role="img" aria-label="{{ trail|map(attribute='label')|join('; ') }}">{% for cell in trail %}<i class="{{ cell.look }}" title="{{ cell.label }}"></i>{% endfor %}</span>{% endif %}</td>
     <td class="r num">{{ s.open_findings|length or '' }}</td>

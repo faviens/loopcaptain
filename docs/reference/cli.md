@@ -98,6 +98,32 @@ loopcaptain unwatch [-h] path
 |---|---|
 | `path` |  |
 
+## `hide`
+
+Take one loop off the board's first page and out of its figures.
+
+```text
+loopcaptain hide [-h] repo loop
+```
+
+| Argument | Meaning |
+|---|---|
+| `repo` |  |
+| `loop` |  |
+
+## `unhide`
+
+Show a hidden loop on the first page again.
+
+```text
+loopcaptain unhide [-h] repo loop
+```
+
+| Argument | Meaning |
+|---|---|
+| `repo` |  |
+| `loop` |  |
+
 ## `demo`
 
 Write the example loop into a folder and watch it; costs nothing.

@@ -987,3 +987,27 @@ template share them as a matter of course.
 **Rejected.** Binding an answer to a repository's path in the line: a moved repository or a
 devcontainer that mounts it elsewhere would refuse the person's answers. Refusing to show the
 second loop: the person would lose sight of a loop that runs.
+
+## 42. Hiding a loop is a line in the board's config; a loop that died weeks ago leaves the alarm
+
+**Decision.** `loopcaptain hide <repository> <loop>` adds the loop's folder to `hidden:` in the
+board's config, and `unhide` takes it out (`put_aside` in `board/discover.py`). A hidden loop is
+read and steered as any other and its page opens by its address; it is left off the first page,
+the waiting tab and the header's figures, and a `hidden` chip on the first page lists the hidden
+ones. The entry is matched by the repository the folder belongs to, so it holds in every
+worktree. A loop that is stalled or failed and has written nothing for 14 days (`OLD_AFTER` in
+`board/overview.py`) stays listed, marked old, in a group of its own, and no longer counts as
+needing a look.
+
+**Why.** A loop showed for as long as its folder existed in a watched repository. One that died
+mid-round stayed in the count of loops that need a look for ever, and the only ways to be rid of
+it were to unwatch its whole repository or to delete its folder and its history with it.
+
+**Rejected.** A `hidden` field in `loop.json`: the board writes nothing but the inbox (rule 4),
+and whether a person wants to see a loop is not the loop's to say. A Hide button on the page: a
+browser would then write the board's config, and so far it writes only inbox lines. Dropping old
+loops from the list: a loop that stopped short is a fact the person may still want to open.
+Hiding by age alone: a loop that waits for an answer for three weeks still waits.
+
+**What it costs.** A hidden loop that asks a question is not seen until someone opens the hidden
+chip. A repository moved to another folder loses its hidden entries, as it loses its keys.
