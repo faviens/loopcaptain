@@ -118,9 +118,13 @@
 <section class="start-here" aria-label="Get started">
   <p class="lead">{% if not config.source %}No loop to show yet, and no list of repositories to watch: the board found no <code>loopcaptain.local.yaml</code> in the folder it was started in and no <code>~/.config/loopcaptain/config.yaml</code>.{% else %}The board reads <code>{{ config.source|place }}</code>{% if not config.roots and not config.repos %}, which lists no folder yet{% else %}, and none of the {{ config.roots|length + config.repos|length }} folder{{ 's' if config.roots|length + config.repos|length != 1 }} it lists has a <code>.loops/</code> folder with a loop yet{% endif %}.{% endif %} Copy one of these into your coding agent:</p>
   <div class="prompts">
-    <div class="card"><p class="eyebrow">Build a loop</p><pre class="prompt" tabindex="0">{{ prompts['build-a-loop'] }}</pre></div>
-    <div class="card"><p class="eyebrow">Watch the loops on this machine</p><pre class="prompt" tabindex="0">{{ prompts['watch-my-loops'] }}</pre></div>
+    <div class="card"><p class="eyebrow">Build a loop</p><pre class="prompt" tabindex="0">{{ prompts['build-a-loop'] }}</pre>
+      <p class="act"><button type="button" data-copy-from="prompt-build-text">Copy the prompt</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
+    <div class="card"><p class="eyebrow">Watch the loops on this machine</p><pre class="prompt" tabindex="0">{{ prompts['watch-my-loops'] }}</pre>
+      <p class="act"><button type="button" class="quiet" data-copy-from="prompt-watch-text">Copy the prompt</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
   </div>
+  <textarea id="prompt-build-text" hidden readonly aria-hidden="true">{{ prompts['build-a-loop'] }}</textarea>
+  <textarea id="prompt-watch-text" hidden readonly aria-hidden="true">{{ prompts['watch-my-loops'] }}</textarea>
   <p class="note">Or see it first with an invented loop that costs nothing: <code>loopcaptain demo</code>, then reload. To watch your own repositories, list them under <code>roots:</code> or <code>repos:</code> in <code>~/.config/loopcaptain/config.yaml</code>, or run <code>loopcaptain watch &lt;folder&gt;</code>. <a href="{{ url_for('connect') }}">How a loop connects</a>.</p>
 </section>
 {% endif %}

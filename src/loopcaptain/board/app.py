@@ -497,9 +497,9 @@ def create_app(
             )
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, back_to=back_to, error=str(problem))
-        return back(
-            repo_key, loop_id, tab=tab, back_to=back_to, note="Sent. The loop reads it at its next round."
-        )
+        status = view.state.status if view.state else ""
+        when = "at its next round" if status in STOPPABLE else f"when it is started again: it is {status} now"
+        return back(repo_key, loop_id, tab=tab, back_to=back_to, note=f"Sent. The loop reads it {when}.")
 
     @app.post("/loop/{repo_key}/{loop_id}/finding", name="loop_settle")
     def loop_settle(

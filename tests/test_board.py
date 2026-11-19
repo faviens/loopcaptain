@@ -902,6 +902,43 @@ def test_the_page_says_that_more_questions_follow_and_shows_the_next_after_an_an
     assert store.read_inbox(scan, "scan")[0][-1].question == "seats"
 
 
+def test_a_note_to_a_loop_that_has_ended_says_when_it_will_be_read(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    running = client.post(
+        "/loop/some-repo/scan/reply", data={"token": token_of(client), "text": "Look at prices."}
+    )
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "done"}, scan)
+    ended = client.post(
+        "/loop/some-repo/scan/reply", data={"token": token_of(client), "text": "And at vendors."}
+    )
+
+    assert "reads%20it%20at%20its%20next%20round" in running.headers["location"]
+    assert "when%20it%20is%20started%20again%3A%20it%20is%20done%20now" in ended.headers["location"]
+
+
+def test_the_empty_board_offers_its_two_prompts_with_a_copy_button(tmp_path: Path) -> None:
+    app = create_app(config=lambda: Config(), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST}))
+
+    page = let_in(TestClient(app, base_url=f"http://{HOST}")).get("/").text
+
+    for source in ("prompt-build-text", "prompt-watch-text"):
+        assert f'data-copy-from="{source}"' in page and f'<textarea id="{source}"' in page
+
+
+def test_the_tabs_of_a_loop_wrap_on_a_phone_instead_of_scrolling_sideways() -> None:
+    style = (Path(steer.__file__).parent / "static" / "style.css").read_text(encoding="utf-8")
+
+    assert "@media (max-width: 640px) { nav.tabs { flex-wrap: wrap; overflow: visible; } }" in style
+
+
+def test_the_menu_does_not_cover_the_name_on_a_phone() -> None:
+    """At 390 px the menu is wider than the space beside the name: the name gives way, the mark stays."""
+    style = (Path(steer.__file__).parent / "static" / "style.css").read_text(encoding="utf-8")
+
+    assert "@media (max-width: 520px) { .top .brand > span { position: absolute; width: 1px;" in style
+
+
 def test_the_page_says_beside_start_that_a_stop_is_waiting(
     client: TestClient, scan: Path, helper: types.ModuleType
 ) -> None:
