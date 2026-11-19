@@ -872,3 +872,20 @@ key could then write the board's own status.
 the move read as not from the board. A loop with an earlier helper is as exposed as before,
 until its helper is pasted again; `sig` goes with protocol 2. A process with the user's full
 file access reads the secret, as it read the one key.
+
+## 37. The phone reaches the board through a private network and a chat bridge
+
+**Decision.** Two pieces, both kept: the board itself on the phone, served into the person's
+own tailnet by `tailscale serve` (`loopcaptain serve --host-name` names the host the board
+then answers to), and a Telegram bridge (`loopcaptain telegram`): long polling, buttons for
+the answers a question offers, every reply written to the inbox as a signed line. Neither is in
+a release yet; the real-device checks become rows in `.agent/DEFERRED_VERIFICATION.md` when
+the code lands.
+
+**Why.** A person running loops wants to see where they stand and steer them when away from
+the laptop. The board answers only on 127.0.0.1 and asks for its session cookie, so the phone
+needs a private route to the board, or a channel that carries the steering for it.
+
+**Rejected.** A native phone app, email, SMS and Signal. A public tunnel: it would put the
+board, and the command it may start, on the internet. A push service such as ntfy stays a
+possible later channel.

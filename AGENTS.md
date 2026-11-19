@@ -284,6 +284,10 @@ and no model.
 8. **The page reloads itself every few seconds while files change,** but
    not while a textarea holds text. A template that adds a form field must
    keep that rule in `static/board.js`.
+9. **Base every branch on this repository's `main`.** A private archive
+   of the project's earlier history exists, and its `main` has diverged
+   from this one. A branch cut from it, or pushed to it, has to be
+   replayed here; check `git remote -v` before the first commit.
 
 ### Definition of done
 
