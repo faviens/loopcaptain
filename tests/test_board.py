@@ -781,6 +781,26 @@ def test_the_loop_page_says_which_worktree_it_reads(tmp_path: Path, helper: type
     assert "Fresh copy" in page and "the latest of 2 worktrees" in page and "tool-loop" in page
 
 
+def test_a_loop_that_stalled_weeks_ago_stays_listed_and_leaves_the_alarm(
+    client: TestClient, scan: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A loop that died mid-round stayed in the count of loops that need a look for ever."""
+
+    def later(days: int) -> datetime:
+        return datetime.now(UTC) + timedelta(days=days)
+
+    monkeypatch.setattr("loopcaptain.board.discover.now", lambda: later(3))
+    monkeypatch.setattr("loopcaptain.board.overview.now", lambda: later(3))
+    recent = client.get("/").text
+    monkeypatch.setattr("loopcaptain.board.discover.now", lambda: later(15))
+    monkeypatch.setattr("loopcaptain.board.overview.now", lambda: later(15))
+    old = client.get("/").text
+
+    assert 'class="g-look">needs a look<span class="n">1</span>' in recent and 'class="old"' not in recent
+    assert 'class="g-old">quiet for weeks<span class="n">1</span>' in old and "g-look" not in old
+    assert 'class="pill stalled"' in old and 'class="old"' in old
+
+
 def test_every_status_has_a_place_on_the_overview_and_a_meaning() -> None:
     assert set(get_args(Status)) == set(STATUS_ORDER) == set(STATUS_TEXT)
 

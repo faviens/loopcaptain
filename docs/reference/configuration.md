@@ -13,7 +13,15 @@ roots:       # every direct sub-folder that has a .loops/ folder is a repository
   - ~/projects
 repos:       # single repositories
   - ~/work/research-loop
+hidden:      # loops left off the first page; `loopcaptain hide` and `unhide` edit this list
+  - ~/work/research-loop/.loops/old-run
 ```
+
+A hidden loop is still read and steered, and its page opens by its
+address; it is left off the first page, the waiting tab and the figures in
+the header, and the `hidden` chip on the first page lists it. A loop that
+stalled or failed and has written nothing for 14 days is not hidden: it
+stays listed, marked old, and no longer counts as needing a look.
 
 ## Environment
 

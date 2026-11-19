@@ -245,6 +245,7 @@ table.loops tr.project .waits { position: relative; margin-left: 12px; padding: 
 table.loops tr.project .waits::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
 table.loops tbody tr:not(.project) td.name { padding-left: var(--s4); }
 table.loops td.name span.id { font-family: var(--mono); font-size: var(--t12); }
+table.loops .old { margin-left: 6px; color: var(--text-2); font-size: var(--t12); font-weight: 600; white-space: nowrap; }
 table.loops .asks { margin-left: 6px; color: var(--accent); font-size: var(--t12); font-weight: 600; white-space: nowrap; }
 table.loops .asks::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
 

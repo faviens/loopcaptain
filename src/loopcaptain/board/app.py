@@ -16,7 +16,7 @@ import secrets
 import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, cast
@@ -43,6 +43,7 @@ from loopcaptain.board.discover import (
     load_config,
     load_loop,
     loops_of,
+    put_aside,
     reason,
     unreadable_folders,
 )
@@ -50,7 +51,7 @@ from loopcaptain.board.errors import add_error_pages, secured
 from loopcaptain.board.files import TEXT_SUFFIXES, inside, is_named, named_paths, read_bounded
 from loopcaptain.board.filters import ago, lead, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
-from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of, repeated_ids
+from loopcaptain.board.overview import APART, GROUPS, filter_views, group_of, projects_of, repeated_ids
 from loopcaptain.board.steer import Runner
 from loopcaptain.board.trend import CHART_ROUNDS, caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
@@ -138,6 +139,7 @@ def make_templates() -> Jinja2Templates:
     templates.env.globals["settle_words"] = SETTLE_WORDS
     templates.env.globals["asset_stamp"] = asset_stamp
     templates.env.globals["stoppable"] = STOPPABLE
+    templates.env.globals["group_of"] = group_of
     templates.env.globals["no_progress"] = no_progress_signs
     templates.env.globals["trail_of"] = trail_of
     return templates
@@ -220,10 +222,12 @@ def create_app(
 
     def all_views() -> list[LoopView]:
         views = []
-        for repo in find_repos(config()):
+        cfg = config()
+        for repo in find_repos(cfg):
             for home, loop_id in loops_of(repo):
                 process = steer.process(home, loop_id)
-                views.append(load_loop(home, loop_id, process_alive=bool(process and process.alive)))
+                view = load_loop(home, loop_id, process_alive=bool(process and process.alive))
+                views.append(replace(view, hidden=put_aside(cfg, home, loop_id)))
         return views
 
     def same_id_elsewhere(repo_key: str, loop_id: str) -> tuple[str, ...]:
@@ -241,7 +245,7 @@ def create_app(
             stamp = (overview_fingerprint(), int(time.monotonic() // TOTALS_FRESH_S))
             if counted.get("stamp") != stamp:
                 counted.update(stamp=stamp, views=all_views())
-            views = cast(list[LoopView], counted["views"])
+            views = [view for view in cast(list[LoopView], counted["views"]) if not view.hidden]
         except Exception:  # the header must never take a page down, an error page least of all
             log.exception("the header's figures could not be read")
             return None
@@ -258,12 +262,18 @@ def create_app(
     templates.env.globals["totals"] = totals
 
     def overview_fingerprint() -> str:
-        """From file stats alone, in discovery order: the overview polls it every few seconds."""
-        return "|".join(
+        """From file stats alone, in discovery order: the overview polls it every few seconds. Which
+        loops are hidden is part of it: `hide` changes the page and no loop's file."""
+        cfg = config()
+        states = [
             store.fingerprint(home.path, loop_id)
-            for repo in find_repos(config())
+            for repo in find_repos(cfg)
             for home, loop_id in loops_of(repo)
-        )
+        ]
+        hidden = hashlib.sha256("\0".join(sorted(str(entry) for entry in cfg.hidden)).encode()).hexdigest()[
+            :8
+        ]
+        return "|".join([*states, hidden])
 
     def seal(note: str, error: str) -> str:
         """A mark only this server process can make, so a crafted link cannot put words on a page."""
@@ -325,10 +335,13 @@ def create_app(
         group = show if show in GROUPS else ""
         if group:  # one group, finished or not, whatever else the address says
             shown, hidden = [view for view in found if group_of(view) == group], 0
+        else:
+            shown = [view for view in shown if group_of(view) not in APART]
+        seen = [view for view in views if not view.hidden]  # what the figures and the waiting tab count
         context = {
             "views": views,
             "projects": projects_of(shown),
-            "project_count": len({view.repo.key for view in views}),
+            "project_count": len({view.repo.key for view in seen}),
             "hidden": hidden,
             "groups": GROUPS,
             "group_counts": groups,
@@ -342,8 +355,8 @@ def create_app(
             "statuses": STATUS_ORDER,
             "prompts": prompts(),
             "tab": tab if tab in OVERVIEW_TABS else "loops",
-            "waiting": [view for view in views if view.state and view.state.question],
-            "waiting_projects": projects_of([view for view in views if view.state and view.state.question]),
+            "waiting": [view for view in seen if view.state and view.state.question],
+            "waiting_projects": projects_of([view for view in seen if view.state and view.state.question]),
             "config": cfg,
             "error": error or told,
             "note": note,
@@ -352,7 +365,7 @@ def create_app(
             "token": token,
             "pulse": overview_fingerprint() if not error else "error",
             "turn_at": turn_at(views),
-            "total_usd": sum(view.state.cost_usd for view in views if view.state),
+            "total_usd": sum(view.state.cost_usd for view in seen if view.state),
         }
         return templates.TemplateResponse(request, "overview.html", context)
 
@@ -390,6 +403,7 @@ def create_app(
             "shown": shown,
             # A link to a round opens the rounds tab; an unknown tab is the overview.
             "tab": tab if tab in TABS else ("rounds" if round is not None else "overview"),
+            "hidden": put_aside(config(), repo, loop_id),
             "grid": round_window(state.rounds, shown),
             "rows_shown": ROWS_SHOWN,
             "chart_rounds": CHART_ROUNDS,
