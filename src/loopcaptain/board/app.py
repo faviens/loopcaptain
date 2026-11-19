@@ -52,7 +52,7 @@ from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.models import FindingRef, Manifest
-from loopcaptain.protocol.signing import board_key, is_signed, read_key
+from loopcaptain.protocol.signing import board_keys, is_from_board, read_board_keys
 from loopcaptain.protocol.state import STATUS_TEXT, LoopState, no_progress_signs
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import validate_loop
@@ -382,7 +382,7 @@ def create_app(
             "confirmed": steer.is_confirmed(repo, loop_id, manifest.commands.get("start", "")),
             "changed_files": steer.changed_files(repo, loop_id, manifest.commands.get("start", "")),
             "runs_elsewhere": runs_elsewhere(view, steer),
-            "signed": inbox_marks(state),
+            "signed": inbox_marks(repo, state),
             "charts": charts_of(state),
             "stuck": no_progress_signs(state),
             "report": validate_loop(repo.path, loop_id),
@@ -480,7 +480,7 @@ def create_app(
                 "reply",
                 message,
                 round_,
-                key=board_key(),
+                keys=board_keys(),
                 question=asked.id if asked else None,
                 choice=picked.id if picked else None,
             )
@@ -537,7 +537,7 @@ def create_app(
                 "reply",
                 said + (f" Why: {reason}" if reason else ""),
                 state.last_round.number if state and state.last_round else None,
-                key=board_key(),
+                keys=board_keys(),
                 finding=ref,
             )
         except StoreError as problem:
@@ -564,7 +564,7 @@ def create_app(
                 error=f"No stop was sent: this loop is {status} and starts no further round by itself.",
             )
         try:
-            store.append_inbox(repo.path, loop_id, "stop", key=board_key())
+            store.append_inbox(repo.path, loop_id, "stop", keys=board_keys())
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, error=str(problem))
         return back(repo_key, loop_id, tab=tab, note="Stop sent. The loop ends after its current round.")
@@ -667,10 +667,11 @@ def runs_elsewhere(view: LoopView, steer: Runner) -> bool:
     return not (process and process.alive)
 
 
-def inbox_marks(state: LoopState) -> dict[str, bool | None]:
+def inbox_marks(repo: Repo, state: LoopState) -> dict[str, bool | None]:
     """For each inbox entry, whether this board signed it; None where the board has no key yet."""
-    key = read_key()
-    return {item.entry.id: is_signed(item.entry.body(), key, state.manifest.id) for item in state.inbox}
+    keys, loop_id = read_board_keys(), state.manifest.id
+    folder = store.loop_dir(repo.path, loop_id)
+    return {item.entry.id: is_from_board(item.entry.body(), keys, folder, loop_id) for item in state.inbox}
 
 
 def pulse_of(repo: Repo, loop_id: str, steer: Runner) -> str:

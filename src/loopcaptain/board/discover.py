@@ -18,7 +18,7 @@ import yaml
 from loopcaptain.board.command import is_hidden
 from loopcaptain.protocol import store
 from loopcaptain.protocol.models import FOLDER, Manifest, now
-from loopcaptain.protocol.signing import untrusted_ids
+from loopcaptain.protocol.signing import hand_out, read_board_keys, untrusted_ids
 from loopcaptain.protocol.state import LoopState, fold
 from loopcaptain.protocol.store import Problem, StoreError
 
@@ -238,12 +238,26 @@ def safe_key(name: str) -> str:
     return "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in name) or "repo"
 
 
+def give_its_key(folder: Path) -> None:
+    """A loop the board has seen can check its inbox from the first line; a page still shows where
+    the key folder cannot be written."""
+    keys = read_board_keys()
+    try:
+        if keys is not None:
+            hand_out(keys, folder)
+    except OSError as error:
+        log.warning("the key of %s cannot be written: %s", folder, error)
+
+
 def load_loop(repo: Repo, loop_id: str, at: datetime | None = None, process_alive: bool = False) -> LoopView:
     try:
         manifest = store.read_manifest(repo.path, loop_id)
         events, event_problems = store.read_events(repo.path, loop_id)
         inbox, inbox_problems = store.read_inbox(repo.path, loop_id)
-        state = fold(manifest, events, inbox, at or now(), process_alive, untrusted_ids(inbox, loop_id))
+        folder = store.loop_dir(repo.path, loop_id)
+        untrusted = untrusted_ids(inbox, loop_id, folder)
+        state = fold(manifest, events, inbox, at or now(), process_alive, untrusted)
+        give_its_key(folder)
     except StoreError as error:
         return LoopView(repo, loop_id, None, error=str(error))
     except Exception as error:

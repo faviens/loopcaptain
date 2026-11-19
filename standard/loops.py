@@ -29,10 +29,8 @@ def emit(loop_id, event, fields=None, repo=".", at=None):
     if {"ts", "event", "at"} & set(fields or {}):
         raise ValueError("emit sets `ts` and `event`; pass when it happened as `at=`, not a field")
     now = time.time()
-    line = {
-        "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + f".{int(now % 1 * 1000):03d}Z",
-        "event": event,
-    }
+    ts = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + f".{int(now % 1 * 1000):03d}Z"
+    line = {"ts": ts, "event": event}
     stamp = at.astimezone(timezone.utc).isoformat() if isinstance(at, datetime) else at
     line.update({key: value for key, value in {"at": stamp, **(fields or {})}.items() if value is not None})
     with open(folder(loop_id, repo) / "events.jsonl", "a", encoding="utf-8") as log:
@@ -59,21 +57,23 @@ def last_round(loop_id, repo="."):
     return max([number for number in rounds if isinstance(number, int)], default=0)
 
 
-def signed(entry, loop_id):
+def signed(entry, loop_id, repo="."):
     """True if the board wrote this entry for this loop, False if not, None where there is no key."""
-    key = Path(os.environ.get("LOOPCAPTAIN_INBOX_KEY") or "~/.config/loopcaptain/inbox.key").expanduser()
+    home = Path(os.environ.get("LOOPCAPTAIN_INBOX_KEY") or "~/.config/loopcaptain/inbox.key").expanduser()
+    place = str(folder(loop_id, repo).resolve()).encode()  # this loop's own key, named after its folder
+    key = home.parent / "keys" / (hashlib.sha256(place).hexdigest()[:32] + ".key")
     if not key.is_file():
         return None
     if entry.get("loop") != loop_id:
         return False
-    body = {key: value for key, value in entry.items() if key != "sig"}
+    body = {key: value for key, value in entry.items() if key not in ("sig", "loop_sig")}
     text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     try:
         secret = bytes.fromhex(key.read_text(encoding="utf-8").strip())
     except ValueError:
         return None  # a key the board would not use either: nothing can be told apart
     mark = hmac.new(secret, text.encode(), hashlib.sha256).hexdigest()
-    return hmac.compare_digest(mark, str(entry.get("sig", "")))
+    return hmac.compare_digest(mark, str(entry.get("loop_sig", "")))
 
 
 def moment(stamp):
@@ -103,7 +103,7 @@ def inbox(loop_id, repo="."):
     fresh = [entry for entry in lines(base / "inbox.jsonl") if entry.get("id") and entry["id"] not in seen]
     if fresh:
         emit(loop_id, "inbox_read", {"ids": [entry["id"] for entry in fresh]}, repo)
-    taken = [{**entry, "signed": signed(entry, loop_id), "stale": stale(entry, asked)} for entry in fresh]
+    taken = [{**e, "signed": signed(e, loop_id, repo), "stale": stale(e, asked)} for e in fresh]
     if any(entry["signed"] is None for entry in taken):
         sys.stderr.write("loops: no board key to read, so `signed` is None: these entries are unchecked\n")
     return taken

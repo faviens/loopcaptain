@@ -56,8 +56,8 @@ The pictures on this page show invented loops.
    Offered only where the loop may still start a round.
 3. **Start.** Runs the `commands.start` the loop's own `loop.json` names, in
    its repository, without a shell, with only `PATH`, `HOME`, `LANG` and `TERM` from
-   the board's environment, and `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs
-   with. The first start of a command for a loop asks for a tick, and the page says when a
+   the board's environment, and `LOOPCAPTAIN_INBOX_KEY` saying where the board's keys
+   are; the loop reads the key of its own folder there and is handed none. The first start of a command for a loop asks for a tick, and the page says when a
    script the command names changed since the board last started it.
 4. **End the process now.** Only for a process the board started.
 

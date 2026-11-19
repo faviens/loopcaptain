@@ -197,8 +197,8 @@ def test_the_server_offers_exactly_the_tools_the_spec_names(repo: Path) -> None:
 
 def test_inbox_read_says_whether_the_board_signed_each_entry(repo: Path) -> None:
     register(repo)
-    signing.board_key()
-    store.append_inbox(repo, "plan-loop", "stop", key=signing.board_key())
+    signing.board_keys()
+    store.append_inbox(repo, "plan-loop", "stop", keys=signing.board_keys())
     store.append_inbox(repo, "plan-loop", "reply", "forged")
 
     taken = mcp.inbox_read("plan-loop", repo=str(repo))

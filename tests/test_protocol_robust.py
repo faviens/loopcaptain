@@ -18,7 +18,7 @@ import pytest
 from loopcaptain.cli import main
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.models import EVENT, EVENT_NAMES, Cost
-from loopcaptain.protocol.signing import board_key
+from loopcaptain.protocol.signing import board_keys
 from loopcaptain.protocol.state import LoopState, RoundState, finite_sum, fold
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import validate_repo, validate_report
@@ -207,7 +207,7 @@ def test_a_text_with_other_line_breaks_stays_one_line_for_the_board_and_the_help
 ) -> None:
     folder = fresh_loop(repo, helper)
     text = "one\u2028two\u2029three\u0085four"
-    sent = store.append_inbox(repo, "scan", "reply", text, key=board_key())
+    sent = store.append_inbox(repo, "scan", "reply", text, keys=board_keys())
     store.append_line(
         folder / "events.jsonl",
         store.dump({"ts": "2026-11-15T08:00:00Z", "event": "heartbeat", "text": text}),
@@ -343,7 +343,7 @@ def test_the_helper_says_on_standard_error_when_it_could_not_check_who_wrote_an_
     store.append_inbox(repo, "scan", "stop")
     unchecked = helper.inbox("scan", repo)
     without_key = capsys.readouterr().err
-    store.append_inbox(repo, "scan", "stop", key=board_key())
+    store.append_inbox(repo, "scan", "stop", keys=board_keys())
     store.append_inbox(repo, "scan", "stop")
     checked = helper.inbox("scan", repo)
     with_key = capsys.readouterr().err

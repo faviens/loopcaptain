@@ -11,7 +11,12 @@ description: "What the board reads, runs and writes: how a browser gets in, how 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/steer-dark.svg">
-  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with the inbox key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that names the key's path, and keeps its records in the state folder." src="assets/steer-light.svg">
+  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with that loop's own key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that says where the keys are, and keeps its records in the state folder." src="assets/steer-light.svg">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/keys-dark.svg">
+  <img alt="Who holds which key: the board makes a key for each loop folder from its secret and puts each in a file of its own; an answer for loop two is signed with loop two's key and taken; a stop that loop two signs for loop one with the one key it holds reads there as signed False." src="assets/keys-light.svg">
 </picture>
 
 --8<-- "SECURITY.md:model"

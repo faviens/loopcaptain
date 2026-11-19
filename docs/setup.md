@@ -85,16 +85,34 @@ loopcaptain serve --port 9000
 
 ## 5. The key your answers are signed with
 
-The board signs every line it writes into a loop's `inbox.jsonl` with
-`~/.config/loopcaptain/inbox.key`, made when `serve` first starts. A loop that reads
-the same key can refuse a stop or an answer the board did not write. A
-loop the board starts gets the key's path as `LOOPCAPTAIN_INBOX_KEY`,
-whether or not the board's own environment sets it; a loop you start
-yourself finds it in the default place.
+The board signs every line it writes into a loop's `inbox.jsonl` with a
+key of that loop alone. The keys are files in the board's config folder,
+never in a repository:
+
+| File in `~/.config/loopcaptain/` | Holds | Read by |
+|---|---|---|
+| `board.key` | the secret every loop's key is made from, made when `serve` first starts | the board only |
+| `keys/<name>.key` | the key of one loop folder; `<name>` is a digest of the folder's place | that loop, and the board |
+| `inbox.key` | the one key of earlier versions, still used for `sig` | a loop with a helper pasted before each loop had a key |
+
+A loop stores no key. Its helper works out the name of its own file from
+the place of its `.loops/<loop-id>/` folder and reads that file, so it
+can refuse a stop or an answer the board did not write, and it cannot
+sign for any other loop. The board writes a loop's file when it first
+sees the loop, and before it starts it. A loop the board starts gets
+`LOOPCAPTAIN_INBOX_KEY`, which says where the folder is and holds no key;
+a loop you start yourself finds the default place. Moving a repository
+gives its loops new keys: answers sent before the move then read as not
+from the board.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/keys-dark.svg">
+  <img alt="Who holds which key: the board makes a key for each loop folder from its secret and puts each in a file of its own; an answer for loop two is signed with loop two's key and taken; a stop that loop two signs for loop one with the one key it holds reads there as signed False." src="assets/keys-light.svg">
+</picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/steer-dark.svg">
-  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with the inbox key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that names the key's path, and keeps its records in the state folder." src="assets/steer-light.svg">
+  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with that loop's own key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that says where the keys are, and keeps its records in the state folder." src="assets/steer-light.svg">
 </picture>
 
 ## When a loop does not show

@@ -365,7 +365,7 @@ helper writes `ts` to the millisecond.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/steer-dark.svg">
-  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with the inbox key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that names the key's path, and keeps its records in the state folder." src="assets/steer-light.svg">
+  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with that loop's own key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that says where the keys are, and keeps its records in the state folder." src="assets/steer-light.svg">
 </picture>
 
 **Why.** A first loop built from nothing by a fresh agent, given only the
@@ -830,3 +830,45 @@ its script before most starts, and a tick asked every time is ticked without rea
 what a script imports: the board would have to understand each language, and a digest of one
 file already says "look again". Refusing every character outside ASCII: a path may hold any
 letter.
+
+## 36. Each loop has a key of its own; the board keeps the secret they are made from
+
+Replaces the key of section 12 and the first sentence of section 17's decision. Sections 16 and
+26 stand: they now read `loop_sig`.
+
+**Decision.** The board holds one secret, `board.key`, in its config folder, and reads it alone.
+The key of a loop is an HMAC-SHA256 of that secret over the resolved path of the loop's folder,
+`.loops/<loop-id>/` (`loop_key` in `protocol/signing.py`). The board writes each loop's key into a
+file of its own, `keys/<name>.key` beside the secret, where `<name>` is the first 32 hex
+characters of the SHA-256 of the same path: when it first sees the loop, before it starts it, and
+with every line it sends (`hand_out`). A loop stores no key and is handed none: the helper and
+the MCP server work the file's name out from the loop's own folder and read that file.
+`LOOPCAPTAIN_INBOX_KEY`, still passed by Start, says where the folder is. Every line the board
+writes carries `loop_sig` under the loop's key, over the line without its marks. It also carries
+`sig`, under the one key of earlier versions (`inbox.key`), over the line with `loop_sig`, exactly
+as a helper pasted from the earlier text computes it. The board trusts `loop_sig` only; a line
+older than its secret, which can carry only `sig`, it reads by `sig` (`is_from_board`).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/keys-dark.svg">
+  <img alt="Who holds which key: the board makes a key for each loop folder from its secret and puts each in a file of its own; an answer for loop two is signed with loop two's key and taken; a stop that loop two signs for loop one with the one key it holds reads there as signed False." src="assets/keys-light.svg">
+</picture>
+
+**Why.** One key signed for every loop, and every loop that could check a line could read it, so
+a loop in one repository could write a stop or an approval into the inbox of a loop in another,
+and the board showed it as its own. A loop confined to its repository and its own key file can
+now sign for its own inbox only, which it could write to anyway. The helper stays standard
+library, and a loop written against the earlier text keeps taking the board's lines.
+
+**Rejected.** Asymmetric signatures: nothing a loop holds could sign, but checking needs a
+package, and the helper must stay a paste (rule 2). Keeping one key and saying so: the fault
+stays. A key named by the loop's id alone: two repositories with a loop of the same name would
+share it. A key kept in the loop's repository: the agents it is meant to hold out can read it.
+Dropping `sig` at once: every loop with an earlier helper would read the person's stop as not
+from the board and run on. Trusting `sig` in the board for any line: whoever holds the earlier
+key could then write the board's own status.
+
+**What it costs.** A moved or renamed repository gives its loops new keys, and lines sent before
+the move read as not from the board. A loop with an earlier helper is as exposed as before,
+until its helper is pasted again; `sig` goes with protocol 2. A process with the user's full
+file access reads the secret, as it read the one key.

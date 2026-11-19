@@ -29,8 +29,8 @@ from pathlib import Path
 from loopcaptain.board.command import named_files, read_command
 from loopcaptain.board.discover import Repo, git_common_dir, safe_key
 from loopcaptain.protocol.models import Manifest, now
-from loopcaptain.protocol.signing import KEY_ENV, key_path
-from loopcaptain.protocol.store import StoreError
+from loopcaptain.protocol.signing import KEY_ENV, board_keys, hand_out, key_path
+from loopcaptain.protocol.store import StoreError, loop_dir
 
 log = logging.getLogger("loopcaptain.steer")
 
@@ -130,8 +130,9 @@ def state_home() -> Path:
 
 
 def minimal_env() -> dict[str, str]:
-    """The environment a started loop gets: enough to find programs and its home, and the path of the
-    key the board signs with, whether or not the board's own environment names it."""
+    """The environment a started loop gets: enough to find programs and its home, and the path that
+    names the board's key folder, whether or not the board's own environment names it. A loop finds
+    the key of its own folder there (`keys/`); an earlier helper reads the one key of its time."""
     passed = {name: os.environ[name] for name in PASSED_ENV if name in os.environ}
     return {**passed, KEY_ENV: str(key_path())}
 
@@ -321,6 +322,8 @@ class Runner:
         if current and current.alive:
             raise StoreError(f"already running (pid {current.pid})")
         private_folder(self.state_dir)
+        # Its key lies where the loop looks before its first line: it reads no answer unchecked.
+        hand_out(board_keys(), loop_dir(repo.path, manifest.id))
         self.put_aside_a_long_log(repo, manifest.id)
         started = now()
         descriptor = os.open(

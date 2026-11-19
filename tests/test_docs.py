@@ -50,7 +50,14 @@ def readme_assets() -> types.ModuleType:
     return module
 
 
-PICTURES = ("parts_picture", "trust_picture", "request_picture", "entry_picture", "steer_picture")
+PICTURES = (
+    "parts_picture",
+    "trust_picture",
+    "request_picture",
+    "entry_picture",
+    "steer_picture",
+    "keys_picture",
+)
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
@@ -94,7 +101,7 @@ def test_every_picture_a_page_shows_exists() -> None:
     assert "assets/screenshot-connect.webp" in (ROOT / "docs" / "setup.md").read_text(encoding="utf-8")
 
 
-@pytest.mark.parametrize("name", ["entry", "steer"])
+@pytest.mark.parametrize("name", ["entry", "steer", "keys"])
 def test_the_security_pages_show_how_a_browser_gets_in_and_steering_reaches_a_loop(name: str) -> None:
     on_the_code_host = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
     on_the_site = (ROOT / "docs" / "security.md").read_text(encoding="utf-8")

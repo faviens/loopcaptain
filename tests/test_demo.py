@@ -62,12 +62,12 @@ def test_the_example_converges_and_ends_done(tmp_path: Path) -> None:
 
 def test_a_signed_stop_ends_it_between_rounds_and_a_forged_one_does_not(tmp_path: Path) -> None:
     repo = write_demo(tmp_path / "demo")
-    signing.board_key()  # a board has run on this machine, so the loop can tell its lines apart
+    signing.board_keys()  # a board has run on this machine, so the loop can tell its lines apart
     forged = '{"id": "f1", "ts": "2026-11-15T00:00:00Z", "kind": "stop"}'
     store.append_line(repo / ".loops" / LOOP / "inbox.jsonl", forged)
 
     run_loop(repo, "--rounds", "1")
-    store.append_inbox(repo, LOOP, "stop", key=signing.board_key())
+    store.append_inbox(repo, LOOP, "stop", keys=signing.board_keys())
     run_loop(repo, "--rounds", "1")
 
     state = state_of(repo)
@@ -124,15 +124,15 @@ def test_doctor_does_not_count_an_end_before_the_stop_was_taken(tmp_path: Path) 
 
 def test_a_stop_sent_during_the_last_round_is_taken_before_the_loop_ends(tmp_path: Path) -> None:
     repo = write_demo(tmp_path / "demo")
-    key = signing.board_key()
+    keys = signing.board_keys()
     command = [sys.executable, "loop.py", "--pace", "0.2", "--wait", "0", "--rounds", "1"]
 
     with subprocess.Popen(command, cwd=repo) as process:
         while len(state_of(repo).rounds) == SEEDED_ROUNDS:
             assert process.poll() is None, "the loop ended before its round began"
             time.sleep(0.05)
-        stop = store.append_inbox(repo, LOOP, "stop", key=key)
-        store.append_inbox(repo, LOOP, "reply", "Shorter rows.", key=key)
+        stop = store.append_inbox(repo, LOOP, "stop", keys=keys)
+        store.append_inbox(repo, LOOP, "reply", "Shorter rows.", keys=keys)
         process.wait(timeout=60)
     stopped = state_of(repo)
     run_loop(repo, "--rounds", "1")

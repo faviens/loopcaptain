@@ -233,7 +233,7 @@ would end at once. A reply read that late is steering for the next start;
 keep it in a file of the loop's own.
 
 ```json
-{"id": "20261114T211900-a3f1", "ts": "2026-11-14T21:19:00Z", "kind": "reply", "text": "Per seat.", "round": 3, "sig": "9c1e..."}
+{"id": "20261114T211900-a3f1", "ts": "2026-11-14T21:19:00Z", "kind": "reply", "text": "Per seat.", "round": 3, "loop": "market-scan", "loop_sig": "9c1e..."}
 {"id": "20261114T213000-09bc", "ts": "2026-11-14T21:30:00Z", "kind": "stop"}
 {"id": "20261114T214500-5d20", "ts": "2026-11-14T21:45:00Z", "kind": "reply", "text": "Won't fix: No source for the price.", "round": 3, "finding": {"step": "review", "id": "2", "resolution": "wontfix", "reason": "The price is quoted on request only."}, "sig": "1f7a..."}
 ```
@@ -257,28 +257,38 @@ keep it in a file of the loop's own.
 After acting on entries, append `inbox_read` with their ids so the board
 shows them as read.
 
-Every line the board writes carries `sig`, an HMAC-SHA256 in hex over the
-line without `sig` (keys sorted, no spaces, as `json.dumps(...,
-sort_keys=True, separators=(",", ":"), ensure_ascii=False)` writes it).
-The line names its loop in `loop`, signed with the rest, so a line copied
-into another loop's inbox does not verify there. The key is in the
-board's config folder, `~/.config/loopcaptain/inbox.key`
-or the file `LOOPCAPTAIN_INBOX_KEY` names, outside every repository. The
-helper and the MCP tool add `signed` to each entry:
+Every line the board writes carries `loop_sig`, an HMAC-SHA256 in hex over
+the line without `sig` and `loop_sig` (keys sorted, no spaces, as
+`json.dumps(..., sort_keys=True, separators=(",", ":"),
+ensure_ascii=False)` writes it). The line names its loop in `loop`, signed
+with the rest, so a line copied into another loop's inbox does not verify
+there. The key is this loop's alone. The board makes one for each loop
+folder and puts it in a file of its own in its config folder, outside
+every repository: `~/.config/loopcaptain/keys/<name>.key`, where `<name>`
+is the first 32 hex characters of the SHA-256 of the loop folder's
+resolved path. Where `LOOPCAPTAIN_INBOX_KEY` names a file elsewhere,
+`keys/` lies beside that file. A loop that holds its key can sign for its
+own inbox and for no other loop's.
+
+A line also carries `sig`, an HMAC under the one key every loop read
+before each had its own (`inbox.key` in the same folder), over the line
+without `sig`. A helper pasted from that earlier text checks it and keeps
+working; the helper below does not read it, and the board does not trust
+it. The helper and the MCP tool add `signed` to each entry:
 
 1. `true`: the board wrote it for this loop.
 2. `false`: anything else did. A loop whose agents can write files SHOULD
    NOT act on it: it is not from the person.
-3. `null`: nothing was checked, because the loop cannot read the key. No
-   board has written to an inbox on this machine yet, or the loop runs
-   somewhere the config folder is not visible (a container), or
-   `LOOPCAPTAIN_INBOX_KEY` names another file. `null` is not `true`: a
+3. `null`: nothing was checked, because the loop cannot read its key. No
+   board has seen this loop yet, or the loop runs somewhere the config
+   folder is not visible (a container), or `LOOPCAPTAIN_INBOX_KEY` names
+   another place than the board's. `null` is not `true`: a
    line from the person and a line from anyone else who can write the
    file look the same.
 
 A loop SHOULD act only on entries whose `signed` is `true`. Where the key
-cannot be read, make it readable to the loop (mount the file, or set
-`LOOPCAPTAIN_INBOX_KEY`) rather than accept `null`; a loop that accepts
+cannot be read, make it readable to the loop (mount the loop's key file,
+or set `LOOPCAPTAIN_INBOX_KEY`) rather than accept `null`; a loop that accepts
 `null` anyway does so knowing that its inbox is then only as safe as its
 repository. The helper writes a line to standard error whenever it hands
 out an entry it could not check, so the case does not pass unseen.
@@ -326,10 +336,8 @@ def emit(loop_id, event, fields=None, repo=".", at=None):
     if {"ts", "event", "at"} & set(fields or {}):
         raise ValueError("emit sets `ts` and `event`; pass when it happened as `at=`, not a field")
     now = time.time()
-    line = {
-        "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + f".{int(now % 1 * 1000):03d}Z",
-        "event": event,
-    }
+    ts = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + f".{int(now % 1 * 1000):03d}Z"
+    line = {"ts": ts, "event": event}
     stamp = at.astimezone(timezone.utc).isoformat() if isinstance(at, datetime) else at
     line.update({key: value for key, value in {"at": stamp, **(fields or {})}.items() if value is not None})
     with open(folder(loop_id, repo) / "events.jsonl", "a", encoding="utf-8") as log:
@@ -356,21 +364,23 @@ def last_round(loop_id, repo="."):
     return max([number for number in rounds if isinstance(number, int)], default=0)
 
 
-def signed(entry, loop_id):
+def signed(entry, loop_id, repo="."):
     """True if the board wrote this entry for this loop, False if not, None where there is no key."""
-    key = Path(os.environ.get("LOOPCAPTAIN_INBOX_KEY") or "~/.config/loopcaptain/inbox.key").expanduser()
+    home = Path(os.environ.get("LOOPCAPTAIN_INBOX_KEY") or "~/.config/loopcaptain/inbox.key").expanduser()
+    place = str(folder(loop_id, repo).resolve()).encode()  # this loop's own key, named after its folder
+    key = home.parent / "keys" / (hashlib.sha256(place).hexdigest()[:32] + ".key")
     if not key.is_file():
         return None
     if entry.get("loop") != loop_id:
         return False
-    body = {key: value for key, value in entry.items() if key != "sig"}
+    body = {key: value for key, value in entry.items() if key not in ("sig", "loop_sig")}
     text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     try:
         secret = bytes.fromhex(key.read_text(encoding="utf-8").strip())
     except ValueError:
         return None  # a key the board would not use either: nothing can be told apart
     mark = hmac.new(secret, text.encode(), hashlib.sha256).hexdigest()
-    return hmac.compare_digest(mark, str(entry.get("sig", "")))
+    return hmac.compare_digest(mark, str(entry.get("loop_sig", "")))
 
 
 def moment(stamp):
@@ -400,7 +410,7 @@ def inbox(loop_id, repo="."):
     fresh = [entry for entry in lines(base / "inbox.jsonl") if entry.get("id") and entry["id"] not in seen]
     if fresh:
         emit(loop_id, "inbox_read", {"ids": [entry["id"] for entry in fresh]}, repo)
-    taken = [{**entry, "signed": signed(entry, loop_id), "stale": stale(entry, asked)} for entry in fresh]
+    taken = [{**e, "signed": signed(e, loop_id, repo), "stale": stale(e, asked)} for e in fresh]
     if any(entry["signed"] is None for entry in taken):
         sys.stderr.write("loops: no board key to read, so `signed` is None: these entries are unchecked\n")
     return taken

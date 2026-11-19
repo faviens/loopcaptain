@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="508" viewBox="0 0 1200 508" role="img" aria-label="How steering reaches a loop. An answer or a stop, sent from the loop's page past the three gates, is appended to the loop's inbox.jsonl as one line that names its loop, signed with an HMAC under the key in ~/.config/loopcaptain/inbox.key or the file LOOPCAPTAIN_INBOX_KEY names. The loop's helper checks the signature with the same key and acts only on signed is True. Start runs commands.start from the loop's loop.json, after a tick the first time, split into arguments without a shell, with only PATH, HOME, LANG, TERM and the key's path in its environment; the tick, the pid and the log are kept in ~/.local/state/loopcaptain.">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="508" viewBox="0 0 1200 508" role="img" aria-label="How steering reaches a loop. An answer or a stop, sent from the loop's page past the three gates, is appended to the loop's inbox.jsonl as one line that names its loop, signed with an HMAC, loop_sig, under that loop's own key, which the board makes from its secret in ~/.config/loopcaptain. The loop's helper checks the signature with the key of its own folder and acts only on signed is True. Start runs commands.start from the loop's loop.json, after a tick the first time, split into arguments without a shell, with only PATH, HOME, LANG, TERM and the place of the key folder in its environment; the tick, the pid and the log are kept in ~/.local/state/loopcaptain.">
   <title>How steering reaches a loop</title>
   <g font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
   <rect width="1200" height="508" fill="#FDFDFB"/>
@@ -10,22 +10,22 @@
   <text x="76" y="147" font-size="12.5" font-weight="400" fill="#71716E" >a form on the loop's page,</text>
   <text x="76" y="164" font-size="12.5" font-weight="400" fill="#71716E" >past the three gates</text>
   <rect x="336" y="100" width="252" height="101" rx="12" fill="#FFFFFF" stroke="#E4E3DE" stroke-width="1.2"/>
-  <text x="350" y="125" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">Signed with inbox.key</text>
-  <text x="350" y="147" font-size="12.5" font-weight="400" fill="#71716E" >~/.config/loopcaptain/, or the</text>
-  <text x="350" y="164" font-size="12.5" font-weight="400" fill="#71716E" >file LOOPCAPTAIN_INBOX_KEY</text>
-  <text x="350" y="181" font-size="12.5" font-weight="400" fill="#71716E" >names</text>
+  <text x="350" y="125" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">Signed for that loop</text>
+  <text x="350" y="147" font-size="12.5" font-weight="400" fill="#71716E" >with the loop's own key, made</text>
+  <text x="350" y="164" font-size="12.5" font-weight="400" fill="#71716E" >from the board's secret in</text>
+  <text x="350" y="181" font-size="12.5" font-weight="400" fill="#71716E" >~/.config/loopcaptain/</text>
   <path d="M 316 150 H 332" fill="none" stroke="#71716E" stroke-width="1.6" marker-end="url(#tip)"/>
   <rect x="610" y="100" width="252" height="101" rx="12" fill="#FFFFFF" stroke="#E4E3DE" stroke-width="1.2"/>
   <text x="624" y="125" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="ui-monospace, SF Mono, Menlo, monospace">inbox.jsonl</text>
   <text x="624" y="147" font-size="12.5" font-weight="400" fill="#71716E" >one line appended; it names</text>
-  <text x="624" y="164" font-size="12.5" font-weight="400" fill="#71716E" >its loop, and sig is an HMAC</text>
-  <text x="624" y="181" font-size="12.5" font-weight="400" fill="#71716E" >over the rest</text>
+  <text x="624" y="164" font-size="12.5" font-weight="400" fill="#71716E" >its loop, and loop_sig is an</text>
+  <text x="624" y="181" font-size="12.5" font-weight="400" fill="#71716E" >HMAC over the rest</text>
   <path d="M 590 150 H 606" fill="none" stroke="#71716E" stroke-width="1.6" marker-end="url(#tip)"/>
   <rect x="884" y="100" width="252" height="101" rx="12" fill="#FFFFFF" stroke="#D6000B" stroke-width="2"/>
   <text x="898" y="125" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">The loop's helper</text>
-  <text x="898" y="147" font-size="12.5" font-weight="400" fill="#71716E" >checks sig with the same key</text>
-  <text x="898" y="164" font-size="12.5" font-weight="400" fill="#71716E" >and acts only on</text>
-  <text x="898" y="181" font-size="12.5" font-weight="400" fill="#71716E" >signed is True</text>
+  <text x="898" y="147" font-size="12.5" font-weight="400" fill="#71716E" >checks loop_sig with the key</text>
+  <text x="898" y="164" font-size="12.5" font-weight="400" fill="#71716E" >of its own folder and acts</text>
+  <text x="898" y="181" font-size="12.5" font-weight="400" fill="#71716E" >only on signed is True</text>
   <path d="M 864 150 H 880" fill="none" stroke="#71716E" stroke-width="1.6" marker-end="url(#tip)"/>
   <rect x="40" y="261" width="1118" height="155" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="40" y="255" width="1118" height="155" rx="20" fill="#ECEAE5" stroke="#E4E3DE"/>
   <text x="58" y="281" font-size="11" font-weight="600" fill="#71716E" letter-spacing="1.4">START: THE ONE COMMAND THE LOOP DECLARED</text>
@@ -42,7 +42,7 @@
   <text x="624" y="320" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">A minimal environment</text>
   <text x="624" y="342" font-size="12.5" font-weight="400" fill="#71716E" >PATH, HOME, LANG, TERM, and</text>
   <text x="624" y="359" font-size="12.5" font-weight="400" fill="#71716E" >LOOPCAPTAIN_INBOX_KEY:</text>
-  <text x="624" y="376" font-size="12.5" font-weight="400" fill="#71716E" >the key's path</text>
+  <text x="624" y="376" font-size="12.5" font-weight="400" fill="#71716E" >where the keys are, no key</text>
   <path d="M 590 345 H 606" fill="none" stroke="#71716E" stroke-width="1.6" marker-end="url(#tip)"/>
   <rect x="884" y="295" width="252" height="101" rx="12" fill="#FFFFFF" stroke="#E4E3DE" stroke-width="1.2"/>
   <text x="898" y="320" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="ui-monospace, SF Mono, Menlo, monospace">~/.local/state/loopcaptain</text>
