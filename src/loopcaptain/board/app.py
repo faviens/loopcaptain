@@ -261,6 +261,12 @@ def create_app(
 
     templates.env.globals["totals"] = totals
 
+    def waiting_now() -> int:
+        """How many loops wait for the person: a tab in the background shows it in its title and
+        says so in a notification, without drawing the page again."""
+        figures = totals()
+        return int(cast(int, figures["waiting"])) if figures else 0
+
     def overview_fingerprint() -> str:
         """From file stats alone, in discovery order: the overview polls it every few seconds. Which
         loops are hidden is part of it: `hide` changes the page and no loop's file."""
@@ -372,7 +378,7 @@ def create_app(
     @app.get("/pulse", name="overview_pulse")
     def overview_pulse() -> JSONResponse:
         try:
-            return JSONResponse({"pulse": overview_fingerprint()})
+            return JSONResponse({"pulse": overview_fingerprint(), "waiting": waiting_now()})
         except StoreError:
             return JSONResponse({"pulse": "error"})
 
@@ -435,7 +441,7 @@ def create_app(
         found = find_loop(config(), repo_key, loop_id)
         if found is None:
             raise HTTPException(404, "no such loop on this board")
-        return JSONResponse({"pulse": pulse_of(found[0], loop_id, steer)})
+        return JSONResponse({"pulse": pulse_of(found[0], loop_id, steer), "waiting": waiting_now()})
 
     @app.get("/loop/{repo_key}/{loop_id}/file", response_class=HTMLResponse, name="loop_file")
     def loop_file(request: Request, repo_key: str, loop_id: str, path: str) -> Response:

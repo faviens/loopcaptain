@@ -62,14 +62,38 @@ def next_tag(last: str | None, bump: str) -> str:
     return f"v{major}.{minor}.{patch + 1}"
 
 
+#: A commit says why in bullets; a release note carries at most this many of them per commit.
+MOST_BULLETS = 6
+
+
+def bullets(body: str) -> list[str]:
+    """The top-level bullets of a commit body, each on one line: what a release note adds below a
+    subject. Check boxes of a pull request's text and everything that is no bullet are left out."""
+    found: list[str] = []
+    open_bullet = False
+    for line in body.splitlines():
+        if line.startswith("- ") and not line.startswith("- ["):
+            found.append(line[2:].strip())
+            open_bullet = True
+        elif open_bullet and line.startswith("  ") and line.strip():
+            found[-1] = f"{found[-1]} {line.strip()}"
+        else:
+            open_bullet = False
+    return found[:MOST_BULLETS]
+
+
 def notes(commits: list[Commit]) -> str:
-    """The release notes: each feat, fix and perf subject under its heading, newest first."""
+    """The release notes: each feat, fix and perf subject under its heading, newest first, with the
+    reasons its commit gives below it."""
     sections: dict[str, list[str]] = {kind: [] for kind in HEADINGS}
     for commit in commits:
         match = SUBJECT.match(commit.subject)
         if match and match["type"] in sections:
             scope = f"**{match['scope']}**: " if match["scope"] else ""
-            sections[match["type"]].append(f"- {scope}{match['text']} ({commit.sha[:7]})")
+            entry = [f"- {scope}{match['text']} ({commit.sha[:7]})"]
+            sections[match["type"]].append(
+                "\n".join(entry + [f"  - {text}" for text in bullets(commit.body)])
+            )
     return "\n\n".join(
         f"## {HEADINGS[kind]}\n\n" + "\n".join(lines) for kind, lines in sections.items() if lines
     )

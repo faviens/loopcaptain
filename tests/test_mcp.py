@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import re
+import sys
 import time
+import tomllib
 from pathlib import Path
 from typing import Any, get_args
 
@@ -17,6 +19,8 @@ from loopcaptain.protocol import signing, store
 from loopcaptain.protocol.models import AnyEvent
 from loopcaptain.protocol.validate import validate_repo
 from tests.conftest import STEPS
+
+ROOT = Path(__file__).resolve().parents[1]
 
 MANIFEST: dict[str, Any] = {
     "title": "Planning rounds",
@@ -317,3 +321,20 @@ def test_finding_closed_before_its_round_is_written_as_validate_allows(tmp_path:
         {"ts": "2026-11-16T08:00:00Z", "event": "finding_closed", "round": 3, "step": "a", "id": "f1"}
     )
     assert refusals(tmp_path, manifest, [], event) == []
+
+
+def test_the_mcp_server_is_an_extra_and_says_so_where_it_is_missing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The SDK was about half of a plain install, and the board and the helper never load it."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert not [name for name in project["dependencies"] if name.startswith("mcp")]
+    assert project["optional-dependencies"]["mcp"] == ["mcp>=2.0"]
+    monkeypatch.delitem(sys.modules, "loopcaptain.mcp_server.server", raising=False)
+    for name in ("mcp", "mcp.server", "mcp.server.mcpserver"):  # as on a machine without the extra
+        monkeypatch.setitem(sys.modules, name, None)
+
+    assert main(["mcp"]) == 1
+    assert "uv tool install 'loopcaptain[mcp]'" in capsys.readouterr().err
+    assert main(["mcp-config", "claude-code", "--checkout", ""]) == 0
+    assert "the server needs the MCP extra" in capsys.readouterr().out

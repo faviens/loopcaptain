@@ -5,7 +5,8 @@ description: "Use Loopcaptain from Claude Code, Codex, Gemini CLI, Cursor, VS Co
 # Works with every agent
 
 The protocol names no vendor: a loop writes its files, whatever runs it. Around it, each
-agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio.
+agent adds the MCP server its own way. The server is `loopcaptain mcp`, over stdio. It needs
+the MCP extra, which a plain install leaves out: `uv tool install 'loopcaptain[mcp]'`.
 
 The lines below are for the installed command. From a checkout of the repository the server
 is `uv run --project <checkout> loopcaptain mcp`, and `loopcaptain mcp-config <agent>`, run

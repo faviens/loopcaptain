@@ -1,4 +1,5 @@
 ---
+title: "Install Loopcaptain"
 description: "Install Loopcaptain from PyPI with uv, pipx or pip, run it once through uvx, or install a tagged release from the repository."
 ---
 
@@ -49,6 +50,14 @@ loopcaptain --version
 
 To run it once without installing, `uvx loopcaptain demo` and
 `uvx loopcaptain serve` do the same from a temporary environment.
+
+A loop that an agent session drives reports through the MCP server,
+`loopcaptain mcp`. Its SDK is an extra, since the board, the pasted helper
+and the command line need none of it:
+
+```bash
+uv tool install 'loopcaptain[mcp]'     # or: pipx install 'loopcaptain[mcp]'
+```
 
 ## Install from the repository
 

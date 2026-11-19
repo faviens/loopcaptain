@@ -1,10 +1,11 @@
-"""The MCP door: the protocol as five tools, for a loop that an agent session drives.
+"""The MCP server: the protocol as five tools, for a loop that an agent session drives.
 
 The tools mirror the helper a script pastes (`register`, `emit`, `inbox`), so there is one
-vocabulary on both doors and the tool list stays small in the agent's context. Every tool writes
-the same files; the board cannot tell the two doors apart. `repo` is the repository the loop
-lives in; left out, it is the folder the server was started in, which is the agent's working folder.
-A `repo` outside that folder is refused unless `LOOPCAPTAIN_MCP_ROOTS` names a folder above it.
+vocabulary for a script and for a session, and the tool list stays small in the agent's context.
+Every tool writes the same files the helper writes; the board cannot tell which of the two wrote
+a line. `repo` is the repository the loop lives in; left out, it is the folder the server was
+started in, which is the agent's working folder. A `repo` outside that folder is refused unless
+`LOOPCAPTAIN_MCP_ROOTS` names a folder above it.
 """
 
 from __future__ import annotations
@@ -18,8 +19,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import ValidationError
 
 from loopcaptain.protocol import spec_text, store
-from loopcaptain.protocol.models import EVENT_NAMES, Manifest, Question, now
-from loopcaptain.protocol.signing import is_signed, read_loop_key, unchecked_ids
+from loopcaptain.protocol.models import EVENT_NAMES, Manifest, now
+from loopcaptain.protocol.signing import unchecked_ids
 from loopcaptain.protocol.state import fold
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import before_writing
@@ -160,18 +161,7 @@ def inbox_read(loop_id: str, repo: str = ".") -> list[dict[str, Any]]:
     stale: true for a reply that names a question and was written before you last asked that
     question: it answers an earlier asking, do not take it as the answer now.
     """
-    path = known_loop(repo, loop_id)
-    key = read_loop_key(store.loop_dir(path, loop_id))
-    events, _ = store.read_events(path, loop_id)
-    asked = {event.id: event.ts for event in events if isinstance(event, Question) and event.id}
-    return [
-        {
-            **entry.model_dump(mode="json", exclude_none=True),
-            "signed": is_signed(entry.body(), key, loop_id),
-            "stale": entry.question in asked and entry.ts < asked[entry.question],
-        }
-        for entry in store.take_inbox(path, loop_id)
-    ]
+    return store.taken(known_loop(repo, loop_id), loop_id)
 
 
 @server.tool()

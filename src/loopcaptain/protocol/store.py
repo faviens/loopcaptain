@@ -29,10 +29,11 @@ from loopcaptain.protocol.models import (
     InboxKind,
     InboxRead,
     Manifest,
+    Question,
     is_slug,
     now,
 )
-from loopcaptain.protocol.signing import BoardKeys, hand_out, marks
+from loopcaptain.protocol.signing import BoardKeys, hand_out, is_signed, marks, read_loop_key
 from loopcaptain.protocol.state import STALE_AFTER
 
 #: The most the board reads of one file. A summary log of a long loop is a few hundred kilobytes.
@@ -306,6 +307,23 @@ def take_inbox(repo: Path, loop_id: str) -> list[InboxEntry]:
     if fresh:
         append_event(repo, loop_id, InboxRead(ts=now(), ids=[entry.id for entry in fresh]))
     return fresh
+
+
+def taken(repo: Path, loop_id: str) -> list[dict[str, Any]]:
+    """What the person sent since the last call, as every way in hands it to a loop: each entry
+    with `signed` (true only for a line the board wrote for this loop, None where the loop's key
+    cannot be read) and `stale` (a reply to an earlier asking of its question). Marks them read."""
+    key = read_loop_key(loop_dir(repo, loop_id))
+    events, _ = read_events(repo, loop_id)
+    asked = {event.id: event.ts for event in events if isinstance(event, Question) and event.id}
+    return [
+        {
+            **entry.model_dump(mode="json", exclude_none=True),
+            "signed": is_signed(entry.body(), key, loop_id),
+            "stale": entry.question in asked and entry.ts < asked[entry.question],
+        }
+        for entry in take_inbox(repo, loop_id)
+    ]
 
 
 def fingerprint(repo: Path, loop_id: str) -> str:

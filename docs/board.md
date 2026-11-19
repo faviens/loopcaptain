@@ -1,4 +1,5 @@
 ---
+title: "The board: a local dashboard for agent loops"
 description: "The local dashboard: its pages, where to look first, how to answer, stop and start a loop, and what each status means."
 ---
 

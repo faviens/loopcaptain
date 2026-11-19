@@ -19,6 +19,8 @@
 - [LOOPS.md](https://github.com/faviens/loopcaptain/blob/main/standard/LOOPS.md): the protocol, the helper to paste, conformance
 - [AGENTS.md for a loop](https://github.com/faviens/loopcaptain/blob/main/standard/AGENTS.md): connect a loop, or build one from nothing
 - [Works with every agent](https://faviens.github.io/loopcaptain/agents/): how each coding agent adds the MCP server
+- [Monitor a Ralph or shell loop](https://faviens.github.io/loopcaptain/shell-loop/): a worked loop.sh with `emit` and `inbox`
+- [Questions and answers](https://faviens.github.io/loopcaptain/faq/): what a loop is, how to monitor, stop and steer one
 
 ## Optional
 

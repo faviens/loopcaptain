@@ -12,6 +12,7 @@ nav = [
   { "Get started" = "get-started.md" },
   { "Setup" = "setup.md" },
   { "Connect or build a loop" = "connect.md" },
+  { "Monitor a Ralph or shell loop" = "shell-loop.md" },
   { "Works with every agent" = "agents.md" },
   { "The board" = "board.md" },
   { "The protocol" = "protocol/index.md" },
@@ -20,12 +21,19 @@ nav = [
     { "MCP tools" = "reference/mcp.md" },
     { "Configuration" = "reference/configuration.md" },
   ] },
+  { "Questions and answers" = "faq.md" },
   { "OpenTelemetry" = "opentelemetry.md" },
   { "Security" = "security.md" },
   { "Architecture" = "ARCHITECTURE.md" },
   { "Changelog" = "changelog.md" },
   { "Contributing" = "contributing.md" },
 ]
+
+# The pages load nothing from another host: no web fonts, the reader's own are used. The override
+# adds what a shared link and a search result show (overrides/main.html).
+[project.theme]
+custom_dir = "overrides"
+font = false
 
 [[project.theme.palette]]
 scheme = "default"
