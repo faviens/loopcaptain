@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -63,6 +64,17 @@ def projects_of(views: list[LoopView]) -> list[Project]:
             Project(found[0].repo, place(folder), git_branch(folder), tuple(found), main.name, worktree)
         )
     return projects
+
+
+def repeated_ids(pairs: Iterable[tuple[str, str]]) -> dict[str, tuple[str, ...]]:
+    """Each loop id more than one watched repository uses, with those repositories' keys in order.
+
+    `pairs` is (repository key, loop id). The board tells such loops apart by folder; the person
+    may not, and a loop with an earlier helper takes lines signed with the key every loop shares."""
+    where: dict[str, dict[str, None]] = {}
+    for repo_key, loop_id in pairs:
+        where.setdefault(loop_id, {})[repo_key] = None
+    return {loop_id: tuple(repos) for loop_id, repos in where.items() if len(repos) > 1}
 
 
 #: Statuses that are over; the overview folds them away unless asked.

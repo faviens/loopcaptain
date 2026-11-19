@@ -2,7 +2,7 @@
 {% set page = 'overview' %}
 {% block title %}{{ 'Waiting for you' if tab == 'waiting' else '' }}{% endblock %}
 {% block body_attrs %} data-pulse-url="{{ url_for('overview_pulse') }}" data-pulse="{{ pulse }}"{% if turn_at %} data-turn-at="{{ turn_at }}"{% endif %}{% endblock %}
-{% macro project_head(project) %}<span class="name">{{ project.name or project.repo.key }}</span>{% if project.worktree %}<span class="wt" title="a worktree of {{ project.name }}">worktree {{ project.worktree }}</span>{% endif %}{% if project.branch %}<code class="branch">{{ project.branch }}</code>{% endif %}<span class="path">{{ project.place }}</span><span class="count">{{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}{% endmacro %}
+{% macro project_head(project) %}<span class="name"{% if not project.worktree %} title="{{ project.place }}"{% endif %}>{{ project.name or project.repo.key }}</span>{% if project.worktree %}<span class="wt" title="a worktree of {{ project.name }}, at {{ project.place }}">worktree {{ project.worktree }}</span>{% endif %}{% if project.branch %}<code class="branch">{{ project.branch }}</code>{% endif %}<span class="count">{{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}{% endmacro %}
 {% macro loop_row(view) %}
   <tr class="is-{{ view.state.status if view.state else 'failed' }}">
     <td class="name"><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a><span class="id">{{ view.loop_id }}</span></td>
@@ -30,6 +30,7 @@
 <h1 class="sr">{{ 'Waiting for you' if tab == 'waiting' else 'Loops' }}</h1>
 {% if note %}<p class="flash" role="status">{{ note }}</p>{% endif %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
+{% if repeated %}<p class="flash warn" role="status">Two watched repositories have a loop with the same id: {% for loop_id, keys in repeated.items() %}<code>{{ loop_id }}</code> in {{ keys[:-1]|join(', ') }} and {{ keys[-1] }}{{ '; ' if not loop.last }}{% endfor %}. Check the repository before you answer; the loop's page says more.</p>{% endif %}
 {% if unreadable %}
 <div class="flash bad" role="alert">
   <p>Not shown, because the board could not look into {{ 'it' if unreadable|length == 1 else 'them' }}:</p>

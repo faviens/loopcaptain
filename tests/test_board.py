@@ -27,6 +27,7 @@ from loopcaptain.board.discover import (
     load_config,
     parse_config,
 )
+from loopcaptain.board.filters import place
 from loopcaptain.board.graph import columns, layout
 from loopcaptain.board.steer import Runner
 from loopcaptain.cli import main as cli_main
@@ -85,6 +86,18 @@ def test_overview_groups_the_loops_under_the_project_they_live_in(client: TestCl
     assert "Project" in project and "some-repo" in project and "1 loop" in project
     assert str(scan.parent.name) in project  # where the repository is, not only its name
     assert '<span class="id">scan</span>' in page
+
+
+def test_the_repository_line_names_the_folder_once_and_keeps_the_path_for_hover(
+    client: TestClient, scan: Path
+) -> None:
+    page = client.get("/").text
+    start = page.index('<summary class="project summary">')
+    head = page[start : page.index("</summary>", start)]
+    text = re.sub(r"<[^>]+>", " ", head)
+
+    assert text.count("some-repo") == 1
+    assert f'title="{place(scan)}"' in head
 
 
 def test_overview_has_a_tab_for_what_waits_marked_only_when_something_does(

@@ -952,3 +952,38 @@ A nonce the loop hands out: a loop that asks nothing still takes a stop.
 **What it costs.** A loop whose events are deleted or replaced while its inbox is kept takes
 its earlier lines again, a stop among them. Whoever can do that can write the loop's files, and
 then no mark on a line helps.
+
+## 40. A step's card is drawn in the picture, shown by CSS alone
+
+**Decision.** Each step of the round's graph has a card (name, state, agent and model, prompt
+file, purpose) in a `foreignObject` inside the SVG (`templates/loop.html`). The cards sit in a
+layer drawn after every step, each with a transparent zone over its step that is the link to the
+prompt, or a focusable group where there is none; `:hover` and `:focus-visible` on the zone show
+the card (`static/style.css`). `Graph.card` in `board/graph.py` places it beside its step and
+never outside the picture. The step keeps its `<title>` for a screen reader.
+
+**Why.** The prompt and purpose showed only as the browser's plain tooltip, slow to appear, out
+of the page's look and absent on keyboard focus. The content policy forbids inline script and
+style, and a card in the picture needs neither: its place is SVG attributes, its look the page's
+tokens, so light and dark follow.
+
+**Rejected.** A script-driven tooltip: script on the page for a hover. An HTML card over the
+graph: its place would need a `style` attribute per step. Cards inside each step's group: a later
+step is drawn over an earlier step's card. **What it costs.** The card scales with the picture,
+as the steps' own labels do; a wide graph draws it smaller.
+
+## 41. A loop id that two repositories share is named, not refused
+
+**Decision.** When two watched repositories have a loop with the same id, the overview says so
+in one line and each such loop's page names the other repositories, with links
+(`repeated_ids` in `board/overview.py`, the loop page's `same_id`). Nothing in the protocol
+changes and nothing is refused.
+
+**Why.** Section 36 signs each answer for one loop folder, so the board itself does not mix such
+loops up; the person can, and a loop with an earlier helper still takes lines signed with the key
+every loop shares (`sig`). A loop id is the loop author's, and two repositories copied from one
+template share them as a matter of course.
+
+**Rejected.** Binding an answer to a repository's path in the line: a moved repository or a
+devcontainer that mounts it elsewhere would refuse the person's answers. Refusing to show the
+second loop: the person would lose sight of a loop that runs.
