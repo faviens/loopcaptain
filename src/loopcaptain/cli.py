@@ -28,7 +28,7 @@ from loopcaptain.board.discover import (
 )
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.doctor import examine
-from loopcaptain.protocol.models import EVENT_NAMES, AnyEvent, InboxEntry, Manifest, now
+from loopcaptain.protocol.models import EVENT_NAMES, FOLDER, AnyEvent, InboxEntry, Manifest, now
 from loopcaptain.protocol.signing import board_keys
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import before_writing, validate_report
@@ -242,6 +242,13 @@ def build_parser() -> argparse.ArgumentParser:
     watch.add_argument("--root", action="store_true", help="every sub-folder with .loops/ is a repository")
     unwatch = commands.add_parser("unwatch", help="take a folder off the board")
     unwatch.add_argument("path", type=Path)
+    for name, about in (
+        ("hide", "take one loop off the board's first page and out of its figures"),
+        ("unhide", "show a hidden loop on the first page again"),
+    ):
+        one_loop = commands.add_parser(name, help=about)
+        one_loop.add_argument("repo", type=Path)
+        one_loop.add_argument("loop")
 
     demo = commands.add_parser(
         "demo", help="write the example loop into a folder and watch it; costs nothing"
@@ -321,6 +328,28 @@ def run_unwatch(args: argparse.Namespace) -> int:
     return 0
 
 
+def loop_folder(args: argparse.Namespace) -> Path:
+    """The folder of the loop a command names; the loop must be there, so a typo hides nothing."""
+    repo = args.repo.expanduser().resolve()
+    if args.loop not in store.loop_ids(repo):
+        raise StoreError(f"no loop {args.loop!r} in {args.repo}; nothing was written")
+    return store.loop_dir(repo, args.loop)
+
+
+def run_hide(args: argparse.Namespace) -> int:
+    folder = loop_folder(args)
+    say(edit_config(folder, add=("hidden", as_written(folder))) + other_config_warnings())
+    return 0
+
+
+def run_unhide(args: argparse.Namespace) -> int:
+    folder = (
+        args.repo.expanduser().resolve() / FOLDER / args.loop
+    )  # a loop that is gone can still be unhidden
+    say(edit_config(folder, remove=as_written(folder)))
+    return 0
+
+
 def run_demo(args: argparse.Namespace) -> int:
     from loopcaptain.demo import DemoError, write_demo
 
@@ -378,6 +407,8 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "doctor": run_doctor,
     "watch": run_watch,
     "unwatch": run_unwatch,
+    "hide": run_hide,
+    "unhide": run_unhide,
     "demo": run_demo,
     "mcp-config": run_mcp_config,
     "spec": run_spec,

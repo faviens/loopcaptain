@@ -14,6 +14,7 @@ loop does not show.
 loopcaptain watch ~/projects --root     # every sub-folder with a .loops/ folder
 loopcaptain watch ~/work/some-repo      # one repository
 loopcaptain unwatch ~/work/some-repo
+loopcaptain hide ~/work/some-repo old-run   # one loop off the first page; unhide brings it back
 ```
 
 The commands edit `~/.config/loopcaptain/config.yaml`; you can edit it by

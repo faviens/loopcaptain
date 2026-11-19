@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import ast
 import socket
+import types
 from pathlib import Path
 from typing import Any
 
 import pytest
 import uvicorn
+from fastapi.testclient import TestClient
 
 from loopcaptain import cli
-from loopcaptain.board.discover import Config, parse_config
+from loopcaptain.board.app import create_app
+from loopcaptain.board.discover import Config, load_config, parse_config
+from loopcaptain.board.steer import Runner
 from loopcaptain.cli import main as cli_main
 
 
@@ -435,3 +439,61 @@ def test_a_config_is_written_beside_its_place_and_moved_in(
 
     assert cli_main(["watch", str(folder)]) == 1
     assert config.read_text() == "# mine\nrepos: []\n" and "No space left" in capsys.readouterr().err
+
+
+def test_hide_takes_one_loop_off_the_first_page_and_unhide_brings_it_back(
+    scan: Path, helper: types.ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A loop that died weeks ago stayed on the board for ever; only its whole repository could go."""
+    helper.register("other", {"title": "Other loop"}, scan)
+    config = tmp_path / "config.yaml"
+    config.write_text(f"# mine\nrepos:\n  - {scan}\n")
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+    app = create_app(
+        config=load_config, runner=Runner(tmp_path / "state"), allowed_hosts=frozenset({"b.test"})
+    )
+    client = TestClient(app, base_url="http://b.test")
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
+
+    assert cli_main(["hide", str(scan), "scan"]) == 0
+    hidden_now = client.get("/").text
+    only_hidden = client.get("/?show=hidden").text
+    page = client.get("/loop/some-repo/scan")
+    assert cli_main(["unhide", str(scan), "scan"]) == 0
+
+    assert config.read_text() == f"# mine\nrepos:\n  - {scan}\nhidden:\n"  # comments kept, the list emptied
+    assert "Market scan" not in hidden_now and "Other loop" in hidden_now
+    assert 'class="g-hidden">hidden<span class="n">1</span>' in hidden_now
+    assert "Market scan" in only_hidden and "Other loop" not in only_hidden
+    assert page.status_code == 200 and "Hidden from the first page" in page.text
+    assert "Market scan" in client.get("/").text and parse_config(config).hidden == ()
+
+
+def test_a_hidden_loop_leaves_the_figures_and_the_waiting_tab(
+    scan: Path, helper: types.ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    helper.emit("scan", "question", {"id": "seats", "text": "Per seat?"}, scan)
+    config = tmp_path / "config.yaml"
+    config.write_text(f"repos:\n  - {scan}\n")
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+    app = create_app(
+        config=load_config, runner=Runner(tmp_path / "state"), allowed_hosts=frozenset({"b.test"})
+    )
+    client = TestClient(app, base_url="http://b.test")
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
+    before = client.get("/?tab=waiting").text
+
+    assert cli_main(["hide", str(scan), "scan"]) == 0
+    after = client.get("/?tab=waiting").text
+
+    assert "Per seat?" in before and "<title>(1) " in before
+    assert "Per seat?" not in after and "<title>(1) " not in after
+
+
+def test_hide_refuses_a_loop_that_is_not_there(
+    scan: Path, home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli_main(["hide", str(scan), "ghost"]) == 1
+
+    assert "no loop 'ghost'" in capsys.readouterr().err
+    assert not (home / ".config" / "loopcaptain" / "config.yaml").exists()
