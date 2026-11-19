@@ -98,6 +98,32 @@ loopcaptain unwatch [-h] path
 |---|---|
 | `path` |  |
 
+## `status`
+
+Where every watched loop stands, in a terminal.
+
+```text
+loopcaptain status [-h] [--all]
+```
+
+| Argument | Meaning |
+|---|---|
+| `--all` | hidden and finished loops too |
+
+## `inbox`
+
+What the person sent a loop since the last call, one line each, for a loop in shell.
+
+```text
+loopcaptain inbox [-h] [--repo REPO] [--json] loop
+```
+
+| Argument | Meaning |
+|---|---|
+| `loop` |  |
+| `--repo` |  |
+| `--json` | every entry as a JSON line, with signed and stale |
+
 ## `hide`
 
 Take one loop off the board's first page and out of its figures.

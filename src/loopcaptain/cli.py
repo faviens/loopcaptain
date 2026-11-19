@@ -8,6 +8,7 @@ import os
 import socket
 import sys
 from collections.abc import Callable
+from dataclasses import replace
 from importlib.metadata import version as package_version
 from pathlib import Path
 
@@ -18,14 +19,19 @@ from loopcaptain.board.access import HOST
 from loopcaptain.board.discover import (
     CONFIG_ENV,
     Config,
+    LoopView,
     as_written,
     config_in_use,
     config_target,
     edit_config,
     find_repos,
+    load_all,
     load_config,
+    put_aside,
     survey,
 )
+from loopcaptain.board.filters import ago
+from loopcaptain.board.overview import GROUPS, group_of
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.doctor import examine
 from loopcaptain.protocol.models import EVENT_NAMES, FOLDER, AnyEvent, InboxEntry, Manifest, now
@@ -242,6 +248,16 @@ def build_parser() -> argparse.ArgumentParser:
     watch.add_argument("--root", action="store_true", help="every sub-folder with .loops/ is a repository")
     unwatch = commands.add_parser("unwatch", help="take a folder off the board")
     unwatch.add_argument("path", type=Path)
+    status = commands.add_parser("status", help="where every watched loop stands, in a terminal")
+    status.add_argument("--all", action="store_true", help="hidden and finished loops too")
+    inbox = commands.add_parser(
+        "inbox", help="what the person sent a loop since the last call, one line each, for a loop in shell"
+    )
+    inbox.add_argument("loop")
+    inbox.add_argument("--repo", type=Path, default=Path("."))
+    inbox.add_argument(
+        "--json", action="store_true", help="every entry as a JSON line, with signed and stale"
+    )
     for name, about in (
         ("hide", "take one loop off the board's first page and out of its figures"),
         ("unhide", "show a hidden loop on the first page again"),
@@ -350,6 +366,73 @@ def run_unhide(args: argparse.Namespace) -> int:
     return 0
 
 
+def status_lines(views: list[LoopView], *, everything: bool) -> list[str]:
+    """One line per loop, what needs the person first: status, where, round, last line, what it asks."""
+    order = list(GROUPS)
+    kept = [view for view in views if everything or group_of(view) not in ("hidden", "finished")]
+    kept.sort(key=lambda view: (order.index(group_of(view)), view.repo.key, view.loop_id))
+    width = max((len(f"{view.repo.key}/{view.loop_id}") for view in kept), default=0)
+    lines = []
+    for view in kept:
+        state, name = view.state, f"{view.repo.key}/{view.loop_id}"
+        if state is None:
+            lines.append(f"{'unreadable':10}  {name:{width}}  {view.error}")
+            continue
+        last = state.last_round
+        told = f"asks: {state.question.text}" if state.question else state.last_line
+        parts = [
+            f"round {last.number}" if last else "no round",
+            ago(state.last_event),
+            " ".join(told.split()),
+        ]
+        lines.append(f"{state.status:10}  {name:{width}}  " + "  ".join(part for part in parts if part))
+    return lines
+
+
+def run_status(args: argparse.Namespace) -> int:
+    config = load_config()
+    views = [replace(view, hidden=put_aside(config, view.repo, view.loop_id)) for view in load_all(config)]
+    lines = status_lines(views, everything=args.all)
+    waiting = sum(1 for view in views if not view.hidden and view.state and view.state.question)
+    left_out = len(views) - len(lines)
+    say(lines or ["no loop to show"])
+    say(
+        [
+            f"{waiting} waiting for you"
+            + (f", {left_out} hidden or finished not shown (--all)" if left_out else "")
+        ]
+    )
+    return 0
+
+
+def run_inbox(args: argparse.Namespace) -> int:
+    """The loop's side of the inbox for a loop that is no Python: what the person sent, marked read.
+
+    Without `--json` only what a loop may act on is printed, `kind`, a tab, the text on one line:
+    entries the board signed for this loop that answer the present asking. The rest is counted
+    on standard error, so a script that reads the lines cannot take a forged one by mistake."""
+    repo = args.repo.expanduser().resolve()
+    if args.loop not in store.loop_ids(repo):
+        raise StoreError(f"no loop {args.loop!r} in {args.repo}")
+    entries = store.taken(repo, args.loop)
+    if args.json:
+        say([json.dumps(entry, ensure_ascii=False) for entry in entries])
+        return 0
+    good = [entry for entry in entries if entry["signed"] is True and not entry["stale"]]
+    say([f"{entry['kind']}\t{' '.join(str(entry.get('text', '')).split())}" for entry in good])
+    if len(good) < len(entries):
+        unchecked = any(entry["signed"] is None for entry in entries)
+        why = (
+            "this loop's key cannot be read, so nothing was checked"
+            if unchecked
+            else "not from the board, or stale"
+        )
+        sys.stderr.write(
+            f"loopcaptain: {len(entries) - len(good)} entry(ies) left out: {why}; --json shows them\n"
+        )
+    return 0
+
+
 def run_demo(args: argparse.Namespace) -> int:
     from loopcaptain.demo import DemoError, write_demo
 
@@ -407,6 +490,8 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "doctor": run_doctor,
     "watch": run_watch,
     "unwatch": run_unwatch,
+    "status": run_status,
+    "inbox": run_inbox,
     "hide": run_hide,
     "unhide": run_unhide,
     "demo": run_demo,

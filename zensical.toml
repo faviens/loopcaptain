@@ -12,6 +12,7 @@ nav = [
   { "Get started" = "get-started.md" },
   { "Setup" = "setup.md" },
   { "Connect or build a loop" = "connect.md" },
+  { "Monitor a Ralph or shell loop" = "shell-loop.md" },
   { "Works with every agent" = "agents.md" },
   { "The board" = "board.md" },
   { "The protocol" = "protocol/index.md" },

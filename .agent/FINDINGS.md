@@ -46,4 +46,3 @@ in the commit that settles it. Proposed: now, later, check, drop.
 | F112 | The block-list of key and credential names holds broad patterns (`secrets*`, `*.env`), so ordinary files with such names are refused too | open | check: keep them, or narrow them | src/loopcaptain/board/files.py:61-98 |
 | F113 | The weekly link check reads the Markdown files only, not the built docs site; about six lines in the workflow would add it | open | check: add it, or skip | .github/workflows/links.yml |
 | F114 | Discussions are off and the wiki is on with no page, so a question has no place but an issue | open | now: Discussions (Q&A) on, wiki off; a repository setting, no file change | repository settings read 2026-11-19 |
-| F115 | The README gives a Ralph loop one line (`emit` once per iteration); no page walks through a worked shell loop that reports to the board | open | later: a "Monitor a Ralph loop" page | README.md:134 |

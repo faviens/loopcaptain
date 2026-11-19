@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import socket
 import types
 from pathlib import Path
@@ -17,6 +18,7 @@ from loopcaptain.board.app import create_app
 from loopcaptain.board.discover import Config, load_config, parse_config
 from loopcaptain.board.steer import Runner
 from loopcaptain.cli import main as cli_main
+from loopcaptain.protocol import signing, store
 
 
 @pytest.fixture
@@ -497,3 +499,71 @@ def test_hide_refuses_a_loop_that_is_not_there(
 
     assert "no loop 'ghost'" in capsys.readouterr().err
     assert not (home / ".config" / "loopcaptain" / "config.yaml").exists()
+
+
+def test_status_says_in_a_terminal_where_every_watched_loop_stands(
+    scan: Path,
+    helper: types.ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """What waits was seen only on the board; a person in a terminal had to open a browser to know."""
+    helper.register("asks", {"title": "Asks"}, scan)
+    helper.emit("asks", "round_started", {"round": 1}, scan)
+    helper.emit("asks", "question", {"id": "seats", "text": "Per seat\nor per team?"}, scan)
+    helper.register("over", {"title": "Over"}, scan)
+    helper.emit("over", "round_started", {"round": 1}, scan)
+    helper.emit("over", "round_finished", {"round": 1, "verdict": "done"}, scan)
+    config = tmp_path / "config.yaml"
+    config.write_text(f"repos:\n  - {scan}\nhidden:\n  - {scan}/.loops/scan\n")
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+
+    assert cli_main(["status"]) == 0
+    shown = capsys.readouterr().out.splitlines()
+    assert cli_main(["status", "--all"]) == 0
+    everything = capsys.readouterr().out
+
+    assert len(shown) == 2 and shown[0].startswith("running     some-repo/asks  round 1")
+    assert shown[0].endswith("asks: Per seat or per team?")
+    assert shown[1] == "1 waiting for you, 2 hidden or finished not shown (--all)"
+    assert "some-repo/scan" in everything and "done        some-repo/over" in everything
+
+
+def test_inbox_prints_what_a_shell_loop_may_act_on_and_marks_it_read(
+    scan: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A loop in shell could write events with `emit` and had no way to read what the person sent."""
+    keys = signing.board_keys()
+    store.append_inbox(scan, "scan", "reply", "Look at\nprices first.", keys=keys)
+    store.append_inbox(scan, "scan", "stop", keys=keys)
+    store.append_line(
+        scan / ".loops" / "scan" / "inbox.jsonl", '{"id": "f1", "ts": "2026-11-15T00:00:00Z", "kind": "stop"}'
+    )
+
+    assert cli_main(["inbox", "scan", "--repo", str(scan)]) == 0
+    first = capsys.readouterr()
+    assert cli_main(["inbox", "scan", "--repo", str(scan)]) == 0
+    second = capsys.readouterr()
+
+    assert first.out == "reply\tLook at prices first.\nstop\t\n"
+    assert "1 entry(ies) left out: not from the board, or stale" in first.err
+    assert second.out == "" and second.err == ""
+
+
+def test_inbox_as_json_shows_every_entry_with_what_was_checked(
+    scan: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store.append_inbox(scan, "scan", "stop", keys=signing.board_keys())
+    store.append_line(
+        scan / ".loops" / "scan" / "inbox.jsonl", '{"id": "f1", "ts": "2026-11-15T00:00:00Z", "kind": "stop"}'
+    )
+
+    assert cli_main(["inbox", "scan", "--repo", str(scan), "--json"]) == 0
+    lines = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+    assert [(entry["kind"], entry["signed"], entry["stale"]) for entry in lines] == [
+        ("stop", True, False),
+        ("stop", False, False),
+    ]
+    assert cli_main(["inbox", "ghost", "--repo", str(scan)]) == 1

@@ -132,7 +132,9 @@ fault and the loop asks you what to do:
    [standard/LOOPS.md](standard/LOOPS.md) and call it where a round and a
    step begin and end, or append the JSON lines yourself.
 2. **A Ralph loop or any loop around an agent's command line:** the shell
-   form, `loopcaptain emit <loop> <event> key=value`, once per iteration.
+   form, `loopcaptain emit <loop> <event> key=value` once per iteration and
+   `loopcaptain inbox <loop>` for your stop and notes; a worked `loop.sh` is
+   in [docs/shell-loop.md](docs/shell-loop.md).
 3. **A long-running agent session:** add the MCP server
    (`loopcaptain mcp-config <agent>`), and the session reports its rounds
    through five tools.
@@ -150,6 +152,9 @@ loopcaptain validate <repository>         # check a repository's .loops folders
 loopcaptain doctor <repository> <loop>    # does the loop take a stop?
 loopcaptain mcp-config <agent>            # how your agent adds the MCP server
 loopcaptain emit <loop> <event> key=value # one event from a shell loop
+loopcaptain inbox <loop>                  # what you sent it, for a shell loop to read
+loopcaptain status                        # where every loop stands, in the terminal
+loopcaptain hide <repository> <loop>      # one loop off the first page
 ```
 
 From a checkout, put `uv run` in front, or use the `make` targets in
