@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import stat
 from dataclasses import dataclass
 from datetime import datetime
@@ -400,29 +401,114 @@ def as_written(path: Path) -> str:
         return str(resolved)
 
 
+LISTS = ("roots", "repos")
+
+
+def read_lists(target: Path) -> tuple[str, dict[str, object]]:
+    """The config `watch` edits, as text and as data; both empty where there is no file yet."""
+    if not target.is_file():
+        return "", {}
+    try:
+        text = target.read_text(encoding="utf-8")
+        loaded = yaml.safe_load(text) or {}
+    except (OSError, ValueError, RecursionError, yaml.YAMLError) as error:
+        raise StoreError(
+            f"{target}: cannot be read as a config, nothing was written ({reason(error)})"
+        ) from error
+    if not isinstance(loaded, dict) or not all(isinstance(loaded.get(key) or [], list) for key in LISTS):
+        raise StoreError(f"{target}: expected `roots:` and `repos:` lists; nothing was written")
+    return text, loaded
+
+
+def same_place(target: Path, item: object, path: Path) -> bool:
+    """Whether a config entry, however it was written, names this folder."""
+    try:
+        return (target.parent / Path(str(item)).expanduser()).resolve() == path.expanduser().resolve()
+    except (OSError, ValueError):
+        return False
+
+
+def block_of(lines: list[str], key: str) -> tuple[int, list[int]] | None:
+    """Where a top-level list starts and which lines are its items, for a list written one item
+    per line; None where the key is missing or written another way."""
+    heads = [n for n, line in enumerate(lines) if re.fullmatch(rf"{key}:\s*(\[\s*\])?\s*(#.*)?\n?", line)]
+    if len(heads) != 1:
+        return None
+    items = []
+    for number in range(heads[0] + 1, len(lines)):
+        line = lines[number]
+        if re.match(r"\s*-\s", line):
+            items.append(number)
+        elif line.strip() and not line.lstrip().startswith("#"):
+            break
+    return heads[0], items
+
+
+def edited_text(text: str, key: str, *, add: str | None = None, drop: int | None = None) -> str | None:
+    """The config's text with one entry added to a list or its `drop`-th entry taken out, every
+    other line and comment as it was; None where the list is not written one item per line."""
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    found = block_of(lines, key)
+    if drop is not None:
+        if found is None or drop >= len(found[1]):
+            return None
+        del lines[found[1][drop]]
+        return "".join(lines)
+    item = yaml.safe_dump([add], default_flow_style=False, allow_unicode=True)
+    if found is None:
+        return (
+            None
+            if re.search(rf"^{key}\s*:", text, re.MULTILINE)
+            else "".join([*lines, f"{key}:\n", f"  {item}"])
+        )
+    head, items = found
+    lines[head] = re.sub(r":\s*\[\s*\]", ":", lines[head])
+    indent = re.match(r"\s*", lines[items[-1]]).group() if items else "  "  # type: ignore[union-attr]
+    lines.insert((items[-1] if items else head) + 1, f"{indent}{item}")
+    return "".join(lines)
+
+
 def edit_config(path: Path, *, add: tuple[str, str] | None = None, remove: str | None = None) -> list[str]:
-    """Add `(key, path)` to the config or remove a path from both lists; returns what changed, in words."""
+    """Add `(key, path)` to the config or remove a folder from both lists; returns what changed,
+    in words. The file keeps its comments and its other lines; an entry is found by the folder it
+    names, however it was written."""
     target = config_target()
-    data: dict[str, list[str]] = {"roots": [], "repos": []}
-    if target.is_file():
-        loaded = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
-        if not isinstance(loaded, dict):
-            raise StoreError(f"{target}: expected `roots:` and `repos:` lists")
-        data.update({key: list(loaded.get(key) or []) for key in ("roots", "repos")})
+    text, loaded = read_lists(target)
+    data = {key: list(loaded.get(key) or []) for key in LISTS}  # type: ignore[call-overload]
     changes: list[str] = []
     if add is not None:
         key, entry = add
-        if entry in data[key]:
+        if any(same_place(target, item, path) for item in data[key]):
             return [f"{entry} is already under {key}"]
+        edited = edited_text(text, key, add=entry)
         data[key].append(entry)
         changes.append(f"added {entry} to {key}")
+        text = edited if edited is not None and lists_of(edited) == data else ""
     if remove is not None:
-        for key in ("roots", "repos"):
-            if remove in data[key]:
-                data[key].remove(remove)
-                changes.append(f"removed {remove} from {key}")
+        for key in LISTS:
+            for index in reversed([n for n, item in enumerate(data[key]) if same_place(target, item, path)]):
+                changes.append(f"removed {data[key].pop(index)} from {key}")
+                edited = edited_text(text, key, drop=index) if text else None
+                text = edited if edited is not None and lists_of(edited) == data else ""
         if not changes:
             return [f"{remove} is not in {target}"]
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # Written anew, without its comments, only where the lists were not one item per line.
+        target.write_text(text or yaml.safe_dump({**loaded, **data}, sort_keys=False), encoding="utf-8")
+    except OSError as error:
+        raise StoreError(f"{target}: cannot be written ({reason(error)})") from error
     return [f"{target}: {change}" for change in changes]
+
+
+def lists_of(text: str) -> dict[str, list[object]] | None:
+    """The two lists a config text holds, or None where it no longer reads as a config."""
+    try:
+        loaded = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return None
+    if not isinstance(loaded, dict):
+        return None
+    return {key: list(loaded.get(key) or []) for key in LISTS}
