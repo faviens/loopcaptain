@@ -42,7 +42,7 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install
-        run: uv sync --frozen
+        run: uv sync --locked
 
       # No model and no network: the tests run the example loop, which calls no agent.
       - name: Check
