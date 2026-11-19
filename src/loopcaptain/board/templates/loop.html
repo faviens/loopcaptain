@@ -22,7 +22,7 @@
 {% if note %}<p class="flash" role="status">{{ note }}</p>{% endif %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
 {% if hidden %}<p class="note">Hidden from the first page and its figures. <code>loopcaptain unhide {{ view.repo.path|place }} {{ view.loop_id }}</code> shows it again.</p>{% endif %}
-{% if same_id %}<p class="flash warn" role="status">Another watched repository has a loop with this id: {% for key in same_id %}<a href="{{ url_for('loop_page', repo_key=key, loop_id=view.loop_id) }}">{{ key }}</a>{{ ', ' if not loop.last }}{% endfor %}. Check that this is the loop you mean to answer. The board signs each answer for this folder alone, but a loop that still runs an earlier helper also takes lines signed with the key every loop shares: paste the current helper into both.</p>{% endif %}
+{% if same_id %}<p class="flash warn" role="status">{% for key in same_id %}<a href="{{ url_for('loop_page', repo_key=key, loop_id=view.loop_id) }}">{{ key }}</a>{{ ', ' if not loop.last }}{% endfor %} also has a loop with this id. Check you are answering the right one.</p>{% endif %}
 
 {% if state.question %}
 {% set q = state.question %}

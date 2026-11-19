@@ -60,13 +60,14 @@ def test_the_loop_page_names_the_other_repository_with_the_same_id(
     page = client.get("/loop/alpha-repo/scan").text
     other = client.get("/loop/alpha-repo/other").text
 
-    assert "Another watched repository has a loop with this id:" in page
-    assert 'href="http://board.test/loop/beta-repo/scan">beta-repo</a>' in page
-    assert "Another watched repository" not in other
+    assert 'href="http://board.test/loop/beta-repo/scan">beta-repo</a> also has a loop with this id.' in page
+    assert "Check you are answering the right one." in page
+    assert "helper" not in page.split("flash warn", 1)[1].split("</p>", 1)[0]
+    assert "also has a loop with this id" not in other
 
 
 def test_no_warning_where_every_id_is_its_own(tmp_path: Path, helper: types.ModuleType) -> None:
     client = board(two_repos(tmp_path, helper, "scan-two"), tmp_path / "s")
 
     assert "the same id" not in client.get("/").text
-    assert "Another watched repository" not in client.get("/loop/alpha-repo/scan").text
+    assert "also has a loop with this id" not in client.get("/loop/alpha-repo/scan").text
