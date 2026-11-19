@@ -887,7 +887,24 @@ whose key was made without a list (by the first version that made loop keys). A 
 until its helper is pasted again; `sig` goes with protocol 2. A process with the user's full
 file access reads the secret, as it read the one key.
 
-## 37. The viewer opens the files a loop names, and no other
+## 37. The phone reaches the board through a private network and a chat bridge
+
+**Decision.** Two pieces, both kept: the board itself on the phone, served into the person's
+own tailnet by `tailscale serve` (`loopcaptain serve --host-name` names the host the board
+then answers to), and a Telegram bridge (`loopcaptain telegram`): long polling, buttons for
+the answers a question offers, every reply written to the inbox as a signed line. Neither is in
+a release yet; the real-device checks become rows in `.agent/DEFERRED_VERIFICATION.md` when
+the code lands.
+
+**Why.** A person running loops wants to see where they stand and steer them when away from
+the laptop. The board answers only on 127.0.0.1 and asks for its session cookie, so the phone
+needs a private route to the board, or a channel that carries the steering for it.
+
+**Rejected.** A native phone app, email, SMS and Signal. A public tunnel: it would put the
+board, and the command it may start, on the internet. A push service such as ntfy stays a
+possible later channel.
+
+## 38. The viewer opens the files a loop names, and no other
 
 **Decision.** The file page opens a path only if the loop it is asked for names it: as a text
 anywhere in its `loop.json` or its events, as an argument of its start command, or as one of
@@ -911,7 +928,7 @@ would have to change (rule 3).
 **What it costs.** A file no loop names cannot be read on the board, however harmless. A loop
 chooses what it names, so this bounds what a person can browse to, not what a loop can show.
 
-## 38. A signed line belongs to one loop and one id, not to a run or a time
+## 39. A signed line belongs to one loop and one id, not to a run or a time
 
 **Decision.** A line the board signs carries no run, no nonce and no expiry. What holds a copy
 back is what the line already says and what the loop already writes: its `loop` and the key of

@@ -285,6 +285,10 @@ and no model.
    not while a text field holds text that was not sent, or the cursor. A
    template that adds another kind of field must add it to that rule in
    `static/board.js`.
+9. **Base every branch on this repository's `main`.** A private archive
+   of the project's earlier history exists, and its `main` has diverged
+   from this one. A branch cut from it, or pushed to it, has to be
+   replayed here; check `git remote -v` before the first commit.
 
 ### Definition of done
 
