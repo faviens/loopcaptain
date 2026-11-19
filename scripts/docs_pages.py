@@ -97,6 +97,7 @@ def llms_txt() -> str:
             f"- [AGENTS.md for a loop]({files}/standard/AGENTS.md): connect a loop, or build one from nothing",
             f"- [Works with every agent]({site}/agents/): how each coding agent adds the MCP server",
             f"- [Monitor a Ralph or shell loop]({site}/shell-loop/): a worked loop.sh with `emit` and `inbox`",
+            f"- [Questions and answers]({site}/faq/): what a loop is, how to monitor, stop and steer one",
             "",
             "## Optional",
             "",

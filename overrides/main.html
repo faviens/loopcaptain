@@ -1,0 +1,42 @@
+{#- What a shared link and a search result show: a title, a sentence and a picture for every page,
+    and on the first page what the project is, as data a search engine reads. Nothing is loaded
+    from another origin. -#}
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {% set named = page and page.meta and page.meta.title is defined and page.meta.title %}
+  {% set title = page.meta.title if named else (page.title if page and page.title else config.site_name) %}
+  {% set home = page and page.canonical_url is defined and page.canonical_url == config.site_url %}
+  {% set shown = title if title == config.site_name else title ~ " - " ~ config.site_name %}
+  {% set described = page and page.meta and page.meta.description is defined and page.meta.description %}
+  {% set description = page.meta.description if described else config.site_description %}
+  {% set card = config.site_url ~ "assets/social-card.png" %}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:title" content="{{ shown }}">
+  <meta property="og:description" content="{{ description }}">
+  <meta property="og:url" content="{{ page.canonical_url if page and page.canonical_url else config.site_url }}">
+  <meta property="og:image" content="{{ card }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ shown }}">
+  <meta name="twitter:description" content="{{ description }}">
+  <meta name="twitter:image" content="{{ card }}">
+  {% if home %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Loopcaptain",
+    "description": {{ config.site_description | tojson }},
+    "url": {{ config.site_url | tojson }},
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "codeRepository": {{ config.repo_url | tojson }},
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+  }
+  </script>
+  {% endif %}
+{% endblock %}

@@ -1,4 +1,5 @@
 ---
+title: "Connect or build an agent loop"
 description: "Connect an agent loop you already run, or build one that reports: through the pasted helper, the command line or the MCP server."
 ---
 

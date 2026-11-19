@@ -1,4 +1,5 @@
 ---
+title: "Security and threat model of the local board"
 description: "What the board reads, runs and writes: how a browser gets in, how an answer reaches a loop signed, and what Start may run."
 ---
 
