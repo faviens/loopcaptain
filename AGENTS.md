@@ -282,8 +282,9 @@ and no model.
    kernel (a clock, `/proc`, `sysctl`), not from `ps`, since the board runs
    nothing but `commands.start`.
 8. **The page reloads itself every few seconds while files change,** but
-   not while a textarea holds text. A template that adds a form field must
-   keep that rule in `static/board.js`.
+   not while a text field holds text that was not sent, or the cursor. A
+   template that adds another kind of field must add it to that rule in
+   `static/board.js`.
 
 ### Definition of done
 

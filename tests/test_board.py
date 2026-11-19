@@ -18,13 +18,30 @@ from fastapi.testclient import TestClient
 
 from loopcaptain.board import steer, trend
 from loopcaptain.board.app import STATUS_ORDER, create_app
-from loopcaptain.board.discover import Config, Repo, find_repos, load_config, parse_config
+from loopcaptain.board.discover import (
+    Config,
+    Repo,
+    find_loop,
+    find_repos,
+    load_all,
+    load_config,
+    parse_config,
+)
 from loopcaptain.board.graph import columns, layout
 from loopcaptain.board.steer import Runner
 from loopcaptain.cli import main as cli_main
 from loopcaptain.protocol import signing, store
 from loopcaptain.protocol.models import Manifest
-from loopcaptain.protocol.state import STATUS_TEXT, FindingState, LoopState, RoundState, Status, StepRun, fold
+from loopcaptain.protocol.state import (
+    STALE_AFTER,
+    STATUS_TEXT,
+    FindingState,
+    LoopState,
+    RoundState,
+    Status,
+    StepRun,
+    fold,
+)
 from loopcaptain.protocol.store import StoreError
 from tests.conftest import STEPS, name_files
 
@@ -685,6 +702,53 @@ def test_worktrees_of_one_repository_show_once_from_the_last_written(
     assert [(repo.path, repo.others) for repo in repos] == [(main_checkout, (worktree,))]
 
 
+def linked_worktree(main_checkout: Path, worktree: Path) -> None:
+    """A worktree as git lays it out: a `.git` file naming a folder that names the file back."""
+    (main_checkout / ".git" / "worktrees" / worktree.name).mkdir(parents=True)
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {main_checkout}/.git/worktrees/{worktree.name}\n")
+    (main_checkout / ".git" / "worktrees" / worktree.name / "gitdir").write_text(f"{worktree}/.git\n")
+
+
+def test_a_loop_that_lives_in_one_worktree_stays_on_the_board_when_another_wrote_last(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    root = tmp_path / "work"
+    main_checkout, worktree = root / "tool", root / "tool-loop"
+    linked_worktree(main_checkout, worktree)
+    helper.register("only-here", {"title": "Lives in the worktree"}, worktree)
+    helper.register("scan", {"title": "Old copy"}, main_checkout)
+    time.sleep(0.01)
+    helper.register("scan", {"title": "Fresh copy"}, worktree)
+    config = Config(roots=(root,))
+    before = {(view.repo.key, view.loop_id, view.title, view.repo.path) for view in load_all(config)}
+    time.sleep(0.01)
+    helper.emit("scan", "round_started", {"round": 1}, main_checkout)  # the main checkout wrote last
+
+    after = {(view.repo.key, view.loop_id, view.title, view.repo.path) for view in load_all(config)}
+    found = find_loop(config, "tool", "only-here")
+
+    assert ("tool", "only-here", "Lives in the worktree", worktree) in before & after
+    assert ("tool", "scan", "Fresh copy", worktree) in before
+    assert ("tool", "scan", "Old copy", main_checkout) in after
+    assert found is not None and found[0].path == worktree and found[0].others == (main_checkout,)
+
+
+def test_two_repositories_with_the_same_folder_and_parent_name_each_get_an_address(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    first, second = tmp_path / "a" / "work" / "tool", tmp_path / "b" / "work" / "tool"
+    helper.register("scan", {"title": "First"}, first)
+    helper.register("scan", {"title": "Second"}, second)
+    config = Config(repos=(second, first))
+
+    keys = {repo.path: repo.key for repo in find_repos(config)}
+    found = find_loop(config, "work.tool-2", "scan")
+
+    assert keys == {first: "work.tool", second: "work.tool-2"}
+    assert found is not None and found[1].title == "Second"
+
+
 def test_the_loop_page_says_which_worktree_it_reads(tmp_path: Path, helper: types.ModuleType) -> None:
     root = tmp_path / "work"
     main_checkout, worktree = root / "tool", root / "tool-loop"
@@ -820,6 +884,34 @@ def test_stop_is_offered_only_where_a_loop_may_still_start_a_round(
 
     assert "Stop after this round" not in page and "Stop before the next round" not in page
     assert "names no command the board could start" in page
+
+
+def test_the_page_says_that_more_questions_follow_and_shows_the_next_after_an_answer(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "question", {"id": "seats", "text": "Per seat?"}, scan)
+    time.sleep(0.01)
+    helper.emit("scan", "question", {"id": "region", "text": "Which region?"}, scan)
+    first = client.get("/loop/some-repo/scan").text
+
+    client.post("/loop/some-repo/scan/reply", data={"token": token_of(client), "text": "Per seat."})
+    second = client.get("/loop/some-repo/scan").text
+
+    assert "Per seat?" in first and "1 more question from this loop follows" in first
+    assert "Which region?" in second and "more question" not in second
+    assert store.read_inbox(scan, "scan")[0][-1].question == "seats"
+
+
+def test_the_page_says_beside_start_that_a_stop_is_waiting(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, "python3 loop.py")
+    marker = "A Stop is waiting in this loop"
+    assert marker not in client.get("/loop/some-repo/scan").text
+
+    client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+
+    assert marker in client.get("/loop/some-repo/scan").text
 
 
 def test_a_stalled_loop_says_what_it_last_did_and_what_to_do(
@@ -1229,6 +1321,28 @@ def test_an_open_page_learns_that_its_loop_went_quiet_without_any_file_changing(
     assert pulses[1][0] != pulses[2][0] and pulses[1][1] != pulses[2][1]
     assert f'data-pulse="{pulses[0][0]["pulse"]}"' in drawn
     assert 'class="pill running"' in drawn and 'class="pill stalled"' in reloaded
+
+
+def test_a_page_of_a_sleeping_loop_names_the_moment_its_promise_runs_out(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    """No file changes when a sleeping loop overstays, so the pulse cannot tell the page."""
+    assert "data-turn-at" not in client.get("/loop/some-repo/scan").text
+    wake = datetime.now(UTC) + timedelta(hours=2)
+    helper.emit(
+        "scan", "round_finished", {"round": 2, "verdict": "continue", "next_at": wake.isoformat()}, scan
+    )
+
+    page, overview = client.get("/loop/some-repo/scan").text, client.get("/").text
+    found = re.search(r'data-turn-at="(\d+)"', page)
+    assert found is not None
+    moment = int(found.group(1))
+
+    assert 'class="pill sleeping"' in page and f'data-turn-at="{moment}"' in overview
+    assert "data-turn-at" in (Path(steer.__file__).parent / "static" / "board.js").read_text(encoding="utf-8")
+    assert (
+        wake + STALE_AFTER < datetime.fromtimestamp(moment, UTC) <= wake + STALE_AFTER + timedelta(seconds=2)
+    )
 
 
 # ---- a Stop nothing would read, a Start beside a loop that runs ----

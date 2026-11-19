@@ -260,8 +260,12 @@ read the key. It guards against agents confined to their repository.
 
 **Decision.** `board/discover.py` groups the folders it finds by the `.git`
 folder they share, read from the `.git` file of a worktree without running
-git. A group shows once, from the worktree whose `.loops/` was written
-last; the loop page names it and lists the others in a tooltip.
+git. A group shows once, under the name of the main checkout's folder,
+whichever worktree was written last. Each loop is read from the worktree
+that wrote that loop last (`loops_of`), so a loop that lives in one
+worktree only stays listed; the loop page names the worktree it reads and
+lists the others in a tooltip. Two repositories whose folder and parent
+folder are called the same get a number behind the second one's key.
 
 **Why.** A loop that runs in its own worktree, as the "one worktree per
 writer" rule asks, sits beside the main checkout under the same root. The
@@ -900,3 +904,28 @@ would have to change (rule 3).
 
 **What it costs.** A file no loop names cannot be read on the board, however harmless. A loop
 chooses what it names, so this bounds what a person can browse to, not what a loop can show.
+
+## 38. A signed line belongs to one loop and one id, not to a run or a time
+
+**Decision.** A line the board signs carries no run, no nonce and no expiry. What holds a copy
+back is what the line already says and what the loop already writes: its `loop` and the key of
+that loop's folder (section 36), its `id`, which a loop records in `inbox_read` and never takes
+twice, and its `ts`, which is signed and which marks a reply to an earlier asking as `stale`. A
+stop sent to a loop that is not running waits and is taken at the loop's next start; the page
+says so beside Start.
+
+**Why.** The cases a binding would close are closed already or are wanted. A line copied into
+another loop's inbox fails that loop's key. A line appended a second time has an id the loop
+has read. A reply to a question asked again is `stale`. A run that starts its count over is a
+loop of its own (section 21), with another folder and so another key. What is left is a stop
+taken by a later start than the person had in mind, and that is how `loopcaptain doctor` asks
+whether a loop listens: it sends the stop first and the loop is started after.
+
+**Rejected.** A `run` in every line: the protocol has no run (section 21), and the board would
+have to learn one from a loop it must not write to (rule 4). An expiry: a stop for a loop that
+sleeps for a day is still meant a day later, and the board cannot know how long a loop sleeps.
+A nonce the loop hands out: a loop that asks nothing still takes a stop.
+
+**What it costs.** A loop whose events are deleted or replaced while its inbox is kept takes
+its earlier lines again, a stop among them. Whoever can do that can write the loop's files, and
+then no mark on a line helps.

@@ -76,3 +76,18 @@ def test_a_loop_json_that_names_another_loop_than_its_folder_is_refused(
     with pytest.raises(StoreError, match="id 'scan' does not match its folder 'other'"):
         store.read_manifest(repo, "other")
     assert store.read_manifest(repo, "scan").id == "scan"
+
+
+def test_a_signed_stop_appended_a_second_time_is_taken_once(repo: Path, helper: types.ModuleType) -> None:
+    """A copy of a signed line is signed too; what holds it back is the id the loop has read."""
+    helper.register("scan", {"title": "Scan"}, repo)
+    store.append_inbox(repo, "scan", "stop", keys=board_keys())
+    inbox = repo / ".loops" / "scan" / "inbox.jsonl"
+    signed_line = inbox.read_text(encoding="utf-8")
+
+    first = helper.inbox("scan", repo)
+    with inbox.open("a", encoding="utf-8") as handle:
+        handle.write(signed_line)
+
+    assert [entry["signed"] for entry in first] == [True]
+    assert helper.inbox("scan", repo) == [] and store.take_inbox(repo, "scan") == []

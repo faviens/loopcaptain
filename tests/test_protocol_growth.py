@@ -83,6 +83,38 @@ def test_a_loop_can_close_its_own_question(repo: Path, helper: types.ModuleType)
     assert state_at(repo, T0).question is None
 
 
+def test_two_open_questions_are_both_kept_and_a_reply_answers_the_one_it_names(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    line(repo, "question", id="seats", text="Per seat?")
+    line(repo, "question", id="region", text="Which region?", ts=iso(T0 + timedelta(minutes=1)))
+    later = T0 + timedelta(minutes=5)
+    both = state_at(repo, later)
+
+    answer = {"id": "a1", "ts": iso(T0 + timedelta(minutes=2)), "kind": "reply", "text": "Per seat."}
+    store.append_line(repo / ".loops" / "scan" / "inbox.jsonl", store.dump({**answer, "question": "seats"}))
+    one_left = state_at(repo, later)
+    line(repo, "question_closed", question="region", reason="superseded")
+
+    assert [question.id for question in both.questions] == ["seats", "region"]
+    assert both.question is not None and both.question.id == "seats"  # the first is not hidden
+    assert [question.id for question in one_left.questions] == ["region"]
+    assert state_at(repo, later).questions == () and state_at(repo, later).question is None
+
+
+def test_a_blocking_question_is_shown_before_one_asked_in_passing(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    line(repo, "question", id="colour", text="Blue or green?")
+    line(repo, "question", id="ship", text="Ship it?", blocks=True, ts=iso(T0 + timedelta(minutes=1)))
+
+    state = state_at(repo, T0 + timedelta(minutes=2))
+
+    assert state.question is not None and state.question.id == "ship" and len(state.questions) == 2
+
+
 def test_a_question_with_options_keeps_them(repo: Path, helper: types.ModuleType) -> None:
     fresh_loop(repo, helper)
     options = [{"id": "a", "label": "Forty"}, {"id": "b", "label": "Both"}]

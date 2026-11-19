@@ -2,7 +2,7 @@
 {% set page = 'loop' %}
 {% block title %}{{ view.title }}{% endblock %}
 {% block where %}{{ view.repo.key }} / {{ view.loop_id }}{% endblock %}
-{% block body_attrs %} data-pulse-url="{{ url_for('loop_pulse', repo_key=view.repo.key, loop_id=view.loop_id) }}" data-pulse="{{ pulse }}"{% endblock %}
+{% block body_attrs %} data-pulse-url="{{ url_for('loop_pulse', repo_key=view.repo.key, loop_id=view.loop_id) }}" data-pulse="{{ pulse }}"{% if turn_at %} data-turn-at="{{ turn_at }}"{% endif %}{% endblock %}
 {% set here = url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) %}
 {% macro file_link(path, text) %}{% if path %}<a href="{{ url_for('loop_file', repo_key=view.repo.key, loop_id=view.loop_id) }}?path={{ path|urlencode }}">{{ text or path }}</a>{% endif %}{% endmacro %}
 {% macro kind_icon(kind) %}{% set paths = {
@@ -26,6 +26,7 @@
 <section class="ask" aria-label="{{ 'A step needs you' if q.needs_person else 'The loop' ~ "'s question" }}">
   <p class="eyebrow">{{ 'A step needs you' if q.needs_person else 'The loop asks' }}{% if q.round %}, round {{ q.round }}{% endif %} · {{ q.asked|ago }}{% if q.blocks %} · it stands still until you answer{% if q.gives_up %}, at most until {{ q.gives_up|stamp }}{% endif %}{% endif %}</p>
   <p class="q">{{ q.text }}</p>
+  {% if state.questions|length > 1 %}<p class="grey">{{ state.questions|length - 1 }} more question{{ '' if state.questions|length == 2 else 's' }} from this loop follow{{ 's' if state.questions|length == 2 else '' }} once this one is answered.</p>{% endif %}
   {% if q.default %}<p class="grey">{% if q.gives_up %}Without an answer by {{ q.gives_up|stamp }} it goes on with{% elif q.blocks %}If it goes on without an answer, it goes on with{% else %}Until you answer, it goes on with{% endif %}: <b>{{ q.default_text }}</b></p>{% endif %}
   {% if q.options %}
   <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
@@ -286,6 +287,7 @@
       <p class="grey">This command comes from this repository's <code>loop.json</code>, not from the board. It runs here with your rights.</p>
       {% if changed_files %}<p class="flash warn" role="status">Changed since the board last started this command: {% for name in changed_files %}<a href="{{ url_for('loop_file', repo_key=view.repo.key, loop_id=view.loop_id) }}?path={{ name|urlencode }}">{{ name }}</a>{{ ', ' if not loop.last }}{% endfor %}. Read {{ 'it' if changed_files|length == 1 else 'them' }} before you press Start.</p>{% endif %}
       {% if not confirmed and not command.problem %}<label class="tick"><input type="checkbox" name="confirm" value="yes" required> I have read the command and want it run</label>{% endif %}
+      {% if state.stop_requested %}<p class="flash warn" role="status">A Stop is waiting in this loop's inbox. A loop that listens reads it when it starts and ends at once, without a round.</p>{% endif %}
       {% if runs_elsewhere %}<label class="tick"><input type="checkbox" name="again" value="yes" required> This loop is {{ state.status }} and the board did not start it: start a second copy anyway</label>{% endif %}
     </form>
     {% else %}<p class="grey">This loop names no command the board could start. Start it where it lives, from its own repository.</p>{% endif %}

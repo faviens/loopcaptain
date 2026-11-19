@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set page = 'overview' %}
 {% block title %}{{ 'Waiting for you' if tab == 'waiting' else '' }}{% endblock %}
-{% block body_attrs %} data-pulse-url="{{ url_for('overview_pulse') }}" data-pulse="{{ pulse }}"{% endblock %}
+{% block body_attrs %} data-pulse-url="{{ url_for('overview_pulse') }}" data-pulse="{{ pulse }}"{% if turn_at %} data-turn-at="{{ turn_at }}"{% endif %}{% endblock %}
 {% macro project_head(project) %}<span class="name">{{ project.name or project.repo.key }}</span>{% if project.worktree %}<span class="wt" title="a worktree of {{ project.name }}">worktree {{ project.worktree }}</span>{% endif %}{% if project.branch %}<code class="branch">{{ project.branch }}</code>{% endif %}<span class="path">{{ project.place }}</span><span class="count">{{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}{% endmacro %}
 {% macro loop_row(view) %}
   <tr class="is-{{ view.state.status if view.state else 'failed' }}">

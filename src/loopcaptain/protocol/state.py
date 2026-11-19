@@ -266,6 +266,9 @@ class LoopState:
     rounds: tuple[RoundState, ...] = ()
     status: Status = "new"
     question: OpenQuestion | None = None
+    #: Every question the loop asked that is still open, in the order asked; `question` is the
+    #: one the person is shown first.
+    questions: tuple[OpenQuestion, ...] = ()
     inbox: tuple[InboxState, ...] = ()
     items: tuple[ItemState, ...] = ()
     last_event: datetime | None = None
@@ -322,6 +325,12 @@ class LoopState:
         return ()
 
     @property
+    def turns_at(self) -> datetime | None:
+        """When the loop's own word for when it is back runs out: from then on its status is another,
+        though no file changed. None where the loop made no such promise."""
+        return later(self.expected, STALE_AFTER) if self.expected is not None else None
+
+    @property
     def stop_requested(self) -> bool:
         return any(item.entry.kind == "stop" and not item.read and item.trusted for item in self.inbox)
 
@@ -357,7 +366,7 @@ def fold(
     rounds: dict[int, RoundState] = {}
     items: dict[str, ItemState] = {}
     read_ids: set[str] = set()
-    last_question: Question | None = None
+    asked: list[Question] = []
     ended: LoopStopped | None = None
     expected: datetime | None = None
     start: StartState | None = None
@@ -367,10 +376,9 @@ def fold(
         if isinstance(event, RoundStarted):
             ended = None
             expected = None  # a new round is its own sign of life; an older promise is spent
-            if last_question is not None and last_question.blocks:
-                # The loop stood still for this question and has now started a round: it went on,
-                # with an answer or without one.
-                last_question = None
+            # The loop stood still for a blocking question and has now started a round: it went
+            # on, with an answer or without one.
+            asked = [question for question in asked if not question.blocks]
             # A round that starts again starts clean: its earlier runs and verdict are history, and
             # what they spent still counts.
             before = rounds.get(event.round)
@@ -388,13 +396,15 @@ def fold(
             if isinstance(event, RoundFinished):
                 expected = promise(event.next_at, event.ts, at)
         elif isinstance(event, Question):
-            last_question = event
+            # A question asked again under its id takes the place of the earlier asking.
+            asked = [q for q in asked if event.id is None or q.id != event.id] + [event]
             if event.round is not None and event.round in rounds:
-                asked = rounds[event.round]
-                rounds[event.round] = replace(asked, questions=(*asked.questions, event.text))
+                within = rounds[event.round]
+                rounds[event.round] = replace(within, questions=(*within.questions, event.text))
         elif isinstance(event, QuestionClosed):
-            if last_question is not None and event.question in (None, last_question.id):
-                last_question = None
+            # It names the question it closes; without a name it closes the latest.
+            named = [q for q in asked if q.id == event.question] if event.question else asked[-1:]
+            asked = [q for q in asked if q not in named[-1:]]
         elif isinstance(event, Check):
             item = items.get(event.item, ItemState(event.item))
             check = CheckState(
@@ -412,7 +422,8 @@ def fold(
 
     ordered = tuple(rounds[n] for n in sorted(rounds))
     trusted = [entry for entry in inbox if entry.id not in untrusted]
-    question = open_question(last_question, trusted, at) or needs_person(ordered, trusted)
+    questions = open_questions(asked, trusted, at)
+    question = shown_first(questions) or needs_person(ordered, trusted)
     last_event = max((event.ts for event in events if event.ts <= at + CLOCK_SKEW), default=None)
     declared = {step.id for step in manifest.steps}
     undeclared: list[str] = []
@@ -430,6 +441,7 @@ def fold(
         rounds=ordered,
         status=status,
         question=question,
+        questions=tuple(questions),
         inbox=tuple(InboxState(entry, entry.id in read_ids, entry.id not in untrusted) for entry in inbox),
         items=tuple(items.values()),
         last_event=last_event,
@@ -631,26 +643,39 @@ def replace_at(runs: tuple[StepRun, ...], index: int, run: StepRun) -> tuple[Ste
     return (*runs[:index], run, *runs[index + 1 :])
 
 
-def open_question(last: Question | None, inbox: list[InboxEntry], at: datetime) -> OpenQuestion | None:
-    """The loop's last question, unless the person has replied since, or the loop stopped waiting.
+def shown_first(questions: list[OpenQuestion]) -> OpenQuestion | None:
+    """Of several open questions, the one the person is shown: the earliest the loop stands still
+    for, else the earliest. The others follow as each is answered."""
+    return next((question for question in questions if question.blocks), questions[0] if questions else None)
 
-    A blocking question with a timeout is over once the timeout has passed: the loop went on.
+
+def open_questions(asked: list[Question], inbox: list[InboxEntry], at: datetime) -> list[OpenQuestion]:
+    """The questions the loop asked that nobody has answered, in the order asked.
+
+    One reply answers one question: the one it names, or without a name the one that was shown
+    when it was written. A blocking question with a timeout is over once the timeout has passed:
+    the loop went on.
     """
-    if last is None:
-        return None
-    if any(entry.kind == "reply" and not entry.finding and entry.ts >= last.ts for entry in inbox):
-        return None
-    question = OpenQuestion(
-        last.text,
-        last.ts,
-        last.round,
-        last.blocks,
-        last.timeout_s,
-        last.id,
-        tuple(last.options),
-        default=last.default,
-    )
-    return None if question.gives_up and question.gives_up < at else question
+    waiting = [
+        OpenQuestion(
+            question.text,
+            question.ts,
+            question.round,
+            question.blocks,
+            question.timeout_s,
+            question.id,
+            tuple(question.options),
+            default=question.default,
+        )
+        for question in asked
+    ]
+    replies = [entry for entry in inbox if entry.kind == "reply" and not entry.finding]
+    for reply in sorted(replies, key=lambda entry: entry.ts):
+        before = [question for question in waiting if question.asked <= reply.ts]
+        named = [question for question in before if question.id == reply.question]
+        answered = (named[-1] if named else None) if reply.question else shown_first(before)
+        waiting = [question for question in waiting if question is not answered]
+    return [question for question in waiting if not (question.gives_up and question.gives_up < at)]
 
 
 def status_of(

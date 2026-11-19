@@ -16,6 +16,7 @@ import secrets
 import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
+from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, cast
 from urllib.parse import quote
@@ -40,6 +41,7 @@ from loopcaptain.board.discover import (
     git_branch,
     load_config,
     load_loop,
+    loops_of,
     reason,
     unreadable_folders,
 )
@@ -52,7 +54,7 @@ from loopcaptain.board.steer import Runner
 from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
 from loopcaptain.protocol import spec_text, store
-from loopcaptain.protocol.models import EVENTS_FILE, INBOX_FILE, MANIFEST_FILE, FindingRef, Manifest
+from loopcaptain.protocol.models import EVENTS_FILE, INBOX_FILE, MANIFEST_FILE, FindingRef, Manifest, now
 from loopcaptain.protocol.signing import board_keys, earlier_marks, is_from_board, read_board_keys
 from loopcaptain.protocol.state import STATUS_TEXT, LoopState, no_progress_signs
 from loopcaptain.protocol.store import StoreError
@@ -75,6 +77,8 @@ TABS = ("overview", "rounds", "findings", "items", "inbox")
 #: The two parts of the first page: every loop under its project, and what waits for the person.
 OVERVIEW_TABS = ("loops", "waiting")
 #: The statuses where "Stop after this round" means something: the loop may still start a round.
+#: A status change further ahead than this is left to a later page load.
+TURN_HORIZON = timedelta(days=7)
 STOPPABLE = frozenset({"running", "sleeping", "stalled", "waiting", "idle"})
 #: The statuses in which a loop is under way or has said when it is back.
 STARTED_ELSEWHERE = frozenset({"running", "sleeping"})
@@ -212,9 +216,9 @@ def create_app(
     def all_views() -> list[LoopView]:
         views = []
         for repo in find_repos(config()):
-            for loop_id in store.loop_ids(repo.path):
-                process = steer.process(repo, loop_id)
-                views.append(load_loop(repo, loop_id, process_alive=bool(process and process.alive)))
+            for home, loop_id in loops_of(repo):
+                process = steer.process(home, loop_id)
+                views.append(load_loop(home, loop_id, process_alive=bool(process and process.alive)))
         return views
 
     #: The views the header last counted, and the file stats and second they were read at: every
@@ -246,9 +250,9 @@ def create_app(
     def overview_fingerprint() -> str:
         """From file stats alone, in discovery order: the overview polls it every few seconds."""
         return "|".join(
-            store.fingerprint(repo.path, loop_id)
+            store.fingerprint(home.path, loop_id)
             for repo in find_repos(config())
-            for loop_id in store.loop_ids(repo.path)
+            for home, loop_id in loops_of(repo)
         )
 
     def seal(note: str, error: str) -> str:
@@ -336,6 +340,7 @@ def create_app(
             "unreadable": unreadable,
             "token": token,
             "pulse": overview_fingerprint() if not error else "error",
+            "turn_at": turn_at(views),
             "total_usd": sum(view.state.cost_usd for view in views if view.state),
         }
         return templates.TemplateResponse(request, "overview.html", context)
@@ -390,6 +395,7 @@ def create_app(
             "caps": caps_of(state),
             "token": token,
             "pulse": pulse_of(repo, loop_id, steer),
+            "turn_at": turn_at([view]),
             "note": note,
             "error": error,
         }
@@ -692,6 +698,19 @@ def inbox_marks(repo: Repo, state: LoopState) -> dict[str, bool | None]:
         item.entry.id: is_from_board(item.entry.body(), keys, folder, loop_id, earlier)
         for item in state.inbox
     }
+
+
+def turn_at(views: list[LoopView]) -> int | None:
+    """The next moment, in epoch seconds, at which one of these loops changes status with no file
+    written: a sleeping loop's promise runs out. The pulse is built from file stats and cannot
+    know it, so the page is told when to look again. None where no such moment lies ahead."""
+    at = now()
+    ahead = [
+        view.state.turns_at
+        for view in views
+        if view.state and view.state.turns_at and at < view.state.turns_at <= at + TURN_HORIZON
+    ]
+    return int(min(ahead).timestamp()) + 1 if ahead else None
 
 
 def pulse_of(repo: Repo, loop_id: str, steer: Runner) -> str:

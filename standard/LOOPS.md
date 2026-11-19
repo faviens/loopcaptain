@@ -171,7 +171,10 @@ line still needs `ts`, and still shows that the loop is alive.
    one. Left out, the loop goes on and reads the answer at its next round.
    A question is open until the person replies. A blocking question is
    also over once its `timeout_s` has passed or the loop starts another
-   round: it went on. `id` names the question; `options`,
+   round: it went on. Several questions may be open at once: give each
+   an `id`, since a reply answers the one question it names; the board
+   shows the earliest one the loop stands still for first, and the next
+   after each answer. `id` names the question; `options`,
    `[{"id": "a", "label": "Forty people"}]`, become buttons, and the reply
    carries `question` and `choice`. `default` is what the loop goes on
    with if no answer comes: the `id` of one of the options, or a
