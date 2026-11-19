@@ -112,20 +112,64 @@ def test_the_one_key_of_earlier_versions_signs_nothing_the_board_or_a_loop_takes
     assert view.state is not None and not view.state.stop_requested
 
 
-def test_a_line_from_before_the_boards_secret_still_reads_as_the_boards_own(
+def test_a_line_the_inbox_held_before_the_loops_key_still_reads_as_the_boards_own(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    repo = tmp_path / "earlier"
+    helper.register("scan", {"title": "Scan"}, repo)
+    folder = repo / ".loops" / "scan"
+    keys = signing.board_keys()
+    assert keys.machine is not None
+    before = datetime.now(UTC) - timedelta(days=3)
+    old = marked(line("stop", "scan", before), keys.machine, "sig", ("sig",))
+    elsewhere = marked({**line("stop", "other", before), "id": "other"}, keys.machine, "sig", ("sig",))
+    append(folder, old)
+    append(folder, elsewhere)
+
+    signing.hand_out(keys, folder)
+    earlier = signing.earlier_marks(folder)
+
+    assert signing.is_from_board(old, keys, folder, "scan", earlier) is True
+    assert signing.is_from_board(elsewhere, keys, folder, "scan", earlier) is False
+    assert signing.is_from_board({**old, "text": "Changed."}, keys, folder, "scan", earlier) is False
+    assert signing.earlier_file(folder).stat().st_mode & 0o777 == 0o600
+
+
+def test_a_backdated_line_under_the_earlier_key_is_not_the_boards(
+    two: tuple[Path, Path], helper: types.ModuleType
+) -> None:
+    """Every loop reads the earlier key, and a line's date is whatever its writer says."""
+    first, _ = two
+    folder = first / ".loops" / "scan"
+    keys = signing.read_board_keys()
+    assert keys is not None and keys.machine is not None
+    long_ago = datetime(2000, 1, 1, tzinfo=UTC)
+    forged = marked(line("stop", "scan", long_ago), keys.machine, "sig", ("sig",))
+
+    append(folder, forged)
+    view = load_loop(Repo("first", first), "scan")
+
+    assert signing.is_from_board(forged, keys, folder, "scan", signing.earlier_marks(folder)) is False
+    assert signing.untrusted_ids(store.read_inbox(first, "scan")[0], "scan", folder) == {"forged-stop"}
+    assert view.state is not None and not view.state.stop_requested
+    assert [entry["signed"] for entry in helper.inbox("scan", first)] == [False]
+
+
+def test_the_list_of_earlier_lines_is_made_once_and_the_key_folder_is_private(
     two: tuple[Path, Path],
 ) -> None:
     first, _ = two
     folder = first / ".loops" / "scan"
     keys = signing.read_board_keys()
     assert keys is not None and keys.machine is not None
-    before = datetime.fromtimestamp(keys.since, UTC) - timedelta(days=3)
-    old = marked(line("stop", "scan", before), keys.machine, "sig", ("sig",))
-    elsewhere = marked(line("stop", "other", before), keys.machine, "sig", ("sig",))
+    append(folder, marked(line("stop", "scan"), keys.machine, "sig", ("sig",)))
+    signing.loop_key_file(folder).unlink()  # the key is put back; the list is not made again
+    signing.loop_key_file(folder).parent.chmod(0o755)
 
-    assert signing.is_from_board(old, keys, folder, "scan") is True
-    assert signing.is_from_board(elsewhere, keys, folder, "scan") is False
-    assert signing.is_from_board({**old, "text": "Changed."}, keys, folder, "scan") is False
+    signing.hand_out(keys, folder)
+
+    assert signing.earlier_marks(folder) == frozenset()
+    assert signing.loop_key_file(folder).parent.stat().st_mode & 0o777 == 0o700
 
 
 def test_a_helper_pasted_from_the_earlier_text_still_takes_the_boards_lines(
@@ -158,3 +202,37 @@ def test_a_moved_loop_folder_has_another_key(two: tuple[Path, Path]) -> None:
     assert signing.loop_key(keys.secret, here) == signing.loop_key(
         keys.secret, first / ".loops" / "." / "scan"
     )
+
+
+def test_a_line_from_before_the_loops_key_is_the_boards_on_the_first_page_already(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    """The board's first look at a loop both lists its earlier lines and judges them."""
+    repo = tmp_path / "earlier"
+    helper.register("scan", {"title": "Scan"}, repo)
+    helper.emit("scan", "round_started", {"round": 1}, repo)
+    keys = signing.board_keys()
+    assert keys.machine is not None
+    append(repo / ".loops" / "scan", marked(line("stop", "scan"), keys.machine, "sig", ("sig",)))
+
+    first = load_loop(Repo("earlier", repo), "scan")
+
+    assert first.state is not None and first.state.stop_requested
+
+
+def test_the_first_list_of_earlier_lines_stands(two: tuple[Path, Path]) -> None:
+    """Two boards may meet a loop at once; a line added between their looks is not listed."""
+    first, _ = two
+    folder = first / ".loops" / "scan"
+    keys = signing.read_board_keys()
+    assert keys is not None and keys.machine is not None
+    signing.loop_key_file(folder).unlink()
+    listed = signing.earlier_file(folder).read_text(encoding="utf-8")
+    append(folder, marked(line("stop", "scan"), keys.machine, "sig", ("sig",)))
+
+    signing.earlier_file(folder).rename(signing.earlier_file(folder).with_suffix(".held"))
+    signing.earlier_file(folder).write_text(listed, encoding="utf-8")  # the first board's list
+    signing.list_earlier(keys, folder)
+
+    assert signing.earlier_marks(folder) == frozenset()
+    assert not list(signing.earlier_file(folder).parent.glob("*.new"))

@@ -134,6 +134,8 @@ nav.tabs a:hover { color: var(--text); text-decoration: none; }
 nav.tabs a[aria-current="page"] { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
 nav.tabs .n { min-width: 22px; padding: 1px 7px; border-radius: var(--pill); background: var(--tint-2); font-size: var(--t12); font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
 nav.tabs + h2, nav.tabs + .round-head { margin-top: var(--s4); }
+/* On a phone the tabs take a second line rather than hide the last one behind a sideways scroll. */
+@media (max-width: 640px) { nav.tabs { flex-wrap: wrap; overflow: visible; } }
 nav.tabs .n.hot { background: var(--accent); color: var(--on-accent); }
 nav.tabs .n.hot::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
 .card.tabbed, nav.tabs + .ask { margin-top: var(--s3); }
@@ -662,6 +664,8 @@ nav.chips a.g-look, nav.chips a.g-look .n { color: var(--warn); } nav.chips a.g-
 .top nav.kpis, .top .where { justify-self: center; margin: 0 var(--s2); }
 .top nav.strip { justify-self: end; margin-left: 0; }
 @media (max-width: 720px) { .top { grid-template-columns: auto minmax(0, 1fr); } .top nav.strip { grid-column: 2; } }
+/* On a phone the menu needs the width: the mark stays, the name beside it is left to the link's label. */
+@media (max-width: 520px) { .top .brand > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 
 /* The main action of a card is solid ink; the others are outlined; answering a waiting loop is red. */
 button { background: var(--text); color: var(--bg); border-color: transparent; }

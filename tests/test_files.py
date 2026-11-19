@@ -1,9 +1,13 @@
-"""Which file names the viewer refuses: a block-list of the names tools keep keys and passwords under."""
+"""Which files the viewer opens: those a loop names, and of them none under a name tools keep keys
+and passwords under."""
 
 from __future__ import annotations
 
 import fnmatch
+import html
 import os
+import re
+import types
 from pathlib import Path
 
 import pytest
@@ -15,6 +19,22 @@ from loopcaptain.board.app import create_app
 from loopcaptain.board.discover import Config
 from loopcaptain.board.files import PRIVATE_PARTS, PRIVATE_PATTERNS, inside, is_private, read_bounded
 from loopcaptain.board.steer import Runner
+from tests.conftest import STEPS, name_files
+
+HOST = "board.test"
+
+
+@pytest.fixture
+def client(scan: Path, tmp_path: Path) -> TestClient:
+    app = create_app(
+        config=lambda: Config(repos=(scan,)),
+        runner=Runner(tmp_path / "state"),
+        allowed_hosts=frozenset({HOST}),
+    )
+    client = TestClient(app, base_url=f"http://{HOST}", follow_redirects=False)
+    client.cookies.set(app.state.session.cookie_name, app.state.session.issue() or "")
+    return client
+
 
 #: One name per pattern, in the order of `PRIVATE_PATTERNS`: the test below holds the two together.
 NAME_FOR_PATTERN = {
@@ -167,6 +187,7 @@ def test_the_page_answers_no_such_file_when_the_file_became_a_link_after_the_che
 ) -> None:
     (tmp_path / "outside.md").write_text("not the loop's to show")
     (scan / "plan.md").write_text("the plan")
+    name_files(scan, "plan.md")
     app = create_app(
         config=lambda: Config(repos=(scan,)),
         runner=Runner(tmp_path / "state"),
@@ -187,3 +208,62 @@ def test_the_page_answers_no_such_file_when_the_file_became_a_link_after_the_che
 
     assert shown.status_code == 200 and "the plan" in shown.text
     assert swapped.status_code == 404 and "not the loop" not in swapped.text
+
+
+def test_a_file_no_loop_names_is_not_opened_however_ordinary_its_name(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    (scan / "config").mkdir()
+    (scan / "config" / "prod.yaml").write_text("password: hunter2\n")
+    (scan / "notes.md").write_text("# Notes\n")
+    helper.register("other", {"title": "Other", "outputs": [{"name": "Notes", "path": "notes.md"}]}, scan)
+
+    unnamed = client.get("/loop/some-repo/scan/file", params={"path": "config/prod.yaml"})
+    of_another_loop = client.get("/loop/some-repo/scan/file", params={"path": "notes.md"})
+    named = client.get("/loop/some-repo/other/file", params={"path": "notes.md"})
+
+    assert unnamed.status_code == 404 and "hunter2" not in unnamed.text
+    assert of_another_loop.status_code == 404
+    assert named.status_code == 200 and "<h1>Notes</h1>" in named.text
+
+
+def test_a_named_file_opens_in_any_spelling_and_a_key_file_never(client: TestClient, scan: Path) -> None:
+    (scan / "out").mkdir()
+    (scan / "out" / "plan.md").write_text("# The plan\n")
+    (scan / ".env").write_text("TOKEN=abc\n")
+    name_files(scan, "./out/plan.md", ".env")
+
+    assert client.get("/loop/some-repo/scan/file", params={"path": "out/plan.md"}).status_code == 200
+    assert client.get("/loop/some-repo/scan/file", params={"path": "out/../out/plan.md"}).status_code == 200
+    assert client.get("/loop/some-repo/scan/file", params={"path": ".env"}).status_code == 404
+
+
+def test_every_file_link_a_loop_page_draws_opens(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    (scan / "plan.md").write_text("# Plan\n")
+    (scan / "report.md").write_text("# Report\n")
+    outputs = [{"name": "Report", "path": "report.md"}]
+    helper.register("scan", {"title": "Scan", "steps": STEPS, "outputs": outputs}, scan)
+    helper.emit("scan", "round_started", {"round": 3, "plan": "Next.", "artifact": "plan.md"}, scan)
+
+    pages = [client.get(f"/loop/some-repo/scan{tab}").text for tab in ("", "?tab=rounds&round=3")]
+    found = [re.findall(r'href="([^"]*/loop/some-repo/scan/file\?path=[^"]+)"', page) for page in pages]
+    links = {html.unescape(link) for page in found for link in page}
+
+    assert any("plan.md" in link for link in links) and any("report.md" in link for link in links)
+    assert {client.get(link).status_code for link in links} == {200}
+
+
+def test_a_path_through_a_linked_folder_opens_only_what_it_spells(client: TestClient, repo: Path) -> None:
+    """`deep/../report.md` spells `report.md`; read through the link `deep` it would be another file."""
+    (repo / "out" / "inner").mkdir(parents=True)
+    (repo / "out" / "report.md").write_text("not named by the loop\n", encoding="utf-8")
+    (repo / "report.md").write_text("named by the loop\n", encoding="utf-8")
+    (repo / "deep").symlink_to(repo / "out" / "inner")
+    name_files(repo, "report.md")
+
+    page = client.get("/loop/some-repo/scan/file", params={"path": "deep/../report.md"})
+
+    assert page.status_code == 200
+    assert "named by the loop" in page.text and "not named by the loop" not in page.text

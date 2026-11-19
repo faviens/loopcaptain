@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import socket
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,8 @@ from typing import Any
 import pytest
 import uvicorn
 
+from loopcaptain import cli
+from loopcaptain.board.discover import Config, parse_config
 from loopcaptain.cli import main as cli_main
 
 
@@ -302,3 +305,133 @@ def test_the_empty_board_names_the_config_it_read(home: Path, tmp_path: Path) ->
 
     assert "work/loopcaptain.local.yaml</code>" in listed and "none of the 1 folder it lists" in listed
     assert "found no <code>loopcaptain.local.yaml</code>" in nothing
+
+
+def test_every_command_has_a_function_of_its_own_and_none_is_long() -> None:
+    """One function per command: a new command adds a function, it does not lengthen one."""
+    tree = ast.parse(Path(cli.__file__).read_text(encoding="utf-8"))
+    lengths = {
+        node.name: (node.end_lineno or node.lineno) - node.lineno + 1
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name != "build_parser"
+    }
+    choices = cli.build_parser()._subparsers._group_actions[0].choices  # type: ignore[union-attr]
+
+    assert {name: length for name, length in lengths.items() if length > 50} == {}
+    assert set(cli.COMMANDS) == set(choices or {})
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["demo", "--no-watch", "--target", "{locked}/demo"],
+        ["schema", "{locked}/schema"],
+        ["emit", "scan", "round_started", "round=3", "--repo", "{locked}"],
+        ["watch", "{folder}"],
+    ],
+)
+def test_a_folder_that_cannot_be_written_is_one_line_not_a_traceback(
+    command: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    locked, folder = tmp_path / "locked", tmp_path / "folder"
+    (locked / ".loops" / "scan").mkdir(parents=True)
+    (locked / ".loops" / "scan" / "loop.json").write_text('{"protocol": 1, "id": "scan"}')
+    folder.mkdir()
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(locked / "config.yaml"))
+    for path in (locked / ".loops" / "scan", locked):
+        path.chmod(0o500)
+
+    try:
+        code = cli_main([part.format(locked=locked, folder=folder) for part in command])
+    finally:
+        for path in (locked, locked / ".loops" / "scan"):
+            path.chmod(0o700)
+
+    err = capsys.readouterr().err
+    assert code == 1 and err.startswith("loopcaptain: ") and err.count("\n") == 1
+    assert "Traceback" not in err and "ermission" in err
+
+
+def test_watch_and_unwatch_keep_the_comments_and_the_other_lines_of_a_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, first, second = tmp_path / "config.yaml", tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    written = f"# what the board shows\nroots: []  # none yet\nrepos:\n    - {first}  # the scan\n\n# end\n"
+    config.write_text(written)
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+
+    assert cli_main(["watch", str(second)]) == 0 and cli_main(["watch", str(second), "--root"]) == 0
+    added = config.read_text()
+    assert cli_main(["unwatch", str(second)]) == 0
+
+    assert added == (
+        f"# what the board shows\nroots:  # none yet\n  - {second}\nrepos:\n    - {first}  # the scan\n"
+        f"    - {second}\n\n# end\n"
+    )
+    assert config.read_text() == written.replace("roots: []  # none yet", "roots:  # none yet")
+    assert parse_config(config) == Config(repos=(first.resolve(),), source=config)
+
+
+def test_unwatch_finds_an_entry_by_the_folder_it_names_however_it_was_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config, folder = tmp_path / "config.yaml", tmp_path / "work" / "tool"
+    folder.mkdir(parents=True)
+    config.write_text("repos:\n  - work/tool/   # relative to this file, with a slash\n  - work/other\n")
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+
+    assert cli_main(["watch", str(folder)]) == 0
+    assert "already under repos" in capsys.readouterr().out
+    assert cli_main(["unwatch", str(folder)]) == 0
+
+    assert config.read_text() == "repos:\n  - work/other\n"
+    assert "removed work/tool/ from repos" in capsys.readouterr().out
+
+
+def test_a_list_written_on_one_line_is_still_edited_and_other_settings_stay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, first, second = tmp_path / "config.yaml", tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    config.write_text(f"repos: [{first}]\nlater: kept\n")
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+
+    assert cli_main(["watch", str(second)]) == 0
+
+    assert parse_config(config).repos == (first.resolve(), second.resolve())
+    assert "later: kept" in config.read_text()
+
+
+def test_a_config_that_cannot_be_read_is_one_line_and_is_left_as_it_is(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = tmp_path / "config.yaml"
+    config.write_text("roots: [unclosed\n")
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+
+    assert cli_main(["watch", str(tmp_path)]) == 1 and cli_main(["unwatch", str(tmp_path)]) == 1
+
+    err = capsys.readouterr().err
+    assert err.count("loopcaptain: ") == 2 and "nothing was written" in err and "Traceback" not in err
+    assert config.read_text() == "roots: [unclosed\n"
+
+
+def test_a_config_is_written_beside_its_place_and_moved_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A write that fails half-way must leave the config a person wrote as it was."""
+    config, folder = tmp_path / "config.yaml", tmp_path / "folder"
+    folder.mkdir()
+    config.write_text("# mine\nrepos: []\n")
+    monkeypatch.setenv("LOOPCAPTAIN_CONFIG", str(config))
+
+    def fails(source: object, target: object) -> None:
+        raise OSError(28, "No space left on device", str(target))
+
+    monkeypatch.setattr("loopcaptain.board.discover.os.replace", fails)
+
+    assert cli_main(["watch", str(folder)]) == 1
+    assert config.read_text() == "# mine\nrepos: []\n" and "No space left" in capsys.readouterr().err

@@ -105,8 +105,14 @@ vocabulary beside the helper's.
 ## 4. The board is server-rendered, local, and reads fresh
 
 **Decision.** FastAPI with Jinja templates, one stylesheet, one small
-script, vendored fonts; bound to 127.0.0.1; every request reads the files
-again. No build step, no framework, no CDN.
+script, vendored fonts; bound to 127.0.0.1; every request looks at the
+files again. A log is parsed once per state of its file (its time, size
+and inode: `read_events` in `protocol/store.py`), since one page reads it
+several times and a page that reloads itself reads it again; what is
+folded from it is folded on every request, because status depends on the
+time. A page draws a stretch of 30 rounds, 300 rows of a table and the
+last 200 rounds of a trend, with links to the rest. No build step, no
+framework, no CDN.
 
 **Why.** Three pages over a few small files need no client state. Nothing
 fetched from elsewhere means nothing about a loop leaves the laptop, and a
@@ -260,8 +266,12 @@ read the key. It guards against agents confined to their repository.
 
 **Decision.** `board/discover.py` groups the folders it finds by the `.git`
 folder they share, read from the `.git` file of a worktree without running
-git. A group shows once, from the worktree whose `.loops/` was written
-last; the loop page names it and lists the others in a tooltip.
+git. A group shows once, under the name of the main checkout's folder,
+whichever worktree was written last. Each loop is read from the worktree
+that wrote that loop last (`loops_of`), so a loop that lives in one
+worktree only stays listed; the loop page names the worktree it reads and
+lists the others in a tooltip. Two repositories whose folder and parent
+folder are called the same get a number behind the second one's key.
 
 **Why.** A loop that runs in its own worktree, as the "one worktree per
 writer" rule asks, sits beside the main checkout under the same root. The
@@ -846,8 +856,10 @@ the MCP server work the file's name out from the loop's own folder and read that
 `LOOPCAPTAIN_INBOX_KEY`, still passed by Start, says where the folder is. Every line the board
 writes carries `loop_sig` under the loop's key, over the line without its marks. It also carries
 `sig`, under the one key of earlier versions (`inbox.key`), over the line with `loop_sig`, exactly
-as a helper pasted from the earlier text computes it. The board trusts `loop_sig` only; a line
-older than its secret, which can carry only `sig`, it reads by `sig` (`is_from_board`).
+as a helper pasted from the earlier text computes it. The board trusts `loop_sig` only, with
+one exception: when it makes a loop's key for the first time it lists the `sig` marks of the
+lines that inbox already holds (`keys/<name>.earlier`, `list_earlier`), and a line on that list
+it reads by `sig` (`is_from_board`). The list is made once and never grows.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/keys-dark.svg">
@@ -866,10 +878,12 @@ stays. A key named by the loop's id alone: two repositories with a loop of the s
 share it. A key kept in the loop's repository: the agents it is meant to hold out can read it.
 Dropping `sig` at once: every loop with an earlier helper would read the person's stop as not
 from the board and run on. Trusting `sig` in the board for any line: whoever holds the earlier
-key could then write the board's own status.
+key could then write the board's own status. Trusting `sig` on a line dated before the secret:
+the date is part of the line, and whoever holds the earlier key writes any date and signs it.
 
 **What it costs.** A moved or renamed repository gives its loops new keys, and lines sent before
-the move read as not from the board. A loop with an earlier helper is as exposed as before,
+the move read as not from the board. So does a line under the earlier key in the inbox of a loop
+whose key was made without a list (by the first version that made loop keys). A loop with an earlier helper is as exposed as before,
 until its helper is pasted again; `sig` goes with protocol 2. A process with the user's full
 file access reads the secret, as it read the one key.
 
@@ -890,7 +904,56 @@ needs a private route to the board, or a channel that carries the steering for i
 board, and the command it may start, on the internet. A push service such as ntfy stays a
 possible later channel.
 
-## 38. A step's card is drawn in the picture, shown by CSS alone
+## 38. The viewer opens the files a loop names, and no other
+
+**Decision.** The file page opens a path only if the loop it is asked for names it: as a text
+anywhere in its `loop.json` or its events, as an argument of its start command, or as one of
+the loop's own three files (`files_of` in `board/app.py`, `named_paths` in `board/files.py`).
+Every text of a record counts as a possible path, so a new field that links a file needs no
+second list. The block-list of key and credential names (item 3 of the model in `SECURITY.md`)
+still applies to what a loop names, and so do the bounds: inside the repository, text only, no
+link followed. The path asked for is brought to one spelling first (`posixpath.normpath`), and
+that spelling is both checked and read: `a/../x` is `x`, whatever `a` links to.
+
+**Why.** The viewer refused by name. A list of names holds only the names someone thought of:
+`config/prod.yaml` with a password in it was shown to anyone who typed its path into the
+address. What the board needs to show is what a loop points at: a plan, a review, a prompt, an
+output.
+
+**Rejected.** A longer name list: the same fault one name later. A list of the fields that hold
+paths: every new field would have to be added in two places, and a forgotten one is a dead link.
+Opening only files under folders a loop declares: no loop declares one today, so every loop
+would have to change (rule 3).
+
+**What it costs.** A file no loop names cannot be read on the board, however harmless. A loop
+chooses what it names, so this bounds what a person can browse to, not what a loop can show.
+
+## 39. A signed line belongs to one loop and one id, not to a run or a time
+
+**Decision.** A line the board signs carries no run, no nonce and no expiry. What holds a copy
+back is what the line already says and what the loop already writes: its `loop` and the key of
+that loop's folder (section 36), its `id`, which a loop records in `inbox_read` and never takes
+twice, and its `ts`, which is signed and which marks a reply to an earlier asking as `stale`. A
+stop sent to a loop that is not running waits and is taken at the loop's next start; the page
+says so beside Start.
+
+**Why.** The cases a binding would close are closed already or are wanted. A line copied into
+another loop's inbox fails that loop's key. A line appended a second time has an id the loop
+has read. A reply to a question asked again is `stale`. A run that starts its count over is a
+loop of its own (section 21), with another folder and so another key. What is left is a stop
+taken by a later start than the person had in mind, and that is how `loopcaptain doctor` asks
+whether a loop listens: it sends the stop first and the loop is started after.
+
+**Rejected.** A `run` in every line: the protocol has no run (section 21), and the board would
+have to learn one from a loop it must not write to (rule 4). An expiry: a stop for a loop that
+sleeps for a day is still meant a day later, and the board cannot know how long a loop sleeps.
+A nonce the loop hands out: a loop that asks nothing still takes a stop.
+
+**What it costs.** A loop whose events are deleted or replaced while its inbox is kept takes
+its earlier lines again, a stop among them. Whoever can do that can write the loop's files, and
+then no mark on a line helps.
+
+## 40. A step's card is drawn in the picture, shown by CSS alone
 
 **Decision.** Each step of the round's graph has a card (name, state, agent and model, prompt
 file, purpose) in a `foreignObject` inside the SVG (`templates/loop.html`). The cards sit in a
@@ -909,7 +972,7 @@ graph: its place would need a `style` attribute per step. Cards inside each step
 step is drawn over an earlier step's card. **What it costs.** The card scales with the picture,
 as the steps' own labels do; a wide graph draws it smaller.
 
-## 39. A loop id that two repositories share is named, not refused
+## 41. A loop id that two repositories share is named, not refused
 
 **Decision.** When two watched repositories have a loop with the same id, the overview says so
 in one line and each such loop's page names the other repositories, with links

@@ -1,10 +1,13 @@
-"""Which files of a watched repository the board opens, and which it never shows."""
+"""Which files of a watched repository the board opens: those a loop's own records name, and of
+those none whose name says it holds keys or credentials."""
 
 from __future__ import annotations
 
 import fnmatch
 import os
+import posixpath
 import stat
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -149,6 +152,32 @@ def is_private(part: str) -> bool:
     return lowered in PRIVATE_PARTS or any(
         fnmatch.fnmatchcase(lowered, pattern) for pattern in PRIVATE_PATTERNS
     )
+
+
+def strings(value: object) -> Iterator[str]:
+    """Every text a record holds, at any depth."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for inner in value.values():
+            yield from strings(inner)
+    elif isinstance(value, list | tuple):
+        for inner in value:
+            yield from strings(inner)
+
+
+def named_paths(records: Iterable[object]) -> frozenset[str]:
+    """What a loop's records name, each as a path in one spelling: the only files the board opens.
+
+    A record names a file wherever it holds its path as a text: a round's plan, a step's prompt, a
+    run's artifact, an output. Any text may be one, so every text counts; one that is no file of
+    the repository opens nothing.
+    """
+    return frozenset(posixpath.normpath(text) for record in records for text in strings(record) if text)
+
+
+def is_named(relative: str, names: frozenset[str]) -> bool:
+    return bool(relative) and posixpath.normpath(relative) in names
 
 
 def inside(repo: Path, relative: str) -> Path:

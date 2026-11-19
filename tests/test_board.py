@@ -18,16 +18,33 @@ from fastapi.testclient import TestClient
 
 from loopcaptain.board import steer, trend
 from loopcaptain.board.app import STATUS_ORDER, create_app
-from loopcaptain.board.discover import Config, Repo, find_repos, load_config, parse_config
+from loopcaptain.board.discover import (
+    Config,
+    Repo,
+    find_loop,
+    find_repos,
+    load_all,
+    load_config,
+    parse_config,
+)
 from loopcaptain.board.filters import place
 from loopcaptain.board.graph import columns, layout
 from loopcaptain.board.steer import Runner
 from loopcaptain.cli import main as cli_main
 from loopcaptain.protocol import signing, store
 from loopcaptain.protocol.models import Manifest
-from loopcaptain.protocol.state import STATUS_TEXT, FindingState, LoopState, RoundState, Status, StepRun, fold
+from loopcaptain.protocol.state import (
+    STALE_AFTER,
+    STATUS_TEXT,
+    FindingState,
+    LoopState,
+    RoundState,
+    Status,
+    StepRun,
+    fold,
+)
 from loopcaptain.protocol.store import StoreError
-from tests.conftest import STEPS
+from tests.conftest import STEPS, name_files
 
 HOST = "board.test"
 
@@ -234,6 +251,7 @@ def test_a_message_shows_only_when_this_server_wrote_it(client: TestClient, scan
 def test_files_render_inside_the_repository_only(client: TestClient, scan: Path) -> None:
     (scan / "notes.md").write_text("# Plan\n\n<script>alert(1)</script>\n\n| a | b |\n|---|---|\n| 1 | 2 |\n")
     (scan.parent / "outside.md").write_text("secret")
+    name_files(scan, "notes.md", "../outside.md", "/etc/passwd", "missing.md")
 
     inside = client.get("/loop/some-repo/scan/file", params={"path": "notes.md"})
 
@@ -537,6 +555,7 @@ def test_git_and_secret_files_are_never_shown(client: TestClient, scan: Path, pa
 
 def test_a_file_that_is_not_known_text_is_named_not_shown(client: TestClient, scan: Path) -> None:
     (scan / "dump.bin").write_text("looks like text but is not offered")
+    name_files(scan, "dump.bin")
 
     page = client.get("/loop/some-repo/scan/file", params={"path": "dump.bin"})
 
@@ -696,6 +715,53 @@ def test_worktrees_of_one_repository_show_once_from_the_last_written(
     assert [(repo.path, repo.others) for repo in repos] == [(main_checkout, (worktree,))]
 
 
+def linked_worktree(main_checkout: Path, worktree: Path) -> None:
+    """A worktree as git lays it out: a `.git` file naming a folder that names the file back."""
+    (main_checkout / ".git" / "worktrees" / worktree.name).mkdir(parents=True)
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {main_checkout}/.git/worktrees/{worktree.name}\n")
+    (main_checkout / ".git" / "worktrees" / worktree.name / "gitdir").write_text(f"{worktree}/.git\n")
+
+
+def test_a_loop_that_lives_in_one_worktree_stays_on_the_board_when_another_wrote_last(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    root = tmp_path / "work"
+    main_checkout, worktree = root / "tool", root / "tool-loop"
+    linked_worktree(main_checkout, worktree)
+    helper.register("only-here", {"title": "Lives in the worktree"}, worktree)
+    helper.register("scan", {"title": "Old copy"}, main_checkout)
+    time.sleep(0.01)
+    helper.register("scan", {"title": "Fresh copy"}, worktree)
+    config = Config(roots=(root,))
+    before = {(view.repo.key, view.loop_id, view.title, view.repo.path) for view in load_all(config)}
+    time.sleep(0.01)
+    helper.emit("scan", "round_started", {"round": 1}, main_checkout)  # the main checkout wrote last
+
+    after = {(view.repo.key, view.loop_id, view.title, view.repo.path) for view in load_all(config)}
+    found = find_loop(config, "tool", "only-here")
+
+    assert ("tool", "only-here", "Lives in the worktree", worktree) in before & after
+    assert ("tool", "scan", "Fresh copy", worktree) in before
+    assert ("tool", "scan", "Old copy", main_checkout) in after
+    assert found is not None and found[0].path == worktree and found[0].others == (main_checkout,)
+
+
+def test_two_repositories_with_the_same_folder_and_parent_name_each_get_an_address(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    first, second = tmp_path / "a" / "work" / "tool", tmp_path / "b" / "work" / "tool"
+    helper.register("scan", {"title": "First"}, first)
+    helper.register("scan", {"title": "Second"}, second)
+    config = Config(repos=(second, first))
+
+    keys = {repo.path: repo.key for repo in find_repos(config)}
+    found = find_loop(config, "work.tool-2", "scan")
+
+    assert keys == {first: "work.tool", second: "work.tool-2"}
+    assert found is not None and found[1].title == "Second"
+
+
 def test_the_loop_page_says_which_worktree_it_reads(tmp_path: Path, helper: types.ModuleType) -> None:
     root = tmp_path / "work"
     main_checkout, worktree = root / "tool", root / "tool-loop"
@@ -831,6 +897,172 @@ def test_stop_is_offered_only_where_a_loop_may_still_start_a_round(
 
     assert "Stop after this round" not in page and "Stop before the next round" not in page
     assert "names no command the board could start" in page
+
+
+def test_the_page_says_that_more_questions_follow_and_shows_the_next_after_an_answer(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "question", {"id": "seats", "text": "Per seat?"}, scan)
+    time.sleep(0.01)
+    helper.emit("scan", "question", {"id": "region", "text": "Which region?"}, scan)
+    first = client.get("/loop/some-repo/scan").text
+
+    client.post("/loop/some-repo/scan/reply", data={"token": token_of(client), "text": "Per seat."})
+    second = client.get("/loop/some-repo/scan").text
+
+    assert "Per seat?" in first and "1 more question from this loop follows" in first
+    assert "Which region?" in second and "more question" not in second
+    assert store.read_inbox(scan, "scan")[0][-1].question == "seats"
+
+
+def test_a_note_to_a_loop_that_has_ended_says_when_it_will_be_read(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    running = client.post(
+        "/loop/some-repo/scan/reply", data={"token": token_of(client), "text": "Look at prices."}
+    )
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "done"}, scan)
+    ended = client.post(
+        "/loop/some-repo/scan/reply", data={"token": token_of(client), "text": "And at vendors."}
+    )
+
+    assert "reads%20it%20at%20its%20next%20round" in running.headers["location"]
+    assert "when%20it%20is%20started%20again%3A%20it%20is%20done%20now" in ended.headers["location"]
+
+
+def test_the_empty_board_offers_its_two_prompts_with_a_copy_button(tmp_path: Path) -> None:
+    app = create_app(config=lambda: Config(), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST}))
+
+    page = let_in(TestClient(app, base_url=f"http://{HOST}")).get("/").text
+
+    for source in ("prompt-build-text", "prompt-watch-text"):
+        assert f'data-copy-from="{source}"' in page and f'<textarea id="{source}"' in page
+
+
+def test_the_tabs_of_a_loop_wrap_on_a_phone_instead_of_scrolling_sideways() -> None:
+    style = (Path(steer.__file__).parent / "static" / "style.css").read_text(encoding="utf-8")
+
+    assert "@media (max-width: 640px) { nav.tabs { flex-wrap: wrap; overflow: visible; } }" in style
+
+
+def test_the_menu_does_not_cover_the_name_on_a_phone() -> None:
+    """At 390 px the menu is wider than the space beside the name: the name gives way, the mark stays."""
+    style = (Path(steer.__file__).parent / "static" / "style.css").read_text(encoding="utf-8")
+
+    assert "@media (max-width: 520px) { .top .brand > span { position: absolute; width: 1px;" in style
+
+
+def test_a_loop_of_many_rounds_is_drawn_a_stretch_at_a_time(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    """A loop of thousands of rounds was one page of megabytes: every round a column, every finding a row."""
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "continue"}, scan)
+    for number in range(3, 76):
+        helper.emit("scan", "round_started", {"round": number}, scan)
+        findings = [{"id": f"{number}-{n}", "text": "No source."} for n in range(5)]
+        helper.emit("scan", "step_finished", {"round": number, "step": "facts", "findings": findings}, scan)
+        helper.emit("scan", "round_finished", {"round": number, "verdict": "continue"}, scan)
+
+    def columns(page: str) -> list[int]:
+        return [
+            int(n) for n in re.findall(r'<th scope="col" class="rnd"><a href="[^"]*round=(\d+)#round"', page)
+        ]
+
+    latest = client.get("/loop/some-repo/scan?tab=rounds").text
+    middle = client.get("/loop/some-repo/scan?tab=rounds&round=40").text
+    first = client.get("/loop/some-repo/scan?tab=rounds&round=2").text
+
+    assert columns(latest) == list(range(46, 76)) and "Rounds 46 to 75 of 75." in latest
+    assert 'round=45#round">Earlier rounds' in latest and "Later rounds" not in latest
+    assert columns(middle) == list(range(16, 46)) and 'round=75#round">Later rounds' in middle
+    assert columns(first) == list(range(1, 16)) and "Earlier rounds" not in first
+
+
+def test_a_table_of_open_findings_lists_the_first_rows_and_says_how_many_there_are(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    findings = [{"id": str(n), "text": f"gap {n}"} for n in range(320)]
+    helper.emit("scan", "step_finished", {"round": 2, "step": "facts", "findings": findings}, scan)
+
+    page = client.get("/loop/some-repo/scan?tab=findings").text
+
+    assert "The first 300 of 320 open findings are listed" in page
+    assert ">gap 299<" in page and ">gap 300<" not in page
+
+
+def test_a_stop_for_a_loop_between_rounds_is_not_answered_as_if_a_round_were_under_way(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "continue"}, scan)
+
+    sent = client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+
+    assert "reads%20it%20at%20its%20next%20start%20and%20runs%20no%20round" in sent.headers["location"]
+
+
+def test_an_answer_typed_for_one_question_is_not_sent_to_the_one_asked_since(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    """The page holds its reload while an answer is typed, so the loop may ask again meanwhile."""
+    helper.emit("scan", "question", {"id": "seats", "text": "Per seat?"}, scan)
+    page = client.get("/loop/some-repo/scan").text
+    found = re.search(r'name="asked_at" value="([^"]+)"', page)
+    assert found is not None and page.count('name="asked_at"') == 1
+    time.sleep(0.01)
+    helper.emit("scan", "question", {"id": "ship", "text": "Ship it?", "blocks": True}, scan)
+    form = {"token": token_of(client), "text": "Per seat.", "asked_at": found.group(1)}
+
+    late = client.post("/loop/some-repo/scan/reply", data=form)
+
+    assert "no%20longer%20asks%20the%20question" in late.headers["location"]
+    assert store.read_inbox(scan, "scan")[0] == []
+    again = re.search(r'name="asked_at" value="([^"]+)"', client.get("/loop/some-repo/scan").text)
+    assert again is not None
+    client.post("/loop/some-repo/scan/reply", data={**form, "asked_at": again.group(1)})
+    assert store.read_inbox(scan, "scan")[0][-1].question == "ship"
+
+
+def test_a_note_to_a_loop_that_never_ran_is_read_at_its_next_round(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    repo = tmp_path / "fresh"
+    helper.register("scan", {"title": "Scan"}, repo)
+    app = create_app(
+        config=lambda: Config(repos=(repo,)), runner=Runner(tmp_path / "s"), allowed_hosts=frozenset({HOST})
+    )
+    fresh = let_in(TestClient(app, base_url=f"http://{HOST}", follow_redirects=False))
+
+    sent = fresh.post("/loop/fresh/scan/reply", data={"token": app.state.token, "text": "Start with prices."})
+
+    assert "reads%20it%20at%20its%20next%20round" in sent.headers["location"]
+
+
+def test_a_loop_is_read_from_the_worktree_it_runs_in_not_the_one_a_checkout_touched(
+    tmp_path: Path, helper: types.ModuleType
+) -> None:
+    root = tmp_path / "work"
+    main_checkout, worktree = root / "tool", root / "tool-loop"
+    linked_worktree(main_checkout, worktree)
+    helper.register("scan", {"title": "Runs here"}, worktree)
+    helper.emit("scan", "round_started", {"round": 1}, worktree)
+    time.sleep(0.01)
+    helper.register("scan", {"title": "A checkout wrote this"}, main_checkout)  # loop.json only, later
+
+    found = find_loop(Config(roots=(root,)), "tool", "scan")
+
+    assert found is not None and found[0].path == worktree and found[1].title == "Runs here"
+
+
+def test_the_page_says_beside_start_that_a_stop_is_waiting(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, "python3 loop.py")
+    marker = "A Stop is waiting in this loop"
+    assert marker not in client.get("/loop/some-repo/scan").text
+
+    client.post("/loop/some-repo/scan/stop", data={"token": token_of(client)})
+
+    assert marker in client.get("/loop/some-repo/scan").text
 
 
 def test_a_stalled_loop_says_what_it_last_did_and_what_to_do(
@@ -1242,6 +1474,28 @@ def test_an_open_page_learns_that_its_loop_went_quiet_without_any_file_changing(
     assert 'class="pill running"' in drawn and 'class="pill stalled"' in reloaded
 
 
+def test_a_page_of_a_sleeping_loop_names_the_moment_its_promise_runs_out(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    """No file changes when a sleeping loop overstays, so the pulse cannot tell the page."""
+    assert "data-turn-at" not in client.get("/loop/some-repo/scan").text
+    wake = datetime.now(UTC) + timedelta(hours=2)
+    helper.emit(
+        "scan", "round_finished", {"round": 2, "verdict": "continue", "next_at": wake.isoformat()}, scan
+    )
+
+    page, overview = client.get("/loop/some-repo/scan").text, client.get("/").text
+    found = re.search(r'data-turn-at="(\d+)"', page)
+    assert found is not None
+    moment = int(found.group(1))
+
+    assert 'class="pill sleeping"' in page and f'data-turn-at="{moment}"' in overview
+    assert "data-turn-at" in (Path(steer.__file__).parent / "static" / "board.js").read_text(encoding="utf-8")
+    assert (
+        wake + STALE_AFTER < datetime.fromtimestamp(moment, UTC) <= wake + STALE_AFTER + timedelta(seconds=2)
+    )
+
+
 # ---- a Stop nothing would read, a Start beside a loop that runs ----
 
 
@@ -1330,6 +1584,7 @@ def test_a_file_over_the_size_the_board_renders_is_named_not_read(client: TestCl
 
     (scan / "huge.md").write_text("# Marker of the huge file\n" + "x" * MAX_FILE_BYTES)
     (scan / "fits.md").write_text("# Marker of the small file\n" + "x" * (MAX_FILE_BYTES - 100))
+    name_files(scan, "huge.md", "fits.md")
 
     huge = client.get("/loop/some-repo/scan/file", params={"path": "huge.md"}).text
     fits = client.get("/loop/some-repo/scan/file", params={"path": "fits.md"}).text

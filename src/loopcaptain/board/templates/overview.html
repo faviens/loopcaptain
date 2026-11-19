@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set page = 'overview' %}
 {% block title %}{{ 'Waiting for you' if tab == 'waiting' else '' }}{% endblock %}
-{% block body_attrs %} data-pulse-url="{{ url_for('overview_pulse') }}" data-pulse="{{ pulse }}"{% endblock %}
+{% block body_attrs %} data-pulse-url="{{ url_for('overview_pulse') }}" data-pulse="{{ pulse }}"{% if turn_at %} data-turn-at="{{ turn_at }}"{% endif %}{% endblock %}
 {% macro project_head(project) %}<span class="name"{% if not project.worktree %} title="{{ project.place }}"{% endif %}>{{ project.name or project.repo.key }}</span>{% if project.worktree %}<span class="wt" title="a worktree of {{ project.name }}, at {{ project.place }}">worktree {{ project.worktree }}</span>{% endif %}{% if project.branch %}<code class="branch">{{ project.branch }}</code>{% endif %}<span class="count">{{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}{% endmacro %}
 {% macro loop_row(view) %}
   <tr class="is-{{ view.state.status if view.state else 'failed' }}">
@@ -64,12 +64,12 @@
   <p class="q">{% if view.state.question.needs_person %}<b>A step needs you.</b> {% endif %}{{ view.state.question.text }}</p>
   {% if view.state.question.options %}
   <form class="choices" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting"><input type="hidden" name="asked_at" value="{{ q.asked.isoformat() }}">
     {% for option in view.state.question.options %}<button type="submit" name="choice" value="{{ option.id }}">{{ option.label }}</button>{% endfor %}
   </form>
   {% endif %}
   <form class="say" method="post" action="{{ url_for('loop_reply', repo_key=view.repo.key, loop_id=view.loop_id) }}">
-    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back_to" value="waiting"><input type="hidden" name="asked_at" value="{{ q.asked.isoformat() }}">
     <textarea name="text" required aria-label="Your answer to {{ view.title }}" placeholder="Your answer. The loop reads it at its next round."></textarea>
     <button type="submit">Send answer</button>
   </form>
@@ -119,9 +119,13 @@
 <section class="start-here" aria-label="Get started">
   <p class="lead">{% if not config.source %}No loop to show yet, and no list of repositories to watch: the board found no <code>loopcaptain.local.yaml</code> in the folder it was started in and no <code>~/.config/loopcaptain/config.yaml</code>.{% else %}The board reads <code>{{ config.source|place }}</code>{% if not config.roots and not config.repos %}, which lists no folder yet{% else %}, and none of the {{ config.roots|length + config.repos|length }} folder{{ 's' if config.roots|length + config.repos|length != 1 }} it lists has a <code>.loops/</code> folder with a loop yet{% endif %}.{% endif %} Copy one of these into your coding agent:</p>
   <div class="prompts">
-    <div class="card"><p class="eyebrow">Build a loop</p><pre class="prompt" tabindex="0">{{ prompts['build-a-loop'] }}</pre></div>
-    <div class="card"><p class="eyebrow">Watch the loops on this machine</p><pre class="prompt" tabindex="0">{{ prompts['watch-my-loops'] }}</pre></div>
+    <div class="card"><p class="eyebrow">Build a loop</p><pre class="prompt" tabindex="0">{{ prompts['build-a-loop'] }}</pre>
+      <p class="act"><button type="button" data-copy-from="prompt-build-text">Copy the prompt</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
+    <div class="card"><p class="eyebrow">Watch the loops on this machine</p><pre class="prompt" tabindex="0">{{ prompts['watch-my-loops'] }}</pre>
+      <p class="act"><button type="button" class="quiet" data-copy-from="prompt-watch-text">Copy the prompt</button><span class="grey" data-copied hidden role="status">Copied.</span></p></div>
   </div>
+  <textarea id="prompt-build-text" hidden readonly aria-hidden="true">{{ prompts['build-a-loop'] }}</textarea>
+  <textarea id="prompt-watch-text" hidden readonly aria-hidden="true">{{ prompts['watch-my-loops'] }}</textarea>
   <p class="note">Or see it first with an invented loop that costs nothing: <code>loopcaptain demo</code>, then reload. To watch your own repositories, list them under <code>roots:</code> or <code>repos:</code> in <code>~/.config/loopcaptain/config.yaml</code>, or run <code>loopcaptain watch &lt;folder&gt;</code>. <a href="{{ url_for('connect') }}">How a loop connects</a>.</p>
 </section>
 {% endif %}

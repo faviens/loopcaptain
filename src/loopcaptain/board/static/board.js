@@ -15,10 +15,13 @@
     window.history.replaceState(null, "", here.pathname + here.search + here.hash);
   }
 
+  var FIELDS = 'textarea[name], input[type="text"][name], input[type="search"][name]';
+
   function busy() {
-    // Never reload under someone who is typing an answer or reading a check's history.
-    var typed = Array.prototype.some.call(document.querySelectorAll("textarea[name]"), function (field) {
-      return field.value.trim() !== "" || field === document.activeElement;
+    // Never reload under someone who is typing (an answer, a reason, a search) or reading a check's
+    // history: a field holds text that was not sent, or the cursor is in it.
+    var typed = Array.prototype.some.call(document.querySelectorAll(FIELDS), function (field) {
+      return field.value.trim() !== field.defaultValue.trim() || field === document.activeElement;
     });
     return typed || document.querySelector("table.items details[open]") !== null;
   }
@@ -38,6 +41,18 @@
   }
 
   if (url) window.setInterval(poll, POLL_MS);
+
+  // A loop that said when it is back turns to stalled when that time passes, and no file changes
+  // then, so the pulse stays as it is. The page names the moment; look again once it has come.
+  var turnAt = Number(body.getAttribute("data-turn-at")) * 1000;
+  var MAX_TIMER_MS = 2147483647;
+  function turn() {
+    if (document.hidden || busy()) window.setTimeout(turn, POLL_MS);
+    else window.location.reload();
+  }
+  if (url && turnAt > Date.now() && turnAt - Date.now() < MAX_TIMER_MS) {
+    window.setTimeout(turn, turnAt - Date.now());
+  }
 
   // A repository folded away on the first page stays folded across the page's own reloads.
   var FOLDED = "loopcaptain.folded";

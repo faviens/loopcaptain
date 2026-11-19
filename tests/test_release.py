@@ -84,3 +84,19 @@ def test_a_release_is_built_by_one_named_version_of_the_build_backend() -> None:
     assert [re.fullmatch(r"hatchling==\d+\.\d+\.\d+", item) is not None for item in build["requires"]] == [
         True
     ]
+
+
+def test_the_source_archive_leaves_out_what_only_the_repository_needs() -> None:
+    """Pictures of the documentation, ledgers, CI files and a local cache made the archive four times larger."""
+    settings = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    left_out = settings["tool"]["hatch"]["build"]["targets"]["sdist"]["exclude"]
+
+    assert {"/.agent", "/.github", "/.cache", "/docs/assets"} <= set(left_out)
+    assert not {"/src", "/standard", "/scripts", "/tests"} & set(left_out)  # what builds and tests it stays
+
+
+def test_the_package_points_at_the_releases_for_what_changed() -> None:
+    """CHANGELOG.md holds the first version only; every later note is on the releases page."""
+    urls = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["urls"]
+
+    assert urls["Changelog"].endswith("/releases")

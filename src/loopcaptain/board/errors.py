@@ -31,6 +31,8 @@ TITLES = {
     FAULT: "The board ran into a fault",
 }
 OTHER_TITLE = "The board could not do that"
+#: A page asked for with a value in its address that cannot be read: no form was sent.
+BAD_ADDRESS_TITLE = "This address cannot be read"
 
 #: Everything the pages load comes from this server: no inline script or style, no other origin.
 CONTENT_POLICY = (
@@ -57,7 +59,9 @@ def wants_page(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "")
 
 
-def error_response(templates: Jinja2Templates, request: Request, status: int, message: str) -> Response:
+def error_response(
+    templates: Jinja2Templates, request: Request, status: int, message: str, title: str = ""
+) -> Response:
     if not wants_page(request):
         return JSONResponse({"detail": message}, status_code=status)
     params = request.path_params
@@ -67,7 +71,7 @@ def error_response(templates: Jinja2Templates, request: Request, status: int, me
         else ""
     )
     context = {
-        "title": TITLES.get(status, OTHER_TITLE),
+        "title": title or TITLES.get(status, OTHER_TITLE),
         "message": message,
         "loop_url": loop if loop != str(request.url).split("?")[0] else "",
     }
@@ -84,6 +88,11 @@ def add_error_pages(app: FastAPI, templates: Jinja2Templates) -> None:
     @app.exception_handler(RequestValidationError)
     def incomplete(request: Request, problem: RequestValidationError) -> Response:
         missing = ", ".join(str(item["loc"][-1]) for item in problem.errors()[:3])
+        if request.method in ("GET", "HEAD"):
+            message = (
+                f"The address holds a value the board cannot read: {missing}. Open the page from a link."
+            )
+            return error_response(templates, request, INCOMPLETE, message, BAD_ADDRESS_TITLE)
         message = f"The request lacked or misnamed: {missing}. Go back, reload the page and send again."
         return error_response(templates, request, INCOMPLETE, message)
 

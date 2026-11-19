@@ -10,6 +10,7 @@ import json
 import os
 import secrets
 import stat
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -199,15 +200,51 @@ def append_event(repo: Path, loop_id: str, event: AnyEvent) -> None:
     append_line(loop_dir(repo, loop_id) / EVENTS_FILE, event.model_dump_json(exclude_none=True))
 
 
+#: The logs read last, by path, with the file state they were read at. One page reads a loop's
+#: log several times (the page, its checks, the header's figures), and a page that reloads itself
+#: reads it again though nothing was written: a log is parsed once per state of its file.
+READ_LOGS: dict[Path, tuple[tuple[int, int, int], list[AnyEvent], list[Problem]]] = {}
+#: How many bytes of log the parsed copies may stand for; the logs read longest ago go first.
+KEPT_LOG_BYTES = 3 * MAX_LOG_BYTES
+#: Pages are answered from several threads; the copies are one dict.
+READ_LOGS_LOCK = threading.Lock()
+
+
+def file_state(path: Path) -> tuple[int, int, int] | None:
+    """What tells one state of a file from the next without reading it; None where it cannot be told."""
+    try:
+        info = path.lstat()
+    except OSError:
+        return None
+    return (info.st_mtime_ns, info.st_size, info.st_ino)
+
+
 def read_events(repo: Path, loop_id: str) -> tuple[list[AnyEvent], list[Problem]]:
+    """A loop's events and the lines that are none. Parsed once per state of the file: its time,
+    size and inode. Events are immutable, so the parsed ones are shared; the lists are the caller's."""
+    path = loop_dir(repo, loop_id) / EVENTS_FILE
+    state = file_state(path)
+    with READ_LOGS_LOCK:
+        kept = READ_LOGS.get(path)
+        if kept is not None and state is not None and kept[0] == state:
+            READ_LOGS[path] = READ_LOGS.pop(path)  # read last, so dropped last
+            return list(kept[1]), list(kept[2])
     events: list[AnyEvent] = []
     problems: list[Problem] = []
-    for number, line in complete_lines(loop_dir(repo, loop_id) / EVENTS_FILE):
+    for number, line in complete_lines(path):
         try:
             events.append(EVENT.validate_json(line))
         except ValidationError as error:
             problems.append(Problem(EVENTS_FILE, number, short_error(error)))
-    return events, problems
+    with READ_LOGS_LOCK:
+        READ_LOGS.pop(path, None)
+        # Kept only if the file did not change while it was read: a line written meanwhile would
+        # otherwise be missing from the copy until the next write.
+        if state is not None and state == file_state(path):
+            READ_LOGS[path] = (state, events, problems)
+            while len(READ_LOGS) > 1 and sum(kept[0][1] for kept in READ_LOGS.values()) > KEPT_LOG_BYTES:
+                READ_LOGS.pop(next(iter(READ_LOGS)))
+    return list(events), list(problems)
 
 
 def append_inbox(

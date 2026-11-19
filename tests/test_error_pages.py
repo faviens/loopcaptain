@@ -35,7 +35,7 @@ def client(scan: Path, tmp_path: Path) -> TestClient:
     [
         ("/loop/some-repo/ghost", "no such loop on this board"),
         ("/loop/other-repo/scan", "no such loop on this board"),
-        ("/loop/some-repo/scan/file?path=missing.md", "no such file in this repository"),
+        ("/loop/some-repo/scan/file?path=missing.md", "this loop names no such file"),
         ("/nothing/here", "Not Found"),
     ],
 )
@@ -87,6 +87,13 @@ def test_a_form_without_its_token_is_a_page_that_says_what_to_do(client: TestCli
     assert store.read_inbox(scan, "scan") == ([], [])
 
 
+def test_an_address_with_a_value_that_cannot_be_read_is_not_called_a_form(client: TestClient) -> None:
+    page = client.get("/loop/some-repo/scan?round=abc", headers=PAGE)
+
+    assert page.status_code == 422 and "This address cannot be read" in page.text
+    assert "round" in page.text and "the form was incomplete" not in page.text
+
+
 def test_a_fault_is_a_page_too_and_the_next_request_works(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -124,8 +131,12 @@ def test_the_script_takes_a_shown_message_out_of_the_address() -> None:
     assert "searchParams.delete(name)" in script
 
 
-def test_the_script_still_holds_a_reload_while_an_answer_is_being_typed() -> None:
+def test_the_script_holds_a_reload_while_any_field_holds_unsent_text_or_the_cursor() -> None:
+    """An answer, a reason for a finding and the overview's search are all typed text."""
     script = (STATIC / "board.js").read_text(encoding="utf-8")
 
-    assert 'querySelectorAll("textarea[name]")' in script and "field === document.activeElement" in script
+    for field in ("textarea[name]", 'input[type="text"][name]', 'input[type="search"][name]'):
+        assert field in script
+    assert "field.value.trim() !== field.defaultValue.trim()" in script
+    assert "field === document.activeElement" in script
     assert "!busy()) window.location.reload()" in script

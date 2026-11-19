@@ -7,6 +7,7 @@ import json
 import os
 import socket
 import sys
+from collections.abc import Callable
 from importlib.metadata import version as package_version
 from pathlib import Path
 
@@ -263,88 +264,125 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        return run(args)
+        return COMMANDS[args.command](args)
     except StoreError as error:
         sys.stderr.write(f"loopcaptain: {error}\n")
-        return 1
+    except OSError as error:
+        # A folder that cannot be written, a file that is not there: one line, not a traceback.
+        named = f"{error.filename}: " if error.filename else ""
+        sys.stderr.write(f"loopcaptain: {named}{error.strerror or error}\n")
+    return 1
 
 
-def run(args: argparse.Namespace) -> int:
-    if args.command == "validate":
-        report = validate_report(args.repo.expanduser().resolve())
-        problems = report.problems + (report.warnings if args.strict else [])
-        warnings = [] if args.strict else report.warnings
-        for line in problems:
-            sys.stdout.write(f"problem: {line}\n")
-        for line in warnings:
-            sys.stdout.write(f"warning: {line}\n")
-        if problems:
-            sys.stdout.write(f"{len(problems)} problem(s), {len(warnings)} warning(s)\n")
-        else:
-            sys.stdout.write(f"ok, {len(warnings)} warning(s)\n" if warnings else "ok\n")
-        return 1 if problems else 0
-    if args.command == "emit":
-        for line in emit(args.repo.expanduser().resolve(), args.loop, args.event, args.fields):
-            sys.stderr.write(f"warning: {line}\n")
-        return 0
-    if args.command == "schema":
-        for path in write_schemas(args.target):
-            sys.stdout.write(f"{path}\n")
-        return 0
-    if args.command == "doctor":
-        sys.stdout.write("waiting for the loop to take a stop; start it now if it is not running\n")
-        checkup = examine(args.repo.expanduser().resolve(), args.loop, args.timeout)
-        sys.stdout.write("".join(f"{line}\n" for line in checkup.lines()))
-        return 0 if checkup.passed else 1
-    if args.command in ("watch", "unwatch"):
-        entry = as_written(args.path)
-        if args.command == "watch":
-            if not args.path.expanduser().is_dir():
-                raise StoreError(f"{args.path} is not a folder; nothing was written")
-            changes = edit_config(args.path, add=("roots" if args.root else "repos", entry))
-            changes += watch_warnings(args.path.expanduser(), root=args.root)
-        else:
-            changes = edit_config(args.path, remove=entry)
-        sys.stdout.write("".join(f"{line}\n" for line in changes))
-        return 0
-    if args.command == "demo":
-        from loopcaptain.demo import DemoError, write_demo
+def say(lines: list[str]) -> None:
+    sys.stdout.write("".join(f"{line}\n" for line in lines))
 
-        target = args.target.expanduser()
-        try:
-            write_demo(target)
-        except DemoError as error:
-            raise StoreError(str(error)) from error
-        sys.stdout.write(f"the example loop is in {target}\n")
-        if args.no_watch:
-            lines = unwatched_warnings(target)
-        else:
-            lines = edit_config(target, add=("repos", as_written(target))) + other_config_warnings()
-        sys.stdout.write("".join(f"{line}\n" for line in lines))
-        sys.stdout.write(f"start the board with `{serve_command()}` and open the address it prints\n")
-        return 0
-    if args.command == "mcp-config":
-        if args.markdown:
-            sys.stdout.write(markdown())
-            return 0
-        if not args.agent:
-            sys.stdout.write("".join(f"{item.key:12} {item.name}\n" for item in agents(args.checkout)))
-            return 0
-        try:
-            item = agent(args.agent, args.checkout)
-        except KeyError as error:
-            raise StoreError(str(error.args[0])) from error
-        sys.stdout.write(f"{item.name}\n\n{item.add}\n\nunattended: {item.headless}\n")
-        return 0
-    if args.command == "spec":
-        sys.stdout.write(spec_text())
-        return 0
-    if args.command == "mcp":
-        from loopcaptain.mcp_server.server import serve_stdio
 
-        serve_stdio()
+def run_validate(args: argparse.Namespace) -> int:
+    report = validate_report(args.repo.expanduser().resolve())
+    problems = report.problems + (report.warnings if args.strict else [])
+    warnings = [] if args.strict else report.warnings
+    say([f"problem: {line}" for line in problems] + [f"warning: {line}" for line in warnings])
+    if problems:
+        say([f"{len(problems)} problem(s), {len(warnings)} warning(s)"])
+    else:
+        say([f"ok, {len(warnings)} warning(s)" if warnings else "ok"])
+    return 1 if problems else 0
+
+
+def run_emit(args: argparse.Namespace) -> int:
+    for line in emit(args.repo.expanduser().resolve(), args.loop, args.event, args.fields):
+        sys.stderr.write(f"warning: {line}\n")
+    return 0
+
+
+def run_schema(args: argparse.Namespace) -> int:
+    say([str(path) for path in write_schemas(args.target)])
+    return 0
+
+
+def run_doctor(args: argparse.Namespace) -> int:
+    say(["waiting for the loop to take a stop; start it now if it is not running"])
+    checkup = examine(args.repo.expanduser().resolve(), args.loop, args.timeout)
+    say(checkup.lines())
+    return 0 if checkup.passed else 1
+
+
+def run_watch(args: argparse.Namespace) -> int:
+    if not args.path.expanduser().is_dir():
+        raise StoreError(f"{args.path} is not a folder; nothing was written")
+    changes = edit_config(args.path, add=("roots" if args.root else "repos", as_written(args.path)))
+    say(changes + watch_warnings(args.path.expanduser(), root=args.root))
+    return 0
+
+
+def run_unwatch(args: argparse.Namespace) -> int:
+    say(edit_config(args.path, remove=as_written(args.path)))
+    return 0
+
+
+def run_demo(args: argparse.Namespace) -> int:
+    from loopcaptain.demo import DemoError, write_demo
+
+    target = args.target.expanduser()
+    try:
+        write_demo(target)
+    except DemoError as error:
+        raise StoreError(str(error)) from error
+    say([f"the example loop is in {target}"])
+    if args.no_watch:
+        say(unwatched_warnings(target))
+    else:
+        say(edit_config(target, add=("repos", as_written(target))) + other_config_warnings())
+    say([f"start the board with `{serve_command()}` and open the address it prints"])
+    return 0
+
+
+def run_mcp_config(args: argparse.Namespace) -> int:
+    if args.markdown:
+        sys.stdout.write(markdown())
         return 0
+    if not args.agent:
+        say([f"{item.key:12} {item.name}" for item in agents(args.checkout)])
+        return 0
+    try:
+        item = agent(args.agent, args.checkout)
+    except KeyError as error:
+        raise StoreError(str(error.args[0])) from error
+    sys.stdout.write(f"{item.name}\n\n{item.add}\n\nunattended: {item.headless}\n")
+    return 0
+
+
+def run_spec(args: argparse.Namespace) -> int:
+    sys.stdout.write(spec_text())
+    return 0
+
+
+def run_mcp(args: argparse.Namespace) -> int:
+    from loopcaptain.mcp_server.server import serve_stdio
+
+    serve_stdio()
+    return 0
+
+
+def run_serve(args: argparse.Namespace) -> int:
     return serve_board(args.port)
+
+
+#: One function per command the parser knows.
+COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
+    "serve": run_serve,
+    "validate": run_validate,
+    "emit": run_emit,
+    "schema": run_schema,
+    "doctor": run_doctor,
+    "watch": run_watch,
+    "unwatch": run_unwatch,
+    "demo": run_demo,
+    "mcp-config": run_mcp_config,
+    "spec": run_spec,
+    "mcp": run_mcp,
+}
 
 
 if __name__ == "__main__":

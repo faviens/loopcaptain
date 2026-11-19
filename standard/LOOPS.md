@@ -24,6 +24,11 @@ again (a new branch, a fresh start) is a loop of its own, with its own id
 such as `review-run-3`, so the rounds of two runs never mix. Whether `.loops/` is committed or
 ignored is the repository's choice.
 
+A board reads an `events.jsonl` of up to 20 MB and refuses a larger one
+whole, so a loop that would outgrow that goes on under a new id before it
+does: its earlier rounds stay readable under the old one. `loopcaptain
+validate` warns from 10 MB on.
+
 ## 1. `loop.json`: what the loop is
 
 Written when the loop starts; writing it again replaces it. A `loop.json`
@@ -171,7 +176,11 @@ line still needs `ts`, and still shows that the loop is alive.
    one. Left out, the loop goes on and reads the answer at its next round.
    A question is open until the person replies. A blocking question is
    also over once its `timeout_s` has passed or the loop starts another
-   round: it went on. `id` names the question; `options`,
+   round: it went on. Several questions may be open at once: give each
+   an `id`, since a reply answers the one question it names, and a
+   question without an `id` takes the place of the last one without; the
+   board shows the earliest one the loop stands still for first, and the
+   next after each answer. `id` names the question; `options`,
    `[{"id": "a", "label": "Forty people"}]`, become buttons, and the reply
    carries `question` and `choice`. `default` is what the loop goes on
    with if no answer comes: the `id` of one of the options, or a
@@ -204,7 +213,10 @@ line still needs `ts`, and still shows that the loop is alive.
     While a round is open it ends nothing: finish the round first.
 13. `heartbeat`: a loop that works quietly or sleeps says it is alive and,
     with `next_at`, when its next line comes. Until then it is not
-    stalled.
+    stalled. Without one, the board shows a round under way as stalled
+    once 45 minutes have passed since the loop's last line, and a loop
+    past its `next_at` 45 minutes after that time: a step that runs
+    longer without writing a line sends a `heartbeat`.
 14. `loop_started`: optional, for a loop whose process runs a number of
     rounds and ends, and is started again. `rounds` is how many rounds
     this start may run. The board counts the starts and the rounds of the
@@ -516,10 +528,11 @@ same contract as JSON Schema is in `schema/`. It prints problems (a
 `loop.json` that cannot be read, a line the models refuse, a step before
 its round, a path that does not exist,
 a time earlier than the line before, a round finished twice with two
-outcomes) and warnings (a round whose steps share one time, so it was
+outcomes) and warnings (a round whose start, steps and end share one time, so it was
 written after the fact; rounds that never read the inbox; an output not
 there yet; an event it does not know, which may be a typo; a time in the future; a
-`loop_stopped` while a round is open; a round count that starts over, a second run in one folder). It exits 1 on problems only, or on warnings too with
+`loop_stopped` while a round is open; a round count that starts over, a second run in one folder;
+a value no loop means, such as a round number above 100,000 or a text of over 100,000 characters). It exits 1 on problems only, or on warnings too with
 `--strict`. `loopcaptain doctor <repository> <loop-id>` checks what files
 cannot show: it sends a running loop a signed `stop` and passes once the
 loop has taken it and ended.
