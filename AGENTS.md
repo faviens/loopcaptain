@@ -87,7 +87,8 @@ Work in the loop's repository, not here, and follow
 [standard/AGENTS.md](standard/AGENTS.md); propose the smallest change and
 wait for a yes. Do not add this repository as a dependency of a loop. A
 loop an agent session drives adds the MCP server, `loopcaptain mcp` over
-stdio: `loopcaptain mcp-config <agent>` prints the line for it,
+stdio, installed with its extra (`uv tool install 'loopcaptain[mcp]'`):
+`loopcaptain mcp-config <agent>` prints the line for it,
 [docs/agents.md](docs/agents.md) lists every agent.
 
 ### What the board does and does not do

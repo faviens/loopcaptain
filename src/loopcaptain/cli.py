@@ -450,6 +450,10 @@ def run_demo(args: argparse.Namespace) -> int:
     return 0
 
 
+#: How the MCP server gets its SDK, said wherever it is missing or about to be needed.
+MCP_EXTRA = "Install with it: `uv tool install 'loopcaptain[mcp]'` (or `pipx install 'loopcaptain[mcp]'`)"
+
+
 def run_mcp_config(args: argparse.Namespace) -> int:
     if args.markdown:
         sys.stdout.write(markdown())
@@ -462,6 +466,8 @@ def run_mcp_config(args: argparse.Namespace) -> int:
     except KeyError as error:
         raise StoreError(str(error.args[0])) from error
     sys.stdout.write(f"{item.name}\n\n{item.add}\n\nunattended: {item.headless}\n")
+    if not args.checkout:
+        sys.stdout.write(f"\nthe server needs the MCP extra. {MCP_EXTRA}\n")
     return 0
 
 
@@ -471,7 +477,12 @@ def run_spec(args: argparse.Namespace) -> int:
 
 
 def run_mcp(args: argparse.Namespace) -> int:
-    from loopcaptain.mcp_server.server import serve_stdio
+    try:
+        from loopcaptain.mcp_server.server import serve_stdio
+    except ImportError as error:
+        if (error.name or "").split(".")[0] != "mcp":
+            raise
+        raise StoreError(f"the MCP server needs the extra, which is not installed. {MCP_EXTRA}") from error
 
     serve_stdio()
     return 0

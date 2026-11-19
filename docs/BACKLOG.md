@@ -10,4 +10,3 @@ picked are in the ledgers in `.agent/`.
 
 | # | Item | From | Picked |
 |---|---|---|---|
-| 4 | The MCP SDK becomes an extra, `loopcaptain[mcp]`: a plain install pulls in about half as much, `loopcaptain mcp` without the extra says what to install, and the install line for agent sessions in the docs names the extra | F70 | 2026-11-19 |
