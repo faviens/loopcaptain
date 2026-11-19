@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 from datetime import UTC, datetime
@@ -63,3 +64,18 @@ def test_the_overview_marks_what_waits_what_runs_and_what_is_stuck(repos: list[P
     )
     for status in ("waiting", "running", "stalled", "failed", "sleeping", "done", "capped"):
         assert f'<tr class="is-{status}">' in page, status
+
+
+def test_a_gate_that_says_no_is_sent_as_passed_false_not_as_a_failure(
+    showcase: types.ModuleType, repos: list[Path]
+) -> None:
+    gates = []
+    for show in showcase.SHOWS:
+        events = repos[0].parent / show.repo / ".loops" / show.loop / "events.jsonl"
+        for line in events.read_text(encoding="utf-8").splitlines():
+            event = json.loads(line)
+            if event.get("event") == "step_finished" and event.get("step") == "gate":
+                gates.append(event)
+
+    assert gates and all(gate.get("status", "ok") == "ok" for gate in gates)
+    assert {gate["passed"] for gate in gates} == {True, False}

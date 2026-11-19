@@ -293,7 +293,7 @@ def write_loop(show: Show, base: Path, now: datetime, loops: types.ModuleType) -
             }
             emit("step_finished", review, STEP_MINUTES[step])
         passed = left == 0
-        gate = {"round": number, "step": "gate", "status": "ok" if passed else "failed"}
+        gate = {"round": number, "step": "gate", "status": "ok", "passed": passed}
         emit("step_finished", gate, STEP_MINUTES["gate"])
         verdict: dict[str, object] = {"round": number, "verdict": "continue", "summary": f"{left} open."}
         if number == last and show.ends == "done":
