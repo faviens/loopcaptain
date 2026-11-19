@@ -891,3 +891,19 @@ tokens, so light and dark follow.
 graph: its place would need a `style` attribute per step. Cards inside each step's group: a later
 step is drawn over an earlier step's card. **What it costs.** The card scales with the picture,
 as the steps' own labels do; a wide graph draws it smaller.
+
+## 38. A loop id that two repositories share is named, not refused
+
+**Decision.** When two watched repositories have a loop with the same id, the overview says so
+in one line and each such loop's page names the other repositories, with links
+(`repeated_ids` in `board/overview.py`, the loop page's `same_id`). Nothing in the protocol
+changes and nothing is refused.
+
+**Why.** Section 36 signs each answer for one loop folder, so the board itself does not mix such
+loops up; the person can, and a loop with an earlier helper still takes lines signed with the key
+every loop shares (`sig`). A loop id is the loop author's, and two repositories copied from one
+template share them as a matter of course.
+
+**Rejected.** Binding an answer to a repository's path in the line: a moved repository or a
+devcontainer that mounts it elsewhere would refuse the person's answers. Refusing to show the
+second loop: the person would lose sight of a loop that runs.

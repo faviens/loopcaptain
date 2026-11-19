@@ -46,7 +46,7 @@ from loopcaptain.board.errors import add_error_pages, secured
 from loopcaptain.board.files import TEXT_SUFFIXES, inside, read_bounded
 from loopcaptain.board.filters import ago, lead, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
-from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of
+from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of, repeated_ids
 from loopcaptain.board.steer import Runner
 from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
@@ -216,6 +216,11 @@ def create_app(
                 views.append(load_loop(repo, loop_id, process_alive=bool(process and process.alive)))
         return views
 
+    def same_id_elsewhere(repo_key: str, loop_id: str) -> tuple[str, ...]:
+        """The other watched repositories that have a loop with this id, by their keys."""
+        pairs = ((repo.key, name) for repo in find_repos(config()) for name in store.loop_ids(repo.path))
+        return tuple(key for key in repeated_ids(pairs).get(loop_id, ()) if key != repo_key)
+
     #: The views the header last counted, and the file stats and second they were read at: every
     #: page shows the board's figures, and a page that reloads itself must not re-read every loop.
     counted: dict[str, object] = {}
@@ -333,6 +338,7 @@ def create_app(
             "error": error or told,
             "note": note,
             "unreadable": unreadable,
+            "repeated": repeated_ids((view.repo.key, view.loop_id) for view in views),
             "token": token,
             "pulse": overview_fingerprint() if not error else "error",
             "total_usd": sum(view.state.cost_usd for view in views if view.state),
@@ -382,6 +388,7 @@ def create_app(
             "confirmed": steer.is_confirmed(repo, loop_id, manifest.commands.get("start", "")),
             "changed_files": steer.changed_files(repo, loop_id, manifest.commands.get("start", "")),
             "runs_elsewhere": runs_elsewhere(view, steer),
+            "same_id": same_id_elsewhere(repo.key, loop_id),
             "signed": inbox_marks(repo, state),
             "charts": charts_of(state),
             "stuck": no_progress_signs(state),
