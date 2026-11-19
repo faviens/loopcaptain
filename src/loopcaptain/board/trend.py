@@ -7,7 +7,7 @@ needs neither. Each chart is one series over the rounds, with the loop's target 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from loopcaptain.protocol.state import LoopState
 
@@ -195,8 +195,12 @@ def chart(series: Series, width: int = WIDTH, height: int = HEIGHT) -> Chart:
     return Chart(series, path, dots, target_y, width, height)
 
 
+#: A trend draws the latest rounds: a dot per round of a loop of thousands is a page of megabytes.
+CHART_ROUNDS = 200
+
+
 def charts_of(state: LoopState) -> list[Chart]:
-    return [chart(series) for series in series_of(state)]
+    return [chart(replace(series, values=series.values[-CHART_ROUNDS:])) for series in series_of(state)]
 
 
 #: From this share of a cap on, its bar warns.

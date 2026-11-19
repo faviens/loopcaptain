@@ -42,7 +42,7 @@ dependencies = [
 Documentation = "https://faviens.github.io/loopcaptain/"
 Repository = "https://github.com/faviens/loopcaptain"
 Issues = "https://github.com/faviens/loopcaptain/issues"
-Changelog = "https://github.com/faviens/loopcaptain/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/faviens/loopcaptain/releases"
 
 [project.scripts]
 loopcaptain = "loopcaptain.cli:main"
@@ -67,6 +67,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.metadata.hooks.custom]
 path = "scripts/pypi_readme.py"
+
+# The source archive holds what builds and tests the package. The pictures of the documentation
+# (the README's own are read from the tag's address), the ledgers, the CI files and local caches
+# stay in the repository.
+[tool.hatch.build.targets.sdist]
+exclude = ["/.agent", "/.github", "/.cache", "/docs/assets", "/site", "/demo"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/loopcaptain"]

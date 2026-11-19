@@ -93,6 +93,7 @@ never in a repository:
 |---|---|---|
 | `board.key` | the secret every loop's key is made from, made when `serve` first starts | the board only |
 | `keys/<name>.key` | the key of one loop folder; `<name>` is a digest of the folder's place | that loop, and the board |
+| `keys/<name>.earlier` | the marks of the lines that loop's inbox held under the earlier key when its key was first made; nothing is added later | the board |
 | `inbox.key` | the one key of earlier versions, still used for `sig` | a loop with a helper pasted before each loop had a key |
 
 A loop stores no key. Its helper works out the name of its own file from

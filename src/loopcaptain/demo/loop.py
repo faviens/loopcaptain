@@ -290,6 +290,11 @@ def main(argv: list[str] | None = None) -> int:
         seed(args.seed)
         return 0
     loops.register(LOOP, MANIFEST)
+    if met_its_goal():
+        loops.inbox(LOOP)  # whatever was sent since is marked read: nothing is left for it to steer
+        ending = {"stop_reason": "goal_met", "summary": "The goal was met in an earlier run; nothing to do."}
+        loops.emit(LOOP, "loop_stopped", ending)
+        return 0
     audience, carried, done = "a team about to run its first loop", kept_steering(), False
     first = loops.last_round(LOOP) + 1  # a second start goes on counting
     loops.emit(LOOP, "loop_started", {"rounds": args.rounds})
@@ -313,6 +318,13 @@ def main(argv: list[str] | None = None) -> int:
             break
     last_look(done)
     return 0
+
+
+def met_its_goal() -> bool:
+    """Whether the last round this loop finished was `done`: a further start has nothing to add."""
+    events = loops.lines(loops.folder(LOOP) / "events.jsonl")
+    finished = [event for event in events if event.get("event") == "round_finished"]
+    return bool(finished) and finished[-1].get("verdict") == "done"
 
 
 def kept_steering() -> str:

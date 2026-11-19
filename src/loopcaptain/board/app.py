@@ -11,10 +11,13 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+import posixpath
 import secrets
 import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, cast
 from urllib.parse import quote
@@ -39,21 +42,22 @@ from loopcaptain.board.discover import (
     git_branch,
     load_config,
     load_loop,
+    loops_of,
     reason,
     unreadable_folders,
 )
 from loopcaptain.board.errors import add_error_pages, secured
-from loopcaptain.board.files import TEXT_SUFFIXES, inside, read_bounded
+from loopcaptain.board.files import TEXT_SUFFIXES, inside, is_named, named_paths, read_bounded
 from loopcaptain.board.filters import ago, lead, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
 from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of
 from loopcaptain.board.steer import Runner
-from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
+from loopcaptain.board.trend import CHART_ROUNDS, caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
 from loopcaptain.protocol import spec_text, store
-from loopcaptain.protocol.models import FindingRef, Manifest
-from loopcaptain.protocol.signing import board_keys, is_from_board, read_board_keys
-from loopcaptain.protocol.state import STATUS_TEXT, LoopState, no_progress_signs
+from loopcaptain.protocol.models import EVENTS_FILE, INBOX_FILE, MANIFEST_FILE, FindingRef, Manifest, now
+from loopcaptain.protocol.signing import board_keys, earlier_marks, is_from_board, read_board_keys
+from loopcaptain.protocol.state import STATUS_TEXT, LoopState, RoundState, no_progress_signs
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import validate_loop
 
@@ -74,6 +78,12 @@ TABS = ("overview", "rounds", "findings", "items", "inbox")
 #: The two parts of the first page: every loop under its project, and what waits for the person.
 OVERVIEW_TABS = ("loops", "waiting")
 #: The statuses where "Stop after this round" means something: the loop may still start a round.
+#: How many rounds the round grid draws at once, and how many rows a table of findings or
+#: messages: a loop of thousands of rounds is still one page a browser can hold.
+GRID_ROUNDS = 30
+ROWS_SHOWN = 300
+#: A status change further ahead than this is left to a later page load.
+TURN_HORIZON = timedelta(days=7)
 STOPPABLE = frozenset({"running", "sleeping", "stalled", "waiting", "idle"})
 #: The statuses in which a loop is under way or has said when it is back.
 STARTED_ELSEWHERE = frozenset({"running", "sleeping"})
@@ -211,9 +221,9 @@ def create_app(
     def all_views() -> list[LoopView]:
         views = []
         for repo in find_repos(config()):
-            for loop_id in store.loop_ids(repo.path):
-                process = steer.process(repo, loop_id)
-                views.append(load_loop(repo, loop_id, process_alive=bool(process and process.alive)))
+            for home, loop_id in loops_of(repo):
+                process = steer.process(home, loop_id)
+                views.append(load_loop(home, loop_id, process_alive=bool(process and process.alive)))
         return views
 
     #: The views the header last counted, and the file stats and second they were read at: every
@@ -245,9 +255,9 @@ def create_app(
     def overview_fingerprint() -> str:
         """From file stats alone, in discovery order: the overview polls it every few seconds."""
         return "|".join(
-            store.fingerprint(repo.path, loop_id)
+            store.fingerprint(home.path, loop_id)
             for repo in find_repos(config())
-            for loop_id in store.loop_ids(repo.path)
+            for home, loop_id in loops_of(repo)
         )
 
     def seal(note: str, error: str) -> str:
@@ -335,6 +345,7 @@ def create_app(
             "unreadable": unreadable,
             "token": token,
             "pulse": overview_fingerprint() if not error else "error",
+            "turn_at": turn_at(views),
             "total_usd": sum(view.state.cost_usd for view in views if view.state),
         }
         return templates.TemplateResponse(request, "overview.html", context)
@@ -373,6 +384,9 @@ def create_app(
             "shown": shown,
             # A link to a round opens the rounds tab; an unknown tab is the overview.
             "tab": tab if tab in TABS else ("rounds" if round is not None else "overview"),
+            "grid": round_window(state.rounds, shown),
+            "rows_shown": ROWS_SHOWN,
+            "chart_rounds": CHART_ROUNDS,
             "graph": layout(manifest, shown) if manifest.steps else None,
             "branch": git_branch(repo.path),
             "process": process,
@@ -389,6 +403,7 @@ def create_app(
             "caps": caps_of(state),
             "token": token,
             "pulse": pulse_of(repo, loop_id, steer),
+            "turn_at": turn_at([view]),
             "note": note,
             "error": error,
         }
@@ -404,6 +419,10 @@ def create_app(
     @app.get("/loop/{repo_key}/{loop_id}/file", response_class=HTMLResponse, name="loop_file")
     def loop_file(request: Request, repo_key: str, loop_id: str, path: str) -> Response:
         repo, manifest, view = view_of(repo_key, loop_id)
+        # One spelling for the check and for the read: `a/../x` names `x`, whatever `a` links to.
+        path = posixpath.normpath(path)
+        if not is_named(path, files_of(repo, manifest)):
+            raise HTTPException(404, "this loop names no such file")
         target = inside(repo.path, path)
         body: Markup | None = None
         text = ""
@@ -444,10 +463,20 @@ def create_app(
         back_to: Annotated[str, Form()] = "",
         text: Annotated[str, Form()] = "",
         choice: Annotated[str, Form()] = "",
+        asked_at: Annotated[str, Form()] = "",
     ) -> Response:
         check_token(token, repo_key, loop_id)
         repo, _, view = view_of(repo_key, loop_id)
         asked = view.state.question if view.state else None
+        if asked_at and (asked is None or asked.asked.isoformat() != asked_at):
+            # The page was drawn for another asking: the loop has asked again, or something else, since.
+            return back(
+                repo_key,
+                loop_id,
+                tab=tab,
+                back_to=back_to,
+                error="Nothing was sent: the loop no longer asks the question this answered.",
+            )
         picked = next((option for option in asked.options if option.id == choice), None) if asked else None
         if choice and picked is None:
             return back(
@@ -486,9 +515,10 @@ def create_app(
             )
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, back_to=back_to, error=str(problem))
-        return back(
-            repo_key, loop_id, tab=tab, back_to=back_to, note="Sent. The loop reads it at its next round."
-        )
+        status = view.state.status if view.state else ""
+        ended = status in ("done", "failed", "stopped", "capped")
+        when = f"when it is started again: it is {status} now" if ended else "at its next round"
+        return back(repo_key, loop_id, tab=tab, back_to=back_to, note=f"Sent. The loop reads it {when}.")
 
     @app.post("/loop/{repo_key}/{loop_id}/finding", name="loop_settle")
     def loop_settle(
@@ -567,7 +597,9 @@ def create_app(
             store.append_inbox(repo.path, loop_id, "stop", keys=board_keys())
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, error=str(problem))
-        return back(repo_key, loop_id, tab=tab, note="Stop sent. The loop ends after its current round.")
+        under_way = view.state is not None and view.state.status in ("running", "stalled", "waiting")
+        then = "ends after its current round" if under_way else "reads it at its next start and runs no round"
+        return back(repo_key, loop_id, tab=tab, note=f"Stop sent. The loop {then}.")
 
     @app.post("/loop/{repo_key}/{loop_id}/start", name="loop_start")
     def loop_start(
@@ -667,11 +699,63 @@ def runs_elsewhere(view: LoopView, steer: Runner) -> bool:
     return not (process and process.alive)
 
 
+def files_of(repo: Repo, manifest: Manifest) -> frozenset[str]:
+    """The files this loop names: in its `loop.json`, in its events, and as arguments of its start
+    command, and the three files that are the loop. The board opens no other file of the repository."""
+    events, _ = store.read_events(repo.path, manifest.id)
+    records = [manifest.model_dump(mode="json"), *(event.model_dump(mode="json") for event in events)]
+    command = read_command(manifest.commands.get("start", ""))
+    folder = store.loop_dir(repo.path, manifest.id).relative_to(repo.path).as_posix()
+    own = frozenset(f"{folder}/{name}" for name in (MANIFEST_FILE, EVENTS_FILE, INBOX_FILE))
+    return named_paths(records) | frozenset(named_files(repo.path, command.argv)) | own
+
+
 def inbox_marks(repo: Repo, state: LoopState) -> dict[str, bool | None]:
     """For each inbox entry, whether this board signed it; None where the board has no key yet."""
     keys, loop_id = read_board_keys(), state.manifest.id
     folder = store.loop_dir(repo.path, loop_id)
-    return {item.entry.id: is_from_board(item.entry.body(), keys, folder, loop_id) for item in state.inbox}
+    earlier = earlier_marks(folder)
+    return {
+        item.entry.id: is_from_board(item.entry.body(), keys, folder, loop_id, earlier)
+        for item in state.inbox
+    }
+
+
+@dataclass(frozen=True)
+class RoundWindow:
+    """The rounds one page draws as columns, and the round to ask for to see the ones before or after."""
+
+    rounds: tuple[RoundState, ...]
+    earlier: int | None = None
+    later: int | None = None
+
+
+def round_window(rounds: tuple[RoundState, ...], shown: RoundState | None) -> RoundWindow:
+    """The stretch of at most GRID_ROUNDS rounds that holds the round shown, counted in whole
+    stretches from the latest round back, so the newest stretch is always full."""
+    place = next(
+        (n for n, round_ in enumerate(rounds) if shown and round_.number == shown.number), len(rounds) - 1
+    )
+    end = len(rounds) - (len(rounds) - 1 - place) // GRID_ROUNDS * GRID_ROUNDS
+    start = max(0, end - GRID_ROUNDS)
+    return RoundWindow(
+        rounds[start:end],
+        earlier=rounds[start - 1].number if start > 0 else None,
+        later=rounds[min(end + GRID_ROUNDS, len(rounds)) - 1].number if end < len(rounds) else None,
+    )
+
+
+def turn_at(views: list[LoopView]) -> int | None:
+    """The next moment, in epoch seconds, at which one of these loops changes status with no file
+    written: a sleeping loop's promise runs out. The pulse is built from file stats and cannot
+    know it, so the page is told when to look again. None where no such moment lies ahead."""
+    at = now()
+    ahead = [
+        view.state.turns_at
+        for view in views
+        if view.state and view.state.turns_at and at < view.state.turns_at <= at + TURN_HORIZON
+    ]
+    return int(min(ahead).timestamp()) + 1 if ahead else None
 
 
 def pulse_of(repo: Repo, loop_id: str, steer: Runner) -> str:

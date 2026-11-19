@@ -98,10 +98,10 @@ stdio: `loopcaptain mcp-config <agent>` prints the line for it,
    `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs with; the first
    start of a command asks for a tick. The board runs nothing else, and nothing
    typed in a browser.
-2. **What it reads.** Only files inside a watched repository, never `.git`
-   or `.env*`, never a file whose name is on a block-list of key and
-   credential names, and the content of text files only. The block-list
-   goes by names, not by what a file holds.
+2. **What it reads.** A loop's own files, and of the other files inside
+   a watched repository only those the loop names; never `.git` or
+   `.env*`, never a file whose name is on a block-list of key and
+   credential names, and the content of text files only.
    It copies nothing and sends nothing anywhere. See
    [SECURITY.md](SECURITY.md).
 
@@ -282,8 +282,9 @@ and no model.
    kernel (a clock, `/proc`, `sysctl`), not from `ps`, since the board runs
    nothing but `commands.start`.
 8. **The page reloads itself every few seconds while files change,** but
-   not while a textarea holds text. A template that adds a form field must
-   keep that rule in `static/board.js`.
+   not while a text field holds text that was not sent, or the cursor. A
+   template that adds another kind of field must add it to that rule in
+   `static/board.js`.
 9. **Base every branch on this repository's `main`.** A private archive
    of the project's earlier history exists, and its `main` has diverged
    from this one. A branch cut from it, or pushed to it, has to be

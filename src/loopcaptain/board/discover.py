@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import stat
 from dataclasses import dataclass
 from datetime import datetime
@@ -48,7 +49,7 @@ class Config:
 
 @dataclass(frozen=True)
 class Repo:
-    key: str  # unique on the board, the folder name unless two repositories share it
+    key: str  # unique on the board: the main checkout's folder name unless two repositories share it
     path: Path  # of worktrees of one repository, the one whose `.loops` was written last
     others: tuple[Path, ...] = ()  # the other worktrees of the same repository that have `.loops`
 
@@ -69,29 +70,60 @@ def git_common_dir(path: Path) -> Path:
     return git_dir.parent.parent if git_dir is not None else path.resolve()
 
 
-def last_written(path: Path) -> int:
-    """When anything in a repository's `.loops` was last written, in nanoseconds; 0 if never."""
-    folder = path / FOLDER
+LOOP_FILES = ("loop.json", "events.jsonl", "inbox.jsonl")
+
+
+def loop_written(path: Path, loop_id: str, names: tuple[str, ...] = LOOP_FILES) -> int:
+    """When one loop's files in one checkout were last written, in nanoseconds; 0 if never."""
     stamps = [0]
-    for loop_id in store.loop_ids(path):
-        for name in ("loop.json", "events.jsonl", "inbox.jsonl"):
-            try:
-                stamps.append((folder / loop_id / name).lstat().st_mtime_ns)
-            except OSError:
-                continue
+    for name in names:
+        try:
+            stamps.append((path / FOLDER / loop_id / name).lstat().st_mtime_ns)
+        except OSError:
+            continue
     return max(stamps)
 
 
-def one_per_repository(paths: list[Path]) -> list[tuple[Path, tuple[Path, ...]]]:
-    """Worktrees of one repository become one entry: the last written, and the others beside it."""
+def loop_ran(path: Path, loop_id: str) -> tuple[int, int]:
+    """How lately a loop ran in a checkout: by its log first, which only the loop writes. A
+    checkout or a pull rewrites `loop.json` in a worktree the loop does not run in."""
+    return loop_written(path, loop_id, ("events.jsonl",)), loop_written(path, loop_id)
+
+
+def last_written(path: Path) -> int:
+    """When anything in a repository's `.loops` was last written, in nanoseconds; 0 if never."""
+    return max([0, *(loop_written(path, loop_id) for loop_id in store.loop_ids(path))])
+
+
+def one_per_repository(paths: list[Path]) -> list[tuple[Path, tuple[Path, ...], Path]]:
+    """Worktrees of one repository become one entry: the last written, the others beside it, and
+    the folder the repository is named after, which is the same whichever of them wrote last."""
     groups: dict[Path, list[Path]] = {}
     for path in paths:
         groups.setdefault(git_common_dir(path), []).append(path)
     grouped = []
-    for members in groups.values():
+    for common, members in groups.items():
         ordered = sorted(members, key=last_written, reverse=True)
-        grouped.append((ordered[0], tuple(ordered[1:])))
+        named = common.parent if common.name == ".git" else min(members)
+        grouped.append((ordered[0], tuple(ordered[1:]), named))
     return grouped
+
+
+def loops_of(repo: Repo) -> list[tuple[Repo, str]]:
+    """Every loop of a repository, each with the checkout to read it from: of the worktrees that
+    hold the loop, the one that wrote it last. A loop that lives in one worktree only is listed
+    whichever worktree was written last."""
+    homes: dict[str, Path] = {}
+    for path in (repo.path, *repo.others):
+        for loop_id in store.loop_ids(path):
+            held = homes.get(loop_id)
+            if held is None or loop_ran(path, loop_id) > loop_ran(held, loop_id):
+                homes[loop_id] = path
+    everywhere = (repo.path, *repo.others)
+    return [
+        (Repo(repo.key, home, tuple(path for path in everywhere if path != home)), loop_id)
+        for loop_id, home in sorted(homes.items())
+    ]
 
 
 @dataclass(frozen=True)
@@ -225,12 +257,21 @@ def find_repos(config: Config) -> list[Repo]:
     """Every configured repository that has a `.loops` folder, each once, in a stable order."""
     found, _ = survey(config)
     grouped = one_per_repository(found)
-    names = [path.name for path, _ in grouped]
-    repos = []
-    for path, others in grouped:
-        key = path.name if names.count(path.name) == 1 else f"{path.parent.name}.{path.name}"
-        repos.append(Repo(key=safe_key(key), path=path, others=others))
-    return repos
+    names = [named.name for _, _, named in grouped]
+    keys = [
+        safe_key(named.name if names.count(named.name) == 1 else f"{named.parent.name}.{named.name}")
+        for _, _, named in grouped
+    ]
+    # Two repositories whose folder and parent folder are called the same still get an address
+    # each: the later one by path takes a number.
+    taken: dict[str, int] = {}
+    numbered: dict[Path, str] = {}
+    for key, named in sorted(
+        zip(keys, (named for _, _, named in grouped), strict=True), key=lambda pair: pair[1]
+    ):
+        taken[key] = taken.get(key, 0) + 1
+        numbered[named] = key if taken[key] == 1 else f"{key}-{taken[key]}"
+    return [Repo(key=numbered[named], path=path, others=others) for path, others, named in grouped]
 
 
 def safe_key(name: str) -> str:
@@ -255,9 +296,9 @@ def load_loop(repo: Repo, loop_id: str, at: datetime | None = None, process_aliv
         events, event_problems = store.read_events(repo.path, loop_id)
         inbox, inbox_problems = store.read_inbox(repo.path, loop_id)
         folder = store.loop_dir(repo.path, loop_id)
+        give_its_key(folder)  # first: it lists the lines an inbox held before the loop had a key
         untrusted = untrusted_ids(inbox, loop_id, folder)
         state = fold(manifest, events, inbox, at or now(), process_alive, untrusted)
-        give_its_key(folder)
     except StoreError as error:
         return LoopView(repo, loop_id, None, error=str(error))
     except Exception as error:
@@ -269,16 +310,18 @@ def load_loop(repo: Repo, loop_id: str, at: datetime | None = None, process_aliv
 
 
 def load_all(config: Config) -> list[LoopView]:
-    return [load_loop(repo, loop_id) for repo in find_repos(config) for loop_id in store.loop_ids(repo.path)]
+    return [load_loop(home, loop_id) for repo in find_repos(config) for home, loop_id in loops_of(repo)]
 
 
 def find_repo(config: Config, repo_key: str, loop_id: str) -> Repo | None:
     """The repository behind a URL if it lists this loop, readable or not."""
     return next(
         (
-            repo
+            home
             for repo in find_repos(config)
-            if repo.key == repo_key and loop_id in store.loop_ids(repo.path)
+            if repo.key == repo_key
+            for home, held in loops_of(repo)
+            if held == loop_id
         ),
         None,
     )
@@ -286,14 +329,14 @@ def find_repo(config: Config, repo_key: str, loop_id: str) -> Repo | None:
 
 def find_loop(config: Config, repo_key: str, loop_id: str) -> tuple[Repo, Manifest] | None:
     """The repository and manifest behind a URL, or None. Only configured repositories are reachable."""
-    for repo in find_repos(config):
-        if repo.key == repo_key and loop_id in store.loop_ids(repo.path):
-            try:
-                return repo, store.read_manifest(repo.path, loop_id)
-            except Exception as error:
-                log.debug("cannot read the manifest of %s in %s: %s", loop_id, repo.path, reason(error))
-                return None
-    return None
+    repo = find_repo(config, repo_key, loop_id)
+    if repo is None:
+        return None
+    try:
+        return repo, store.read_manifest(repo.path, loop_id)
+    except Exception as error:
+        log.debug("cannot read the manifest of %s in %s: %s", loop_id, repo.path, reason(error))
+        return None
 
 
 def git_file(path: Path) -> str:
@@ -338,6 +381,8 @@ def git_branch(repo: Path) -> str:
 
     Read from disk: the board runs nothing but `commands.start`, and running `git` in a watched
     folder would run whatever that folder's git config names.
+    Only the folder's own `.git` is read: a watched folder inside a larger checkout (the example
+    loop in `demo/`) shows no branch, since the board reads nothing outside the folders it watches.
     """
     git_dir = own_git_dir(repo) or worktree_git_dir(repo)
     if git_dir is None:
@@ -365,29 +410,117 @@ def as_written(path: Path) -> str:
         return str(resolved)
 
 
+LISTS = ("roots", "repos")
+
+
+def read_lists(target: Path) -> tuple[str, dict[str, object]]:
+    """The config `watch` edits, as text and as data; both empty where there is no file yet."""
+    if not target.is_file():
+        return "", {}
+    try:
+        text = target.read_text(encoding="utf-8")
+        loaded = yaml.safe_load(text) or {}
+    except (OSError, ValueError, RecursionError, yaml.YAMLError) as error:
+        raise StoreError(
+            f"{target}: cannot be read as a config, nothing was written ({reason(error)})"
+        ) from error
+    if not isinstance(loaded, dict) or not all(isinstance(loaded.get(key) or [], list) for key in LISTS):
+        raise StoreError(f"{target}: expected `roots:` and `repos:` lists; nothing was written")
+    return text, loaded
+
+
+def same_place(target: Path, item: object, path: Path) -> bool:
+    """Whether a config entry, however it was written, names this folder."""
+    try:
+        return (target.parent / Path(str(item)).expanduser()).resolve() == path.expanduser().resolve()
+    except (OSError, ValueError):
+        return False
+
+
+def block_of(lines: list[str], key: str) -> tuple[int, list[int]] | None:
+    """Where a top-level list starts and which lines are its items, for a list written one item
+    per line; None where the key is missing or written another way."""
+    heads = [n for n, line in enumerate(lines) if re.fullmatch(rf"{key}:\s*(\[\s*\])?\s*(#.*)?\n?", line)]
+    if len(heads) != 1:
+        return None
+    items = []
+    for number in range(heads[0] + 1, len(lines)):
+        line = lines[number]
+        if re.match(r"\s*-\s", line):
+            items.append(number)
+        elif line.strip() and not line.lstrip().startswith("#"):
+            break
+    return heads[0], items
+
+
+def edited_text(text: str, key: str, *, add: str | None = None, drop: int | None = None) -> str | None:
+    """The config's text with one entry added to a list or its `drop`-th entry taken out, every
+    other line and comment as it was; None where the list is not written one item per line."""
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    found = block_of(lines, key)
+    if drop is not None:
+        if found is None or drop >= len(found[1]):
+            return None
+        del lines[found[1][drop]]
+        return "".join(lines)
+    item = yaml.safe_dump([add], default_flow_style=False, allow_unicode=True)
+    if found is None:
+        return (
+            None
+            if re.search(rf"^{key}\s*:", text, re.MULTILINE)
+            else "".join([*lines, f"{key}:\n", f"  {item}"])
+        )
+    head, items = found
+    lines[head] = re.sub(r":\s*\[\s*\]", ":", lines[head])
+    indent = re.match(r"\s*", lines[items[-1]]).group() if items else "  "  # type: ignore[union-attr]
+    lines.insert((items[-1] if items else head) + 1, f"{indent}{item}")
+    return "".join(lines)
+
+
 def edit_config(path: Path, *, add: tuple[str, str] | None = None, remove: str | None = None) -> list[str]:
-    """Add `(key, path)` to the config or remove a path from both lists; returns what changed, in words."""
+    """Add `(key, path)` to the config or remove a folder from both lists; returns what changed,
+    in words. The file keeps its comments and its other lines; an entry is found by the folder it
+    names, however it was written."""
     target = config_target()
-    data: dict[str, list[str]] = {"roots": [], "repos": []}
-    if target.is_file():
-        loaded = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
-        if not isinstance(loaded, dict):
-            raise StoreError(f"{target}: expected `roots:` and `repos:` lists")
-        data.update({key: list(loaded.get(key) or []) for key in ("roots", "repos")})
+    text, loaded = read_lists(target)
+    data = {key: list(loaded.get(key) or []) for key in LISTS}  # type: ignore[call-overload]
     changes: list[str] = []
     if add is not None:
         key, entry = add
-        if entry in data[key]:
+        if any(same_place(target, item, path) for item in data[key]):
             return [f"{entry} is already under {key}"]
+        edited = edited_text(text, key, add=entry)
         data[key].append(entry)
         changes.append(f"added {entry} to {key}")
+        text = edited if edited is not None and lists_of(edited) == data else ""
     if remove is not None:
-        for key in ("roots", "repos"):
-            if remove in data[key]:
-                data[key].remove(remove)
-                changes.append(f"removed {remove} from {key}")
+        for key in LISTS:
+            for index in reversed([n for n, item in enumerate(data[key]) if same_place(target, item, path)]):
+                changes.append(f"removed {data[key].pop(index)} from {key}")
+                edited = edited_text(text, key, drop=index) if text else None
+                text = edited if edited is not None and lists_of(edited) == data else ""
         if not changes:
             return [f"{remove} is not in {target}"]
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # Written anew, without its comments, only where the lists were not one item per line. Beside
+        # its place and moved in: a write that stops half-way leaves the config a person wrote whole.
+        draft = target.with_name(f"{target.name}.tmp")
+        draft.write_text(text or yaml.safe_dump({**loaded, **data}, sort_keys=False), encoding="utf-8")
+        os.replace(draft, target)
+    except OSError as error:
+        raise StoreError(f"{target}: cannot be written ({reason(error)})") from error
     return [f"{target}: {change}" for change in changes]
+
+
+def lists_of(text: str) -> dict[str, list[object]] | None:
+    """The two lists a config text holds, or None where it no longer reads as a config."""
+    try:
+        loaded = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return None
+    if not isinstance(loaded, dict):
+        return None
+    return {key: list(loaded.get(key) or []) for key in LISTS}

@@ -83,6 +83,52 @@ def test_a_loop_can_close_its_own_question(repo: Path, helper: types.ModuleType)
     assert state_at(repo, T0).question is None
 
 
+def test_two_open_questions_are_both_kept_and_a_reply_answers_the_one_it_names(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    line(repo, "question", id="seats", text="Per seat?")
+    line(repo, "question", id="region", text="Which region?", ts=iso(T0 + timedelta(minutes=1)))
+    later = T0 + timedelta(minutes=5)
+    both = state_at(repo, later)
+
+    answer = {"id": "a1", "ts": iso(T0 + timedelta(minutes=2)), "kind": "reply", "text": "Per seat."}
+    store.append_line(repo / ".loops" / "scan" / "inbox.jsonl", store.dump({**answer, "question": "seats"}))
+    one_left = state_at(repo, later)
+    line(repo, "question_closed", question="region", reason="superseded")
+
+    assert [question.id for question in both.questions] == ["seats", "region"]
+    assert both.question is not None and both.question.id == "seats"  # the first is not hidden
+    assert [question.id for question in one_left.questions] == ["region"]
+    assert state_at(repo, later).questions == () and state_at(repo, later).question is None
+
+
+def test_a_question_without_an_id_takes_the_place_of_the_last_one_without(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    """A loop that asks the same thing every round, unnamed, has one question open, the latest."""
+    fresh_loop(repo, helper)
+    for number in (1, 2, 3):
+        line(repo, "round_started", round=number, ts=iso(T0 + timedelta(minutes=number)))
+        line(repo, "question", text=f"Progress fine? Round {number}", ts=iso(T0 + timedelta(minutes=number)))
+
+    state = state_at(repo, T0 + timedelta(minutes=4))
+
+    assert [question.text for question in state.questions] == ["Progress fine? Round 3"]
+
+
+def test_a_blocking_question_is_shown_before_one_asked_in_passing(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    fresh_loop(repo, helper)
+    line(repo, "question", id="colour", text="Blue or green?")
+    line(repo, "question", id="ship", text="Ship it?", blocks=True, ts=iso(T0 + timedelta(minutes=1)))
+
+    state = state_at(repo, T0 + timedelta(minutes=2))
+
+    assert state.question is not None and state.question.id == "ship" and len(state.questions) == 2
+
+
 def test_a_question_with_options_keeps_them(repo: Path, helper: types.ModuleType) -> None:
     fresh_loop(repo, helper)
     options = [{"id": "a", "label": "Forty"}, {"id": "b", "label": "Both"}]
@@ -215,6 +261,19 @@ def test_a_fast_honest_round_written_with_the_helper_is_not_called_back_produced
         time.sleep(0.002)
         helper.emit("scan", "step_finished", {"round": 1, "step": step}, repo)
     helper.emit("scan", "round_finished", {"round": 1, "verdict": "done"}, repo)
+
+    assert validate_report(repo).warnings == []
+
+
+def test_steps_that_end_within_one_second_of_a_longer_round_are_not_called_back_produced(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    """A loop that stamps to the second: two quick steps share a time, the round does not."""
+    fresh_loop(repo, helper)
+    line(repo, "round_started", round=1)
+    for step in ("work", "judge"):
+        line(repo, "step_finished", round=1, step=step, ts=iso(T0 + timedelta(minutes=3)))
+    line(repo, "round_finished", round=1, verdict="done", ts=iso(T0 + timedelta(minutes=4)))
 
     assert validate_report(repo).warnings == []
 
