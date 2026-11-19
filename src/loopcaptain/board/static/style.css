@@ -194,6 +194,7 @@ button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 
 .flash { margin-top: var(--s2); padding: 12px var(--s2); border-radius: var(--radius); font-size: var(--t14); background: var(--ok-bg); color: var(--ok); }
 .flash.bad { background: var(--bad-bg); color: var(--bad); }
+.flash.warn { background: var(--warn-bg); color: var(--warn); }
 
 /* ---- steering ---- */
 .steer { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 12px; margin-top: 12px; }
@@ -411,6 +412,8 @@ section.stalled { margin-top: var(--s3); border-color: var(--warn-mark); }
 section.stalled .eyebrow { color: var(--warn); }
 ol.steps { margin: var(--s1) 0 0; padding-left: 1.3em; }
 ol.steps li { margin: 4px 0; }
+ol.args { margin: 4px 0 var(--s1); padding-left: 1.6em; font-size: var(--t14); }
+ol.args li { margin: 2px 0; }
 
 /* ---- filters on the first page, and the first run ---- */
 form.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: var(--s3) 0 0; }

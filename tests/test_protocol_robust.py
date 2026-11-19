@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import shutil
@@ -454,3 +455,21 @@ def test_costs_too_large_together_add_up_to_a_finite_figure() -> None:
 def test_a_nan_cost_stays_a_problem_as_the_text_says() -> None:
     with pytest.raises(ValueError):
         Cost.model_validate(json.loads('{"usd": NaN}'))
+
+
+def test_the_helper_names_utf8_wherever_it_opens_a_file() -> None:
+    """A machine whose locale is not UTF-8 would otherwise read a reply with an umlaut as other
+    text, and the signature over it would no longer hold."""
+    tree = ast.parse(STANDARD_HELPER.read_text(encoding="utf-8"))
+    opened = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and (
+            getattr(node.func, "id", "") == "open"
+            or getattr(node.func, "attr", "") in {"read_text", "write_text"}
+        )
+    ]
+
+    unnamed = [node.lineno for node in opened if "encoding" not in {keyword.arg for keyword in node.keywords}]
+    assert len(opened) >= 4 and unnamed == []

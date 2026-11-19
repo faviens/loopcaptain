@@ -35,7 +35,9 @@ reaches a loop:
    enter, read or make sense of is named with the reason and left out,
    and every other loop stays readable and steerable.
 3. **The file viewer:** it opens text files inside a watched repository
-   and nothing outside it. It never shows `.git`, and it refuses a
+   and nothing outside it. It never shows `.git`; of git's own files the
+   board reads only the branch's name and which repository a worktree
+   belongs to, from disk, without running `git`. The viewer refuses a
    block-list of names under which tools commonly keep keys, tokens and
    passwords (`PRIVATE_PARTS` and `PRIVATE_PATTERNS` in
    `src/loopcaptain/board/files.py`). The list goes by name only: a secret
@@ -46,7 +48,9 @@ reaches a loop:
    when the person presses Start, split into arguments with no shell, with
    only `PATH`, `HOME`, `LANG` and `TERM` from the board's environment,
    and `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs with. The
-   first start of a command in a repository needs a tick. Do not put a
+   first start of a command for a loop needs a tick; a command with
+   characters that do not show is never started, and the page names a
+   script that changed since the last start. Do not put a
    folder of repositories you have not read under `roots:`.
 5. **The inbox:** the board signs every line it writes with a key in
    `~/.config/loopcaptain/`, naming the loop, so a loop can tell the person

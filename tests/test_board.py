@@ -1016,7 +1016,7 @@ def test_records_in_the_folder_the_board_is_started_in_are_not_read(
     start_command(scan, helper, "run-me")
     repo = find_repos(Config(repos=(scan,)))[0]
     planted = Runner(scan / ".state")
-    planted.confirm(repo, "run-me")
+    planted.confirm(repo, "scan", "run-me")
     record = {"pid": os.getpid(), "command": "run-me", "started": "2026-11-14T21:00:00+00:00"}
     record["repo"] = steer.identity(repo)
     planted.record_path(repo, "scan").write_text(json.dumps(record))
@@ -1027,8 +1027,8 @@ def test_records_in_the_folder_the_board_is_started_in_are_not_read(
 
     runner = Runner()
 
-    assert planted.is_confirmed(repo, "run-me") and planted.process(repo, "scan") is not None
-    assert not runner.is_confirmed(repo, "run-me") and runner.process(repo, "scan") is None
+    assert planted.is_confirmed(repo, "scan", "run-me") and planted.process(repo, "scan") is not None
+    assert not runner.is_confirmed(repo, "scan", "run-me") and runner.process(repo, "scan") is None
 
 
 def test_the_state_folder_and_its_files_are_the_users_alone(
@@ -1039,7 +1039,7 @@ def test_the_state_folder_and_its_files_are_the_users_alone(
     runner = Runner(tmp_path / "fresh" / "state")
 
     runner.start(repo, store.read_manifest(scan, "scan"))
-    runner.confirm(repo, "x")
+    runner.confirm(repo, "scan", "x")
 
     modes = {path.name: path.stat().st_mode & 0o777 for path in runner.state_dir.iterdir()}
     assert runner.state_dir.stat().st_mode & 0o777 == 0o700
@@ -1053,11 +1053,79 @@ def test_the_state_folder_is_made_the_users_alone_by_whichever_write_comes_first
     repo = find_repos(Config(repos=(scan,)))[0]
     confirmed_first, started_first = Runner(tmp_path / "a" / "state"), Runner(tmp_path / "b" / "state")
 
-    confirmed_first.confirm(repo, "x")
+    confirmed_first.confirm(repo, "scan", "x")
     started_first.start(repo, store.read_manifest(scan, "scan"))
 
     for runner in (confirmed_first, started_first):
         assert runner.state_dir.stat().st_mode & 0o777 == 0o700, runner.state_dir
+
+
+def test_a_state_folder_that_was_there_and_open_to_others_is_closed_by_the_first_write(
+    scan: Path, tmp_path: Path, helper: types.ModuleType
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    confirmed_first, started_first = Runner(tmp_path / "a"), Runner(tmp_path / "b")
+    for runner in (confirmed_first, started_first):
+        runner.state_dir.mkdir(mode=0o755)
+        runner.state_dir.chmod(0o755)
+
+    confirmed_first.confirm(repo, "scan", "x")
+    started_first.start(repo, store.read_manifest(scan, "scan"))
+
+    for runner in (confirmed_first, started_first):
+        assert runner.state_dir.stat().st_mode & 0o777 == 0o700, runner.state_dir
+
+
+def test_a_record_is_written_whole_and_a_write_that_fails_leaves_the_earlier_one(
+    scan: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = find_repos(Config(repos=(scan,)))[0]
+    runner = Runner(tmp_path / "state")
+    runner.confirm(repo, "scan", "first")
+    kept = runner.state_dir / steer.CONFIRMED_FILE
+    earlier = kept.read_text()
+    seen_in_place: list[str] = []
+    move = os.replace
+
+    def moved(source: Path, target: Path) -> None:
+        seen_in_place.append(Path(target).read_text())
+        move(source, target)
+
+    monkeypatch.setattr(os, "replace", moved)
+    runner.confirm(repo, "scan", "second")
+    monkeypatch.setattr(os, "replace", lambda source, target: (_ for _ in ()).throw(OSError("disk full")))
+    with pytest.raises(OSError, match="disk full"):
+        runner.confirm(repo, "scan", "third")
+
+    assert seen_in_place == [earlier], "the file in place was whole until the new one took its place"
+    assert runner.is_confirmed(repo, "scan", "first") and runner.is_confirmed(repo, "scan", "second")
+    assert not runner.is_confirmed(repo, "scan", "third")
+    assert [path.name for path in runner.state_dir.iterdir()] == [steer.CONFIRMED_FILE]
+
+
+def test_a_long_log_is_put_aside_at_the_next_start_and_one_earlier_log_is_kept(
+    scan: Path, tmp_path: Path, helper: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    start_command(scan, helper, f"{sys.executable} -c pass")
+    repo = find_repos(Config(repos=(scan,)))[0]
+    runner = Runner(tmp_path / "state")
+    monkeypatch.setattr(steer, "MAX_LOG_BYTES", 100)
+    manifest = store.read_manifest(scan, "scan")
+    runner.state_dir.mkdir()
+    log_path = runner.log_path(repo, "scan")
+    log_path.write_text("short\n")
+
+    runner.start(repo, manifest)
+    runner.children[runner.name(repo, "scan")].wait()
+    kept_short = log_path.read_text()
+    log_path.write_text("x" * 500)
+    runner.start(repo, manifest)
+    runner.children[runner.name(repo, "scan")].wait()
+
+    assert kept_short.startswith("short\n") and "$ " in kept_short
+    assert log_path.with_name(log_path.name + ".1").read_text() == "x" * 500
+    assert log_path.stat().st_size < 500 and log_path.read_text().lstrip().startswith("$ ")
 
 
 def test_a_record_made_for_a_repository_of_the_same_name_elsewhere_is_not_this_loops(

@@ -274,16 +274,25 @@
     {% elif start %}
     <form class="start" id="start-loop" method="post" action="{{ url_for('loop_start', repo_key=view.repo.key, loop_id=view.loop_id) }}">
       <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">
-      <input type="hidden" name="command" value="{{ start }}">
+      <input type="hidden" name="command" value="{{ start }}"><input type="hidden" name="files" value="{{ files_mark }}">
+      {% if command.problem %}
+      <p><code>{{ command.shown }}</code></p>
+      <p class="flash bad" role="alert">Not started from here: {{ command.problem }}.</p>
+      {% else %}
       <p><code>{{ start }}</code></p>
+      <p class="grey">It runs as {{ command.argv|length }} argument{{ '' if command.argv|length == 1 else 's' }}, without a shell:</p>
+      <ol class="args">{% for argument in command.argv %}<li><code>{{ argument }}</code></li>{% endfor %}</ol>
+      {% endif %}
       <p class="grey">This command comes from this repository's <code>loop.json</code>, not from the board. It runs here with your rights.</p>
-      {% if not confirmed %}<label class="tick"><input type="checkbox" name="confirm" value="yes" required> I have read the command and want it run</label>{% endif %}
+      {% if changed_files %}<p class="flash warn" role="status">Changed since the board last started this command: {% for name in changed_files %}<a href="{{ url_for('loop_file', repo_key=view.repo.key, loop_id=view.loop_id) }}?path={{ name|urlencode }}">{{ name }}</a>{{ ', ' if not loop.last }}{% endfor %}. Read {{ 'it' if changed_files|length == 1 else 'them' }} before you press Start.</p>{% endif %}
+      {% if not confirmed and not command.problem %}<label class="tick"><input type="checkbox" name="confirm" value="yes" required> I have read the command and want it run</label>{% endif %}
       {% if runs_elsewhere %}<label class="tick"><input type="checkbox" name="again" value="yes" required> This loop is {{ state.status }} and the board did not start it: start a second copy anyway</label>{% endif %}
     </form>
     {% else %}<p class="grey">This loop names no command the board could start. Start it where it lives, from its own repository.</p>{% endif %}
-    {% if (start and not alive) or state.status in stoppable or state.stop_requested or alive %}
+    {% set startable = start and not alive and not command.problem %}
+    {% if startable or state.status in stoppable or state.stop_requested or alive %}
     <div class="acts">
-      {% if start and not alive %}<button type="submit" form="start-loop">Start</button>{% endif %}
+      {% if startable %}<button type="submit" form="start-loop">Start</button>{% endif %}
       {% if state.status in stoppable or state.stop_requested %}
       <form method="post" action="{{ url_for('loop_stop', repo_key=view.repo.key, loop_id=view.loop_id) }}">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tab" value="{{ tab }}">

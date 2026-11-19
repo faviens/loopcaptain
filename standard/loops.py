@@ -20,7 +20,7 @@ def register(loop_id, manifest, repo="."):
     """Write loop.json. `manifest` holds title, brief, steps and so on; id and protocol are set here."""
     target = folder(loop_id, repo) / "loop.json"
     tmp = target.with_suffix(".tmp")
-    tmp.write_text(json.dumps({**manifest, "protocol": 1, "id": loop_id}, indent=2) + "\n")
+    tmp.write_text(json.dumps({**manifest, "protocol": 1, "id": loop_id}, indent=2) + "\n", encoding="utf-8")
     tmp.replace(target)
 
 
@@ -35,7 +35,7 @@ def emit(loop_id, event, fields=None, repo=".", at=None):
     }
     stamp = at.astimezone(timezone.utc).isoformat() if isinstance(at, datetime) else at
     line.update({key: value for key, value in {"at": stamp, **(fields or {})}.items() if value is not None})
-    with open(folder(loop_id, repo) / "events.jsonl", "a") as log:
+    with open(folder(loop_id, repo) / "events.jsonl", "a", encoding="utf-8") as log:
         log.write(json.dumps(line) + "\n")
 
 
@@ -43,7 +43,7 @@ def lines(path):
     """The JSON objects of a file, one per complete line; a line that is not JSON is skipped."""
     found = []
     if path.exists():
-        complete = path.read_text(errors="replace").rpartition("\n")[0]
+        complete = path.read_text(encoding="utf-8", errors="replace").rpartition("\n")[0]
         for line in complete.split("\n"):  # a line ends at "\n" only, whatever else the text holds
             try:
                 found.append(json.loads(line))
@@ -69,7 +69,7 @@ def signed(entry, loop_id):
     body = {key: value for key, value in entry.items() if key != "sig"}
     text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     try:
-        secret = bytes.fromhex(key.read_text().strip())
+        secret = bytes.fromhex(key.read_text(encoding="utf-8").strip())
     except ValueError:
         return None  # a key the board would not use either: nothing can be told apart
     mark = hmac.new(secret, text.encode(), hashlib.sha256).hexdigest()

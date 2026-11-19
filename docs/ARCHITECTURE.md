@@ -807,3 +807,26 @@ one turn read as failed reviews.
 the loop must know, or the next review raises the finding again. A new inbox kind: a reply
 already carries the person's words and the signature; a field on it keeps older loops reading
 it as a note.
+
+## 35. A tick covers one loop's command as the page draws it; a changed script is named
+
+**Decision.** Refines section 5. The first-start tick is kept per repository, loop and command
+(`command_hash` in `board/steer.py`), not per repository and command. A command holding a
+character that does not show as itself (a control or format character, a line separator, a space
+other than the plain one) is drawn with those characters written out as code points and is never
+started; every other command is listed as the arguments it splits into (`board/command.py`).
+With each start the board keeps a digest of every file of the repository the command names among
+its arguments, and the loop page names the ones that differ from the last start
+(`named_files`, `Runner.changed_files`).
+
+**Why.** The tick stands for "I have read this". One tick opened every loop of a repository that
+declared the same text, loops the person never looked at. A text with a character that turns the
+reading direction reads as another command than the one that runs. And the text is the smallest
+part of what runs: the script behind it can change between two starts without the command
+changing.
+
+**Rejected.** Asking for the tick again whenever a named file changed: a loop under work changes
+its script before most starts, and a tick asked every time is ticked without reading. Following
+what a script imports: the board would have to understand each language, and a digest of one
+file already says "look again". Refusing every character outside ASCII: a path may hold any
+letter.

@@ -28,6 +28,7 @@ from markupsafe import Markup
 
 from loopcaptain.agents import agents, checkout_of
 from loopcaptain.board.access import COOKIE_NAME, ENTER_PATH, HOST, Session, is_open, local_path
+from loopcaptain.board.command import files_mark, named_files, read_command
 from loopcaptain.board.discover import (
     Config,
     LoopView,
@@ -42,7 +43,7 @@ from loopcaptain.board.discover import (
     unreadable_folders,
 )
 from loopcaptain.board.errors import add_error_pages, secured
-from loopcaptain.board.files import MAX_FILE_BYTES, TEXT_SUFFIXES, inside
+from loopcaptain.board.files import TEXT_SUFFIXES, inside, read_bounded
 from loopcaptain.board.filters import ago, lead, minutes, place, stamp, tokens, usd
 from loopcaptain.board.graph import layout
 from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of
@@ -364,6 +365,7 @@ def create_app(
         manifest = state.manifest  # as the fold counts it: a cost cap that is not finite is none
         shown = next((r for r in state.rounds if r.number == round), state.last_round)
         process = steer.process(repo, loop_id)
+        declared = read_command(manifest.commands.get("start", ""))
         context = {
             "view": view,
             "state": state,
@@ -375,7 +377,10 @@ def create_app(
             "branch": git_branch(repo.path),
             "process": process,
             "log_tail": steer.log_tail(repo, loop_id) if process else "",
-            "confirmed": steer.is_confirmed(repo, manifest.commands.get("start", "")),
+            "command": declared,
+            "files_mark": files_mark(named_files(repo.path, declared.argv)),
+            "confirmed": steer.is_confirmed(repo, loop_id, manifest.commands.get("start", "")),
+            "changed_files": steer.changed_files(repo, loop_id, manifest.commands.get("start", "")),
             "runs_elsewhere": runs_elsewhere(view, steer),
             "signed": inbox_marks(state),
             "charts": charts_of(state),
@@ -400,19 +405,24 @@ def create_app(
     def loop_file(request: Request, repo_key: str, loop_id: str, path: str) -> Response:
         repo, manifest, view = view_of(repo_key, loop_id)
         target = inside(repo.path, path)
-        size = target.stat().st_size
         body: Markup | None = None
         text = ""
         reason = ""
         if target.suffix.lower() not in TEXT_SUFFIXES:
             reason = "not shown: the board opens only text files it knows"
-        elif size > MAX_FILE_BYTES:
-            reason = f"{size // 1000} kB: too large to show here"
         else:
             try:
-                text = target.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                reason = "not a text file"
+                size, data = read_bounded(repo.path, target)
+            except OSError as problem:
+                # Gone, or turned into a link, since the path was checked.
+                raise HTTPException(404, "no such file in this repository") from problem
+            if data is None:
+                reason = f"{size // 1000} kB: too large to show here"
+            else:
+                try:
+                    text = data.decode("utf-8")
+                except UnicodeDecodeError:
+                    reason = "not a text file"
         if not reason and target.suffix.lower() in {".md", ".markdown"}:
             body = Markup(MARKDOWN.render(text))
         context = {
@@ -568,6 +578,7 @@ def create_app(
         command: Annotated[str, Form()] = "",
         confirm: Annotated[str, Form()] = "",
         again: Annotated[str, Form()] = "",
+        files: Annotated[str, Form()] = "",
     ) -> Response:
         check_token(token, repo_key, loop_id)
         repo, manifest, view = view_of(repo_key, loop_id)
@@ -587,7 +598,7 @@ def create_app(
                 error="Not started: this loop is under way and the board did not start it. "
                 "A second copy would write the same files. Tick the box to start one anyway.",
             )
-        first = not steer.is_confirmed(repo, command)
+        first = not steer.is_confirmed(repo, loop_id, command)
         if first and confirm != "yes":
             return back(
                 repo_key,
@@ -595,12 +606,21 @@ def create_app(
                 tab=tab,
                 error="Not started: first start of this command. Read it, tick the box, press again.",
             )
+        # Read before the process begins: what is remembered is what the page told the person of.
+        named = named_files(repo.path, read_command(command).argv)
+        if files_mark(named) != files:
+            return back(
+                repo_key,
+                loop_id,
+                tab=tab,
+                error="Not started: a file the command names changed after this page was drawn. "
+                "Look at it and press again.",
+            )
         try:
             process = steer.start(repo, manifest)
         except StoreError as problem:
             return back(repo_key, loop_id, tab=tab, error=f"Not started: {problem}.")
-        if first:
-            steer.confirm(repo, command)
+        steer.confirm(repo, loop_id, command, named)  # every start: the files are remembered anew
         return back(repo_key, loop_id, tab=tab, note=f"Started: {process.command} (pid {process.pid}).")
 
     @app.post("/loop/{repo_key}/{loop_id}/kill", name="loop_kill")
