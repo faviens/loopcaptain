@@ -524,7 +524,6 @@ details.project:not([open]) > summary::before { transform: rotate(-45deg); }
 .project > .summary .name { font: 700 var(--t16)/1.3 var(--font-display); letter-spacing: -.01em; color: var(--text); }
 .project > .summary .wt { font-size: 13px; color: var(--text); padding: 0 8px; border-radius: 6px; background: var(--tint-2); }
 details.project > summary code.branch { font-size: 12px; }
-.project > .summary .path { font-size: 12px; color: var(--text-2); }
 .project > .summary .count { margin-left: auto; font-size: 13px; color: var(--text-2); }
 .project > .summary .waits { padding: 2px 10px; border-radius: var(--pill); background: var(--accent); color: var(--on-accent); font-size: var(--t12); font-weight: 600; text-decoration: none; }
 details.project table.loops { table-layout: fixed; width: 100%; }
@@ -532,7 +531,6 @@ table.loops col.c-loop { width: 26%; } table.loops col.c-status { width: 11%; } 
 table.loops col.c-rounds { width: 13%; } table.loops col.c-n { width: 7%; } table.loops col.c-last { width: 9%; } table.loops col.c-go { width: 7%; }
 details.project table.loops tbody tr:not(.project) td.name { padding-left: var(--s3); }
 table.loops td.goal span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-@media (max-width: 900px) { .project > .summary .path { flex-basis: 100%; } }
 
 /* ---- connect a loop: three ways, the protocol folded away ---- */
 .ways { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: var(--s3); }
