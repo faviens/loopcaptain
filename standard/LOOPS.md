@@ -479,7 +479,8 @@ A loop that an agent session drives, with no script of its own, uses the
 | `loop_status` | returns where a loop stands, or the loops of a repository | |
 
 Five tools on purpose: the same three verbs as the helper, so a loop reads
-the same on both doors, and a short tool list in the agent's context.
+the same from a script and from a session, and a short tool list in the
+agent's context.
 
 ## 6. Conformance
 

@@ -26,30 +26,27 @@ loopcaptain validate [-h] [--strict] repo
 
 | Argument | Meaning |
 |---|---|
-| `repo` |  |
+| `repo` | the repository whose .loops folders are checked |
 | `--strict` | count warnings as problems |
 
 ## `emit`
 
-Append one event: loopcaptain emit <loop> <event> key=value ....
+Append one event to a loop's log, its fields as key=value pairs, for a loop in shell.
 
 ```text
-loopcaptain emit [-h] [--repo REPO]
-                        loop
-                        {round_started,step_started,step_finished,finding_closed,round_finished,question,question_closed,check,inbox_read,loop_started,loop_stopped,heartbeat}
-                        [fields ...]
+loopcaptain emit [-h] [--repo REPO] loop event [fields ...]
 ```
 
 | Argument | Meaning |
 |---|---|
-| `loop` |  |
-| `event` |  |
+| `loop` | the loop's id, the name of its folder in .loops/ |
+| `event` | the event to append, one of: round_started, step_started, step_finished, finding_closed, round_finished, question, question_closed, check, inbox_read, loop_started, loop_stopped, heartbeat |
 | `fields` | key=value; a value is read as JSON where it parses (round=2, blocks=true, ids='["a"]'), and as text where the field is text (commit=1234567) |
-| `--repo` |  |
+| `--repo` | the repository the loop lives in, default: this folder |
 
 ## `schema`
 
-Write the protocol as json schema.
+Write the protocol as JSON Schema.
 
 ```text
 loopcaptain schema [-h] target
@@ -57,7 +54,7 @@ loopcaptain schema [-h] target
 
 | Argument | Meaning |
 |---|---|
-| `target` |  |
+| `target` | the folder the schema files are written into |
 
 ## `doctor`
 
@@ -69,8 +66,8 @@ loopcaptain doctor [-h] [--timeout TIMEOUT] repo loop
 
 | Argument | Meaning |
 |---|---|
-| `repo` |  |
-| `loop` |  |
+| `repo` | the repository the loop lives in |
+| `loop` | the loop's id, the name of its folder in .loops/ |
 | `--timeout` | seconds to wait, default 600 |
 
 ## `watch`
@@ -83,7 +80,7 @@ loopcaptain watch [-h] [--root] path
 
 | Argument | Meaning |
 |---|---|
-| `path` |  |
+| `path` | a repository, or with --root a folder of repositories |
 | `--root` | every sub-folder with .loops/ is a repository |
 
 ## `unwatch`
@@ -96,7 +93,7 @@ loopcaptain unwatch [-h] path
 
 | Argument | Meaning |
 |---|---|
-| `path` |  |
+| `path` | the folder to take off, however the config spells it |
 
 ## `status`
 
@@ -120,8 +117,8 @@ loopcaptain inbox [-h] [--repo REPO] [--json] loop
 
 | Argument | Meaning |
 |---|---|
-| `loop` |  |
-| `--repo` |  |
+| `loop` | the loop's id, the name of its folder in .loops/ |
+| `--repo` | the repository the loop lives in, default: this folder |
 | `--json` | every entry as a JSON line, with signed and stale |
 
 ## `hide`
@@ -134,8 +131,8 @@ loopcaptain hide [-h] repo loop
 
 | Argument | Meaning |
 |---|---|
-| `repo` |  |
-| `loop` |  |
+| `repo` | the repository the loop lives in |
+| `loop` | the loop's id, the name of its folder in .loops/ |
 
 ## `unhide`
 
@@ -147,8 +144,8 @@ loopcaptain unhide [-h] repo loop
 
 | Argument | Meaning |
 |---|---|
-| `repo` |  |
-| `loop` |  |
+| `repo` | the repository the loop lives in |
+| `loop` | the loop's id, the name of its folder in .loops/ |
 
 ## `demo`
 
@@ -160,12 +157,12 @@ loopcaptain demo [-h] [--target TARGET] [--no-watch]
 
 | Argument | Meaning |
 |---|---|
-| `--target` |  |
+| `--target` | the folder the example loop is written into, default ~/.local/share/loopcaptain/demo |
 | `--no-watch` | write it, but leave the config alone |
 
 ## `mcp-config`
 
-How one coding agent adds the mcp server.
+How one coding agent adds the MCP server.
 
 ```text
 loopcaptain mcp-config [-h] [--checkout CHECKOUT] [--markdown] [agent]
@@ -179,7 +176,7 @@ loopcaptain mcp-config [-h] [--checkout CHECKOUT] [--markdown] [agent]
 
 ## `spec`
 
-Print loops.md, the protocol to paste into a loop.
+Print LOOPS.md, the protocol to paste into a loop.
 
 ```text
 loopcaptain spec [-h]
@@ -187,7 +184,7 @@ loopcaptain spec [-h]
 
 ## `mcp`
 
-Run the mcp server on stdio.
+Run the MCP server on stdio.
 
 ```text
 loopcaptain mcp [-h]

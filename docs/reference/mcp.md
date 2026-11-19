@@ -2,13 +2,14 @@
 
 # The MCP tools
 
-The MCP door: the protocol as five tools, for a loop that an agent session drives.
+The MCP server: the protocol as five tools, for a loop that an agent session drives.
 
 The tools mirror the helper a script pastes (`register`, `emit`, `inbox`), so there is one
-vocabulary on both doors and the tool list stays small in the agent's context. Every tool writes
-the same files; the board cannot tell the two doors apart. `repo` is the repository the loop
-lives in; left out, it is the folder the server was started in, which is the agent's working folder.
-A `repo` outside that folder is refused unless `LOOPCAPTAIN_MCP_ROOTS` names a folder above it.
+vocabulary for a script and for a session, and the tool list stays small in the agent's context.
+Every tool writes the same files the helper writes; the board cannot tell which of the two wrote
+a line. `repo` is the repository the loop lives in; left out, it is the folder the server was
+started in, which is the agent's working folder. A `repo` outside that folder is refused unless
+`LOOPCAPTAIN_MCP_ROOTS` names a folder above it.
 
 ## `protocol`
 

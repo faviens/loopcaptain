@@ -1,4 +1,4 @@
-# mcp_server/: the MCP door
+# mcp_server/: the MCP server
 
 Read [the root AGENTS.md](../../../AGENTS.md) first. `server.py` exposes
 the protocol as MCP tools for a loop that an agent session drives without
@@ -8,7 +8,7 @@ Rules here:
 
 1. Five tools and no more: `protocol`, `loop_register`, `emit`,
    `inbox_read`, `loop_status`. They mirror the helper's three verbs, so
-   a loop reads the same on both doors and the tool list stays short in
+   a loop reads the same from a script and from a session, and the tool list stays short in
    an agent's context. A new event is a new value for `emit`, not a tool.
 2. A tool writes exactly what the helper in `standard/loops.py` would
    write. No tool adds state of its own; `tests/test_mcp.py` validates the
