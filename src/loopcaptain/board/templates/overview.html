@@ -30,7 +30,7 @@
 <h1 class="sr">{{ 'Waiting for you' if tab == 'waiting' else 'Loops' }}</h1>
 {% if note %}<p class="flash" role="status">{{ note }}</p>{% endif %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
-{% if repeated %}<p class="flash warn" role="status">Two watched repositories have a loop with the same id: {% for loop_id, keys in repeated.items() %}<code>{{ loop_id }}</code> in {{ keys[:-1]|join(', ') }} and {{ keys[-1] }}{{ '; ' if not loop.last }}{% endfor %}. Check the repository before you answer; the loop's page says more.</p>{% endif %}
+{% if repeated %}<p class="flash warn" role="status">Two watched repositories have a loop with the same id: {% for loop_id, keys in repeated.items() %}<code>{{ loop_id }}</code> in {{ keys[:-1]|join(', ') }} and {{ keys[-1] }}{{ '; ' if not loop.last }}{% endfor %}. Check you are answering the right one.</p>{% endif %}
 {% if unreadable %}
 <div class="flash bad" role="alert">
   <p>Not shown, because the board could not look into {{ 'it' if unreadable|length == 1 else 'them' }}:</p>
