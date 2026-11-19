@@ -1,4 +1,5 @@
 ---
+title: "Monitor and steer a Ralph loop or any shell loop"
 description: "Monitor and steer a Ralph loop or any shell loop around a coding agent: report each iteration with one command, read the person's stop and notes with another."
 ---
 

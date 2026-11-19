@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import struct
 import sys
 import tomllib
 import types
@@ -360,3 +361,18 @@ def test_every_written_page_tells_a_search_engine_what_it_is_about_in_its_own_wo
     assert front_matter(ROOT / "docs" / "index.md").get("title", "Home") != "Home"
     assert [name for name, text in descriptions.items() if not 40 <= len(text) <= 160] == []
     assert len(set(descriptions.values())) == len(descriptions)
+
+
+def test_a_shared_link_and_a_search_result_get_a_title_a_sentence_and_a_picture() -> None:
+    """The site wrote no card data and loaded its fonts from another host."""
+    theme = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))["project"]["theme"]
+    head = (ROOT / "overrides" / "main.html").read_text(encoding="utf-8")
+    card = (ROOT / "docs" / "assets" / "social-card.png").read_bytes()
+
+    assert theme["custom_dir"] == "overrides" and theme["font"] is False
+    for name in ("og:title", "og:description", "og:url", "og:image", "twitter:card", "application/ld+json"):
+        assert name in head
+    assert "assets/social-card.png" in head and "http" not in head.replace("https://schema.org", "").replace(
+        "https://www.apache.org/licenses/LICENSE-2.0", ""
+    )
+    assert card[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", card[16:24]) == (1200, 630)

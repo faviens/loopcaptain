@@ -36,7 +36,9 @@ def cli_page() -> str:
     subparsers = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
     helps = {choice.dest: choice.help for choice in subparsers._choices_actions}
     for name, sub in subparsers.choices.items():
-        lines += [f"## `{name}`", "", f"{(helps.get(name) or '').capitalize()}.", ""]
+        about = (helps.get(name) or "").rstrip(".")
+        # The first letter only: `capitalize` would write "Mcp" and "Loops.md".
+        lines += [f"## `{name}`", "", f"{about[:1].upper()}{about[1:]}.", ""]
         usage = sub.format_usage().replace("usage: ", "").strip()
         lines += ["```text", usage, "```", ""]
         options = [action for action in sub._actions if not isinstance(action, argparse._HelpAction)]
@@ -97,6 +99,7 @@ def llms_txt() -> str:
             f"- [AGENTS.md for a loop]({files}/standard/AGENTS.md): connect a loop, or build one from nothing",
             f"- [Works with every agent]({site}/agents/): how each coding agent adds the MCP server",
             f"- [Monitor a Ralph or shell loop]({site}/shell-loop/): a worked loop.sh with `emit` and `inbox`",
+            f"- [Questions and answers]({site}/faq/): what a loop is, how to monitor, stop and steer one",
             "",
             "## Optional",
             "",

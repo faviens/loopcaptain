@@ -1,4 +1,5 @@
 ---
+title: "Get started: run an agent loop on the board in five minutes"
 description: "Run the free example loop on the board: no model, no network. Start it, answer its question with a button and watch it finish."
 ---
 

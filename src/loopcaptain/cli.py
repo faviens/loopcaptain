@@ -217,44 +217,53 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", type=int, default=8484, help="the port on 127.0.0.1, default 8484")
 
     validate = commands.add_parser("validate", help="check a repository's .loops folders")
-    validate.add_argument("repo", type=Path)
+    validate.add_argument("repo", type=Path, help="the repository whose .loops folders are checked")
     validate.add_argument("--strict", action="store_true", help="count warnings as problems")
 
     emit_cmd = commands.add_parser(
-        "emit", help="append one event: loopcaptain emit <loop> <event> key=value ..."
+        "emit", help="append one event to a loop's log, its fields as key=value pairs, for a loop in shell"
     )
-    emit_cmd.add_argument("loop")
-    emit_cmd.add_argument("event", choices=EVENT_NAMES)
+    emit_cmd.add_argument("loop", help="the loop's id, the name of its folder in .loops/")
+    emit_cmd.add_argument(
+        "event",
+        choices=EVENT_NAMES,
+        help=f"the event to append, one of: {', '.join(EVENT_NAMES)}",
+        metavar="event",
+    )
     emit_cmd.add_argument(
         "fields",
         nargs="*",
         help="key=value; a value is read as JSON where it parses (round=2, blocks=true, "
         "ids='[\"a\"]'), and as text where the field is text (commit=1234567)",
     )
-    emit_cmd.add_argument("--repo", type=Path, default=Path("."))
+    emit_cmd.add_argument(
+        "--repo", type=Path, default=Path("."), help="the repository the loop lives in, default: this folder"
+    )
 
     schema = commands.add_parser("schema", help="write the protocol as JSON Schema")
-    schema.add_argument("target", type=Path)
+    schema.add_argument("target", type=Path, help="the folder the schema files are written into")
 
     doctor = commands.add_parser("doctor", help="send a loop a stop and check that it takes it and ends")
-    doctor.add_argument("repo", type=Path)
-    doctor.add_argument("loop")
+    doctor.add_argument("repo", type=Path, help="the repository the loop lives in")
+    doctor.add_argument("loop", help="the loop's id, the name of its folder in .loops/")
     doctor.add_argument("--timeout", type=float, default=600, help="seconds to wait, default 600")
 
     watch = commands.add_parser(
         "watch", help="add a repository, or with --root a folder of them, to the board"
     )
-    watch.add_argument("path", type=Path)
+    watch.add_argument("path", type=Path, help="a repository, or with --root a folder of repositories")
     watch.add_argument("--root", action="store_true", help="every sub-folder with .loops/ is a repository")
     unwatch = commands.add_parser("unwatch", help="take a folder off the board")
-    unwatch.add_argument("path", type=Path)
+    unwatch.add_argument("path", type=Path, help="the folder to take off, however the config spells it")
     status = commands.add_parser("status", help="where every watched loop stands, in a terminal")
     status.add_argument("--all", action="store_true", help="hidden and finished loops too")
     inbox = commands.add_parser(
         "inbox", help="what the person sent a loop since the last call, one line each, for a loop in shell"
     )
-    inbox.add_argument("loop")
-    inbox.add_argument("--repo", type=Path, default=Path("."))
+    inbox.add_argument("loop", help="the loop's id, the name of its folder in .loops/")
+    inbox.add_argument(
+        "--repo", type=Path, default=Path("."), help="the repository the loop lives in, default: this folder"
+    )
     inbox.add_argument(
         "--json", action="store_true", help="every entry as a JSON line, with signed and stale"
     )
@@ -263,13 +272,18 @@ def build_parser() -> argparse.ArgumentParser:
         ("unhide", "show a hidden loop on the first page again"),
     ):
         one_loop = commands.add_parser(name, help=about)
-        one_loop.add_argument("repo", type=Path)
-        one_loop.add_argument("loop")
+        one_loop.add_argument("repo", type=Path, help="the repository the loop lives in")
+        one_loop.add_argument("loop", help="the loop's id, the name of its folder in .loops/")
 
     demo = commands.add_parser(
         "demo", help="write the example loop into a folder and watch it; costs nothing"
     )
-    demo.add_argument("--target", type=Path, default=Path("~/.local/share/loopcaptain/demo"))
+    demo.add_argument(
+        "--target",
+        type=Path,
+        default=Path("~/.local/share/loopcaptain/demo"),
+        help="the folder the example loop is written into, default ~/.local/share/loopcaptain/demo",
+    )
     demo.add_argument("--no-watch", action="store_true", help="write it, but leave the config alone")
 
     mcp_config = commands.add_parser("mcp-config", help="how one coding agent adds the MCP server")

@@ -143,13 +143,14 @@ stdio, installed with its extra (`uv tool install 'loopcaptain[mcp]'`):
    it the major one. A push with only `docs`, `test`, `chore`, `ci` or
    `refactor` commits makes no release.
 3. A release is a tag `vX.Y.Z` and a GitHub release whose notes are the
-   subjects of those commits, with the wheel attached: built with the
+   subjects of those commits, each with the bullets of its body below
+   it, with the wheel attached: built with the
    tag's version, installed in a clean environment and smoke-tested first.
    It goes to PyPI once the repository variable `PUBLISH_PYPI` is `true`.
 4. Nothing is committed back. `pyproject.toml` says `0.0.0`; a checkout
    and an install from `main` report that, a released wheel its tag.
-5. A commit subject is a line of the release notes, so write it for a
-   user. `CHANGELOG.md` holds the first version and points to the
+5. A commit subject is a line of the release notes and its bullets are
+   printed below it, so write both for a user. `CHANGELOG.md` holds the first version and points to the
    releases.
 6. The package version is not the protocol number: a release may add
    optional fields and events, never break a loop written today.

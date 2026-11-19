@@ -1,4 +1,5 @@
 ---
+title: "Set up the board for your agent loops"
 description: "Put the repositories that run agent loops on the board, find the loops that already report, and connect the ones that do not."
 ---
 

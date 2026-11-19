@@ -557,8 +557,8 @@ would still vanish.
 the line's `event` (`event_tag`); a name not in `EVENT_NAMES` reads as
 `OtherEvent`, which the fold skips and which still counts as a sign of
 life. `validate` warns (`unknown_events`). The published schema takes any
-other event name with a `ts`. Writing stays strict: both `emit` doors
-take known events only.
+other event name with a `ts`. Writing stays strict: `emit` on the command
+line and `emit` over MCP take known events only.
 
 **Why.** Version 1 grows by new events, and the standard tells a board to
 ignore what it does not know. A reader that refused them would call the
@@ -594,13 +594,13 @@ only grows). Raising an error without a key: a loop on a machine where no
 board has run yet would not start. A new event for the case: boards
 installed before unknown events were skipped would call it a problem.
 
-## 27. A door refuses an event that would stay a problem, and no more
+## 27. A way in refuses an event that would stay a problem, and no more
 
 **Decision.** `before_writing` in `protocol/validate.py` holds what the
-two doors that write on a loop's behalf check, the MCP `emit` and
+two ways in that write on a loop's behalf check, the MCP `emit` and
 `loopcaptain emit`. `refusals` (the round has started, the step is in
 `loop.json`, the artifact exists, the verdict agrees with the round's
-first) refuses an event: the door writes nothing. An `inbox_read` naming
+first) refuses an event: nothing is written. An `inbox_read` naming
 an entry the models cannot read is written with a warning; where
 `loop.json` or the log cannot be read (over the size the reader takes,
 unreadable), the event is written without the checks against the log,
@@ -608,7 +608,7 @@ with a warning. The MCP `emit` adds the warning to its answer,
 `loopcaptain emit` writes it to standard error. Both take `inbox_read`.
 
 **Why.** The log is append-only, so a line `validate` refuses is refused
-for good; a writer that hears `recorded` never learns it. A door that
+for good; a writer that hears `recorded` never learns it. A way in that
 refuses more than `validate` calls a problem stops a loop for nothing.
 The standard has a loop append `inbox_read` after acting on entries, and
 a loop that reads the inbox file itself has no other way to mark them;
@@ -619,7 +619,7 @@ loop still has to report.
 
 **Rejected.** Writing the line and returning the problems with it: the
 problem is then permanent, and the caller can only add to it. Refusing
-`inbox_read` on both doors: a shell loop would have to write the line by
+`inbox_read` on both ways in: a shell loop would have to write the line by
 hand, without any check of its ids. Refusing an unreadable entry or an
 unreadable log: the loop could not report at all. Writing such a line
 silently: the writer would not know its line went unchecked.
