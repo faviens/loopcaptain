@@ -511,7 +511,7 @@ def test_validate_warns_of_a_back_produced_round_and_an_unread_inbox(
 
     assert main(["validate", str(repo)]) == 0
     out = capsys.readouterr().out
-    assert "warning: scan/events.jsonl: round 1: all 2 steps share one time" in out
+    assert "round 1: its start, its end and all 2 steps share one time" in out
     assert "1 entry sent before a round began and never taken" in out and "ok, 2 warning(s)" in out
     assert main(["validate", "--strict", str(repo)]) == 1
 

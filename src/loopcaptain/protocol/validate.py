@@ -202,17 +202,21 @@ def verdict_problems(events: list[AnyEvent]) -> list[str]:
 
 
 def back_produced(events: list[AnyEvent]) -> list[str]:
-    """A round whose steps all carry one time was written after the fact: its durations are invented."""
+    """A round whose start, steps and end all carry one time was written after the fact: its
+    durations are invented. Steps alone may share a time honestly, where a loop stamps to the
+    second and two of them end within one."""
     times: dict[int, set[datetime]] = {}
     counts: dict[int, int] = {}
     for event in events:
-        if isinstance(event, StepFinished):
+        if isinstance(event, RoundStarted | StepFinished | RoundFinished):
             times.setdefault(event.round, set()).add(event.when)
+        if isinstance(event, StepFinished):
             counts[event.round] = counts.get(event.round, 0) + 1
     return [
-        f"events.jsonl: round {number}: all {counts[number]} steps share one time; written after the fact?"
+        f"events.jsonl: round {number}: its start, its end and all {counts[number]} steps share one time; "
+        "written after the fact?"
         for number, stamps in sorted(times.items())
-        if counts[number] > 1 and len(stamps) == 1
+        if counts.get(number, 0) > 1 and len(stamps) == 1
     ]
 
 
@@ -314,6 +318,14 @@ def stop_in_a_round(events: list[AnyEvent]) -> list[str]:
 USUAL_YEARS = range(2000, 2101)
 
 
+#: Beyond these a value is more likely a fault of the loop than a fact about it.
+MOST_ROUNDS = 100_000
+LONGEST_TEXT = 100_000
+LARGEST_USD = 1_000_000
+#: The fields of an event that hold free text.
+TEXTS = ("summary", "text", "plan", "answer", "reason", "evidence")
+
+
 def odd_values(manifest: Manifest, events: list[AnyEvent]) -> list[str]:
     """Values every reader takes but no page can show as written: a far year, a number that is not finite."""
     warnings = []
@@ -330,7 +342,29 @@ def odd_values(manifest: Manifest, events: list[AnyEvent]) -> list[str]:
                 f"events.jsonl: event {number} ({event.event}) has a cost or measure that is not a finite "
                 "number, or too large for one; the board counts it as absent"
             )
+        if outsized(event):
+            warnings.append(
+                f"events.jsonl: event {number} ({event.event}) has {' and '.join(outsized(event))}; meant?"
+            )
     return warnings
+
+
+def outsized(event: AnyEvent) -> list[str]:
+    """Values the models take and no loop means: a round number in the millions, a text of
+    megabytes, a cost of millions for one line. Named in words; nothing is refused for them."""
+    found = []
+    number = getattr(event, "round", None)
+    if isinstance(number, int) and number > MOST_ROUNDS:
+        found.append(f"round {number}")
+    longest = max(
+        (len(text) for name in TEXTS if isinstance(text := getattr(event, name, None), str)), default=0
+    )
+    if longest > LONGEST_TEXT:
+        found.append(f"a text of {longest:,} characters")
+    cost = getattr(event, "cost", None)
+    if cost is not None and math.isfinite(cost.usd) and cost.usd > LARGEST_USD:
+        found.append(f"a cost of {cost.usd:,.0f} dollars")
+    return found
 
 
 def uncountable(event: AnyEvent) -> bool:

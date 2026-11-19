@@ -60,6 +60,19 @@ def test_the_example_converges_and_ends_done(tmp_path: Path) -> None:
     assert validate_report(repo).problems == []
 
 
+def test_a_start_after_the_goal_was_met_runs_no_further_round(tmp_path: Path) -> None:
+    repo = write_demo(tmp_path / "demo")
+    run_loop(repo, "--rounds", "4")
+    rounds = len(state_of(repo).rounds)
+
+    run_loop(repo, "--rounds", "2")
+
+    state = state_of(repo)
+    assert len(state.rounds) == rounds and state.status == "done"
+    assert state.ended is not None and state.ended.stop_reason == "goal_met"
+    assert validate_report(repo).problems == []
+
+
 def test_a_signed_stop_ends_it_between_rounds_and_a_forged_one_does_not(tmp_path: Path) -> None:
     repo = write_demo(tmp_path / "demo")
     signing.board_keys()  # a board has run on this machine, so the loop can tell its lines apart

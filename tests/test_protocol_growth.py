@@ -251,6 +251,19 @@ def test_a_fast_honest_round_written_with_the_helper_is_not_called_back_produced
     assert validate_report(repo).warnings == []
 
 
+def test_steps_that_end_within_one_second_of_a_longer_round_are_not_called_back_produced(
+    repo: Path, helper: types.ModuleType
+) -> None:
+    """A loop that stamps to the second: two quick steps share a time, the round does not."""
+    fresh_loop(repo, helper)
+    line(repo, "round_started", round=1)
+    for step in ("work", "judge"):
+        line(repo, "step_finished", round=1, step=step, ts=iso(T0 + timedelta(minutes=3)))
+    line(repo, "round_finished", round=1, verdict="done", ts=iso(T0 + timedelta(minutes=4)))
+
+    assert validate_report(repo).warnings == []
+
+
 def test_a_round_count_that_starts_over_is_called_a_new_run(repo: Path, helper: types.ModuleType) -> None:
     fresh_loop(repo, helper)
     for number in (1, 2, 2):

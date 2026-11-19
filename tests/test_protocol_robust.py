@@ -473,3 +473,18 @@ def test_the_helper_names_utf8_wherever_it_opens_a_file() -> None:
 
     unnamed = [node.lineno for node in opened if "encoding" not in {keyword.arg for keyword in node.keywords}]
     assert len(opened) >= 4 and unnamed == []
+
+
+def test_validate_names_values_no_loop_means_and_refuses_none(repo: Path, helper: types.ModuleType) -> None:
+    helper.register("scan", {"title": "Scan", "steps": [{"id": "work"}]}, repo)
+    helper.emit("scan", "round_started", {"round": 2**62}, repo)
+    helper.emit("scan", "step_finished", {"round": 2**62, "step": "work", "summary": "x" * 200_000}, repo)
+    helper.emit("scan", "step_finished", {"round": 2**62, "step": "work", "cost": {"usd": 5e9}}, repo)
+    helper.emit("scan", "round_finished", {"round": 2**62, "verdict": "continue"}, repo)
+
+    report = validate_report(repo)
+    said = " ".join(report.warnings)
+
+    assert report.problems == []
+    assert f"round {2**62}" in said and "a text of 200,000 characters" in said
+    assert "a cost of 5,000,000,000 dollars" in said

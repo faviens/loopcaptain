@@ -519,10 +519,11 @@ same contract as JSON Schema is in `schema/`. It prints problems (a
 `loop.json` that cannot be read, a line the models refuse, a step before
 its round, a path that does not exist,
 a time earlier than the line before, a round finished twice with two
-outcomes) and warnings (a round whose steps share one time, so it was
+outcomes) and warnings (a round whose start, steps and end share one time, so it was
 written after the fact; rounds that never read the inbox; an output not
 there yet; an event it does not know, which may be a typo; a time in the future; a
-`loop_stopped` while a round is open; a round count that starts over, a second run in one folder). It exits 1 on problems only, or on warnings too with
+`loop_stopped` while a round is open; a round count that starts over, a second run in one folder;
+a value no loop means, such as a round number above 100,000 or a text of over 100,000 characters). It exits 1 on problems only, or on warnings too with
 `--strict`. `loopcaptain doctor <repository> <loop-id>` checks what files
 cannot show: it sends a running loop a signed `stop` and passes once the
 loop has taken it and ended.
