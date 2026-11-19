@@ -87,6 +87,17 @@ def test_a_note_carries_the_reasons_its_commit_gives(release: types.ModuleType) 
     )
 
 
+def test_a_breaking_change_is_in_the_note_however_many_bullets_come_before(release: types.ModuleType) -> None:
+    """A squash merge joins the bullets of several commits; the cap cut the breaking change off."""
+    body = "".join(f"- Reason {n}.\n" for n in range(1, 15))
+    body += "\nBREAKING CHANGE: `loopcaptain mcp` needs the package\ninstalled as `loopcaptain[mcp]`.\n"
+
+    text = release.notes([release.Commit("1234567890", "feat(package)!: make the MCP server an extra", body)])
+
+    assert "  - Reason 12." in text and "Reason 13" not in text
+    assert text.endswith("  - Breaking: `loopcaptain mcp` needs the package installed as `loopcaptain[mcp]`.")
+
+
 def test_the_checkout_carries_no_version_of_its_own() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 

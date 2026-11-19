@@ -63,7 +63,9 @@ def next_tag(last: str | None, bump: str) -> str:
 
 
 #: A commit says why in bullets; a release note carries at most this many of them per commit.
-MOST_BULLETS = 6
+MOST_BULLETS = 12
+#: The footer a commit names a breaking change with; its text is always part of the note.
+BREAKING = "BREAKING CHANGE:"
 
 
 def bullets(body: str) -> list[str]:
@@ -79,7 +81,23 @@ def bullets(body: str) -> list[str]:
             found[-1] = f"{found[-1]} {line.strip()}"
         else:
             open_bullet = False
-    return found[:MOST_BULLETS]
+    return found[:MOST_BULLETS] + breaking(body)
+
+
+def breaking(body: str) -> list[str]:
+    """What a commit's `BREAKING CHANGE:` footers say, each as one line that starts with "Breaking:".
+    A reader of the notes must not miss it, however many bullets came before."""
+    found: list[str] = []
+    taking = False
+    for line in body.splitlines():
+        if line.startswith(BREAKING):
+            found.append("Breaking: " + line.removeprefix(BREAKING).strip())
+            taking = True
+        elif taking and line.strip() and not line.startswith(("- ", "* ")):
+            found[-1] = f"{found[-1]} {line.strip()}"
+        else:
+            taking = False
+    return found
 
 
 def notes(commits: list[Commit]) -> str:
