@@ -5,6 +5,7 @@
 {% block body_attrs %} data-pulse-url="{{ url_for('loop_pulse', repo_key=view.repo.key, loop_id=view.loop_id) }}" data-pulse="{{ pulse }}"{% endblock %}
 {% set here = url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) %}
 {% macro file_link(path, text) %}{% if path %}<a href="{{ url_for('loop_file', repo_key=view.repo.key, loop_id=view.loop_id) }}?path={{ path|urlencode }}">{{ text or path }}</a>{% endif %}{% endmacro %}
+{% macro said_of(node) %}{{ 'said no' if node.state == 'no' else ('not run' if node.state == 'pending' else ('stopped by a limit' if node.state == 'limit' else node.state)) }}{% endmacro %}
 {% macro kind_icon(kind) %}{% set paths = {
   'plan': '<path d="M2 3h8M2 6h8M2 9h5"/>',
   'research': '<circle cx="5" cy="5" r="3.2"/><path d="M7.4 7.4L10.6 10.6"/>',
@@ -346,8 +347,7 @@
     {% for edge in graph.edges %}<path class="edge" d="{{ edge }}" marker-end="url(#tip)"/>{% endfor %}
     {% if graph.back %}<path class="back" d="{{ graph.back }}" marker-end="url(#tip)"/><text class="backlabel" x="{{ graph.width // 2 }}" y="{{ graph.height - 16 }}">next round, until the verdict says done</text>{% endif %}
     {% for node in graph.nodes %}
-    {% set said = 'said no' if node.state == 'no' else ('not run' if node.state == 'pending' else ('stopped by a limit' if node.state == 'limit' else node.state)) %}
-    {% if node.prompt %}<a href="{{ url_for('loop_file', repo_key=view.repo.key, loop_id=view.loop_id) }}?path={{ node.prompt|urlencode }}">{% endif %}
+    {% set said = said_of(node) %}
     <g class="node {{ node.state }} k-{{ node.kind }}">
       <title>{{ node.name }}{% if node.name|lower != node.kind %} ({{ node.kind }}){% endif %}: {{ said }}{% if node.state == 'skipped' and shown and shown.mode %}, as a {{ shown.mode }} round does{% endif %}{% if node.runs > 1 %}, {{ node.runs }} runs{% endif %}{% if node.findings %}, {{ node.findings }} open material finding{{ 's' if node.findings != 1 }}{% endif %}{% if node.purpose %}
 {{ node.purpose }}{% endif %}{% if node.backend or node.model %}
@@ -361,7 +361,20 @@ click to read its prompt, {{ node.prompt }}{% endif %}</title>
       {% if node.runs > 1 %}<text class="count" x="{{ node.x + graph.node_w - 12 }}" y="{{ node.y + 35 }}">×{{ node.runs }}</text>{% endif %}
       {% if node.findings %}<g class="badge"><circle cx="{{ node.x + graph.node_w - 5 }}" cy="{{ node.y + 5 }}" r="11"/><text x="{{ node.x + graph.node_w - 5 }}" y="{{ node.y + 9 }}">{{ node.findings }}</text></g>{% endif %}
     </g>
-    {% if node.prompt %}</a>{% endif %}
+    {% endfor %}
+    {# Drawn after every step, so a card lies over the steps beside it; the zone takes the pointer. #}
+    {% for node in graph.nodes %}
+    {% set said = said_of(node) %}{% set card = graph.card(node) %}
+    {% if node.prompt %}<a class="hit" href="{{ url_for('loop_file', repo_key=view.repo.key, loop_id=view.loop_id) }}?path={{ node.prompt|urlencode }}" aria-label="{{ node.name }}: {{ said }}, open its prompt">{% else %}<g class="hit" tabindex="0" role="img" aria-label="{{ node.name }}: {{ said }}">{% endif %}
+      <rect class="zone" x="{{ node.x }}" y="{{ node.y }}" width="{{ graph.node_w }}" height="{{ graph.node_h }}" rx="12"/>
+      <foreignObject class="peek{{ ' low' if card.low }}" x="{{ card.x }}" y="{{ card.y }}" width="{{ card.width }}" height="{{ card.height }}" aria-hidden="true"><div xmlns="http://www.w3.org/1999/xhtml" class="peekbox"><div class="peekcard">
+        <p class="t"><b>{{ node.name }}</b>{% if node.name|lower != node.kind %}<span>{{ node.kind }}</span>{% endif %}</p>
+        <p class="s"><i class="statebar {{ node.state }}"></i>{{ said }}{% if node.state == 'skipped' and shown and shown.mode %}, as a {{ shown.mode }} round does{% endif %}{% if node.runs > 1 %} · {{ node.runs }} runs{% endif %}{% if node.findings %} · {{ node.findings }} open material finding{{ 's' if node.findings != 1 }}{% endif %}</p>
+        {% if node.backend or node.model %}<p class="m">runs on {{ node.backend }}{% if node.model %}{{ ', ' if node.backend }}{{ node.model }}{% endif %}</p>{% endif %}
+        {% if node.prompt %}<p class="m">prompt <code>{{ node.prompt }}</code>, click to read it</p>{% endif %}
+        {% if node.purpose %}<p class="p">{{ node.purpose }}</p>{% endif %}
+      </div></div></foreignObject>
+    {% if node.prompt %}</a>{% else %}</g>{% endif %}
     {% endfor %}
   </svg></div>
   {% set kinds = graph.nodes|map(attribute='kind')|unique|list %}

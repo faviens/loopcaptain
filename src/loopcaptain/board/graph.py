@@ -23,6 +23,11 @@ PAD = 14
 LIMIT_WORDS = re.compile(r"budget|usage.?limit|rate.?limit|quota|max.?turns|limit (?:reached|hit)", re.I)
 #: Room under the nodes for the arrow that leads from the last step back to the first.
 RETURN_H = 34
+#: The card a step shows on hover or focus: its width, the least height it needs to say anything,
+#: and the gap to the step it stands beside. In the picture's units, so it scales with the steps.
+CARD_W = 248
+CARD_H = 100
+CARD_GAP = 8
 
 
 @dataclass(frozen=True)
@@ -54,6 +59,17 @@ class Node:
 
 
 @dataclass(frozen=True)
+class Card:
+    """Where a step's card stands in the picture. `low` hangs it from the bottom of its box."""
+
+    x: int
+    y: int
+    width: int
+    height: int
+    low: bool = False
+
+
+@dataclass(frozen=True)
 class Graph:
     nodes: tuple[Node, ...]
     edges: tuple[str, ...]  # SVG path data
@@ -62,6 +78,26 @@ class Graph:
     height: int
     node_w: int = NODE_W
     node_h: int = NODE_H
+
+    def card(self, node: Node) -> Card:
+        """The box of a step's card: beside the step where there is room, never outside the picture.
+
+        Right of the step, else left of it, else as far right as fits. From the step's top down
+        when there is room below, else up to its bottom edge, else the picture's full height."""
+        width = min(CARD_W, self.width)
+        right, left = node.x + NODE_W + CARD_GAP, node.x - CARD_GAP - width
+        if right + width <= self.width:
+            x = right
+        elif left >= 0:
+            x = left
+        else:
+            x = max(0, min(right, self.width - width))
+        below, above = self.height - node.y, node.y + NODE_H
+        if below >= CARD_H:
+            return Card(x, node.y, width, below)
+        if above >= CARD_H:
+            return Card(x, 0, width, above, low=True)
+        return Card(x, 0, width, self.height)
 
 
 def columns(manifest: Manifest) -> dict[str, int]:

@@ -872,3 +872,22 @@ key could then write the board's own status.
 the move read as not from the board. A loop with an earlier helper is as exposed as before,
 until its helper is pasted again; `sig` goes with protocol 2. A process with the user's full
 file access reads the secret, as it read the one key.
+
+## 37. A step's card is drawn in the picture, shown by CSS alone
+
+**Decision.** Each step of the round's graph has a card (name, state, agent and model, prompt
+file, purpose) in a `foreignObject` inside the SVG (`templates/loop.html`). The cards sit in a
+layer drawn after every step, each with a transparent zone over its step that is the link to the
+prompt, or a focusable group where there is none; `:hover` and `:focus-visible` on the zone show
+the card (`static/style.css`). `Graph.card` in `board/graph.py` places it beside its step and
+never outside the picture. The step keeps its `<title>` for a screen reader.
+
+**Why.** The prompt and purpose showed only as the browser's plain tooltip, slow to appear, out
+of the page's look and absent on keyboard focus. The content policy forbids inline script and
+style, and a card in the picture needs neither: its place is SVG attributes, its look the page's
+tokens, so light and dark follow.
+
+**Rejected.** A script-driven tooltip: script on the page for a hover. An HTML card over the
+graph: its place would need a `style` attribute per step. Cards inside each step's group: a later
+step is drawn over an earlier step's card. **What it costs.** The card scales with the picture,
+as the steps' own labels do; a wide graph draws it smaller.
