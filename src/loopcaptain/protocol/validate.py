@@ -14,6 +14,7 @@ from pathlib import Path
 
 from loopcaptain.protocol import store
 from loopcaptain.protocol.models import (
+    EVENTS_FILE,
     FOLDER,
     MANIFEST_FILE,
     AnyEvent,
@@ -93,7 +94,22 @@ def validate_loop(repo: Path, loop_id: str) -> Report:
     report.warnings += future_events(events, now())
     report.warnings += stop_in_a_round(events)
     report.warnings += odd_values(manifest, events)
+    report.warnings += long_log(repo, loop_id)
     return Report(list(dict.fromkeys(report.problems)), list(dict.fromkeys(report.warnings)))
+
+
+def long_log(repo: Path, loop_id: str) -> list[str]:
+    """A log past half of what the board reads: said while there is still room to act on it."""
+    try:
+        size = (store.loop_dir(repo, loop_id) / EVENTS_FILE).stat().st_size
+    except OSError:
+        return []
+    if size <= store.MAX_LOG_BYTES // 2:
+        return []
+    return [
+        f"events.jsonl: {size // 1_000_000} MB; the board reads a log of up to "
+        f"{store.MAX_LOG_BYTES // 1_000_000} MB and refuses a larger one whole. Go on under a new loop id"
+    ]
 
 
 def unread_inbox(events: list[AnyEvent], inbox: list[InboxEntry]) -> list[str]:
@@ -342,26 +358,23 @@ def odd_values(manifest: Manifest, events: list[AnyEvent]) -> list[str]:
                 f"events.jsonl: event {number} ({event.event}) has a cost or measure that is not a finite "
                 "number, or too large for one; the board counts it as absent"
             )
-        if outsized(event):
-            warnings.append(
-                f"events.jsonl: event {number} ({event.event}) has {' and '.join(outsized(event))}; meant?"
-            )
+        found = outsized(event)
+        if found:
+            warnings.append(f"events.jsonl: event {number} ({event.event}) has {' and '.join(found)}; meant?")
     return warnings
 
 
 def outsized(event: AnyEvent) -> list[str]:
     """Values the models take and no loop means: a round number in the millions, a text of
     megabytes, a cost of millions for one line. Named in words; nothing is refused for them."""
+    fields = event.__dict__  # read on every page for every line of a log: no attribute lookups
+    number, cost = fields.get("round"), fields.get("cost")
+    longest = max((len(text) for name in TEXTS if type(text := fields.get(name)) is str), default=0)
     found = []
-    number = getattr(event, "round", None)
-    if isinstance(number, int) and number > MOST_ROUNDS:
+    if type(number) is int and number > MOST_ROUNDS:
         found.append(f"round {number}")
-    longest = max(
-        (len(text) for name in TEXTS if isinstance(text := getattr(event, name, None), str)), default=0
-    )
     if longest > LONGEST_TEXT:
         found.append(f"a text of {longest:,} characters")
-    cost = getattr(event, "cost", None)
     if cost is not None and math.isfinite(cost.usd) and cost.usd > LARGEST_USD:
         found.append(f"a cost of {cost.usd:,.0f} dollars")
     return found

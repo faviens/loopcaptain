@@ -55,19 +55,20 @@
 {% if not state.rounds %}<p class="empty tabbed">No round has run yet.</p>{% endif %}
 {% if state.rounds %}
 <h2>Loop rounds<small>a number counts that step's open material findings; pick a round</small></h2>
-<div class="split{{ ' stacked' if state.rounds|length > 8 }}">
+{% if grid.earlier or grid.later %}<p class="note pages">Rounds {{ grid.rounds[0].number }} to {{ grid.rounds[-1].number }} of {{ state.rounds|length }}.{% if grid.earlier %} <a href="{{ here }}?tab=rounds&amp;round={{ grid.earlier }}#round">Earlier rounds</a>{% endif %}{% if grid.later %} <a href="{{ here }}?tab=rounds&amp;round={{ grid.later }}#round">Later rounds</a>{% endif %}</p>{% endif %}
+<div class="split{{ ' stacked' if grid.rounds|length > 8 }}">
 <div class="pick card flush fit">
 <table class="grid">
   <thead><tr>
     <th scope="col" class="step">Step</th>
-    {% for r in state.rounds %}<th scope="col" class="rnd"><a href="{{ here }}?tab=rounds&amp;round={{ r.number }}#round" aria-label="Round {{ r.number }}{% if r.mode %}, a {{ r.mode }} round{% endif %}"{% if r.mode %} title="a {{ r.mode }} round"{% endif %}{% if shown and r.number == shown.number %} aria-current="true"{% endif %}>{{ r.number }}</a></th>{% endfor %}
+    {% for r in grid.rounds %}<th scope="col" class="rnd"><a href="{{ here }}?tab=rounds&amp;round={{ r.number }}#round" aria-label="Round {{ r.number }}{% if r.mode %}, a {{ r.mode }} round{% endif %}"{% if r.mode %} title="a {{ r.mode }} round"{% endif %}{% if shown and r.number == shown.number %} aria-current="true"{% endif %}>{{ r.number }}</a></th>{% endfor %}
   </tr></thead>
   <tbody>
   {% for step_id in state.step_ids %}
   {% set step = manifest.step(step_id) %}
   <tr>
     <td class="step"><b>{{ (step.name if step else '') or step_id }}</b><span>{{ step.kind if step else 'not in loop.json' }}</span></td>
-    {% for r in state.rounds %}
+    {% for r in grid.rounds %}
     {% set runs = r.runs_of(step_id) %}
     {% set on = ' on' if shown and r.number == shown.number else '' %}
     {% set not_run = 'not in a ' ~ r.mode ~ ' round' if r.mode else 'did not run' %}
@@ -80,9 +81,9 @@
     {% endfor %}
   </tr>
   {% endfor %}
-  <tr class="sum first"><td class="step">Verdict</td>{% for r in state.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}"><span class="v {{ r.verdict or 'live' }}">{{ (r.verdict or 'live')|replace('continue', 'go on') }}</span></td>{% endfor %}</tr>
-  <tr class="sum"><td class="step">Minutes</td>{% for r in state.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}">{{ r.minutes if r.minutes is not none else '' }}</td>{% endfor %}</tr>
-  <tr class="sum"><td class="step">Cost</td>{% for r in state.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}">{{ r.cost_usd|usd }}</td>{% endfor %}</tr>
+  <tr class="sum first"><td class="step">Verdict</td>{% for r in grid.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}"><span class="v {{ r.verdict or 'live' }}">{{ (r.verdict or 'live')|replace('continue', 'go on') }}</span></td>{% endfor %}</tr>
+  <tr class="sum"><td class="step">Minutes</td>{% for r in grid.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}">{{ r.minutes if r.minutes is not none else '' }}</td>{% endfor %}</tr>
+  <tr class="sum"><td class="step">Cost</td>{% for r in grid.rounds %}<td class="{{ 'on' if shown and r.number == shown.number }}">{{ r.cost_usd|usd }}</td>{% endfor %}</tr>
   </tbody>
 </table>
 </div>
@@ -139,7 +140,7 @@
 <table class="runs">
   <thead><tr><th scope="col">Found by</th><th scope="col">Finding</th><th scope="col">Weight</th><th scope="col">File</th><th scope="col">Your call</th></tr></thead>
   <tbody>
-  {% for run, finding in state.open_findings %}
+  {% for run, finding in state.open_findings[:rows_shown] %}
   {% set step = manifest.step(run.step) %}
   <tr>
     <td class="what"><b>{{ (step.name if step else '') or run.step }}</b>{% if run.label %}<span>{{ run.label }}</span>{% endif %}<span>{{ step.kind if step else '' }} · no. {{ finding.id }}</span></td>
@@ -157,6 +158,7 @@
   </tbody>
 </table>
 </div>
+{% if state.open_findings|length > rows_shown %}<p class="note">The first {{ rows_shown }} of {{ state.open_findings|length }} open findings are listed; the rest are in the rounds that found them.</p>{% endif %}
 <p class="note">A finding stays open until the loop closes it. "Accept as is" keeps it on purpose, "Won't fix" leaves it, "Not a problem" says the reviewer was wrong. The board sends your call to the loop; the loop closes the finding and the next review does not raise it again.</p>
 {% else %}
 <p class="empty">Nothing is open{% if not state.rounds %}: no round has run yet{% endif %}.</p>
@@ -168,7 +170,7 @@
 <table class="runs inbox">
   <thead><tr><th scope="col">Sent</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Taken by the loop</th><th scope="col">From</th></tr></thead>
   <tbody>
-  {% for item in state.inbox|reverse %}
+  {% for item in (state.inbox|reverse|list)[:rows_shown] %}
   {% set mark = signed[item.entry.id] %}
   <tr{% if mark is false %} class="forged"{% endif %}>
     <td class="num">{{ item.entry.ts|stamp }}<span class="grey"> · {{ item.entry.ts|ago }}</span></td>
@@ -181,6 +183,7 @@
   </tbody>
 </table>
 </div>
+{% if state.inbox|length > rows_shown %}<p class="note">The newest {{ rows_shown }} of {{ state.inbox|length }} messages are listed; all of them are in <code>inbox.jsonl</code>.</p>{% endif %}
 <p class="note">A line marked "not from the board" was written into <code>inbox.jsonl</code> by something else, an agent of the loop perhaps. A loop that checks <code>signed</code> ignores it.</p>
 {% else %}
 <p class="empty">Nothing sent yet. An answer, a note or a stop from this page shows here.</p>
@@ -314,7 +317,7 @@
 </section>
 
 {% if charts %}
-<h2>Convergence<small>per finished round; point at a round to read it, click to open it{% if charts|selectattr('target_y', 'ne', none)|list %}; dashed: the loop's target{% endif %}</small></h2>
+<h2>Convergence<small>per finished round{% if state.rounds|length > chart_rounds %}, the last {{ chart_rounds }}{% endif %}; point at a round to read it, click to open it{% if charts|selectattr('target_y', 'ne', none)|list %}; dashed: the loop's target{% endif %}</small></h2>
 <section class="trends">
   {% for c in charts %}
   <figure class="card trend {{ c.tone }}">

@@ -16,6 +16,7 @@ import secrets
 import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, cast
@@ -51,12 +52,12 @@ from loopcaptain.board.filters import ago, lead, minutes, place, stamp, tokens, 
 from loopcaptain.board.graph import layout
 from loopcaptain.board.overview import GROUPS, filter_views, group_of, projects_of
 from loopcaptain.board.steer import Runner
-from loopcaptain.board.trend import caps_of, charts_of, figure, trail_of
+from loopcaptain.board.trend import CHART_ROUNDS, caps_of, charts_of, figure, trail_of
 from loopcaptain.prompts import prompts
 from loopcaptain.protocol import spec_text, store
 from loopcaptain.protocol.models import EVENTS_FILE, INBOX_FILE, MANIFEST_FILE, FindingRef, Manifest, now
 from loopcaptain.protocol.signing import board_keys, earlier_marks, is_from_board, read_board_keys
-from loopcaptain.protocol.state import STATUS_TEXT, LoopState, no_progress_signs
+from loopcaptain.protocol.state import STATUS_TEXT, LoopState, RoundState, no_progress_signs
 from loopcaptain.protocol.store import StoreError
 from loopcaptain.protocol.validate import validate_loop
 
@@ -77,6 +78,10 @@ TABS = ("overview", "rounds", "findings", "items", "inbox")
 #: The two parts of the first page: every loop under its project, and what waits for the person.
 OVERVIEW_TABS = ("loops", "waiting")
 #: The statuses where "Stop after this round" means something: the loop may still start a round.
+#: How many rounds the round grid draws at once, and how many rows a table of findings or
+#: messages: a loop of thousands of rounds is still one page a browser can hold.
+GRID_ROUNDS = 30
+ROWS_SHOWN = 300
 #: A status change further ahead than this is left to a later page load.
 TURN_HORIZON = timedelta(days=7)
 STOPPABLE = frozenset({"running", "sleeping", "stalled", "waiting", "idle"})
@@ -379,6 +384,9 @@ def create_app(
             "shown": shown,
             # A link to a round opens the rounds tab; an unknown tab is the overview.
             "tab": tab if tab in TABS else ("rounds" if round is not None else "overview"),
+            "grid": round_window(state.rounds, shown),
+            "rows_shown": ROWS_SHOWN,
+            "chart_rounds": CHART_ROUNDS,
             "graph": layout(manifest, shown) if manifest.steps else None,
             "branch": git_branch(repo.path),
             "process": process,
@@ -698,6 +706,30 @@ def inbox_marks(repo: Repo, state: LoopState) -> dict[str, bool | None]:
         item.entry.id: is_from_board(item.entry.body(), keys, folder, loop_id, earlier)
         for item in state.inbox
     }
+
+
+@dataclass(frozen=True)
+class RoundWindow:
+    """The rounds one page draws as columns, and the round to ask for to see the ones before or after."""
+
+    rounds: tuple[RoundState, ...]
+    earlier: int | None = None
+    later: int | None = None
+
+
+def round_window(rounds: tuple[RoundState, ...], shown: RoundState | None) -> RoundWindow:
+    """The stretch of at most GRID_ROUNDS rounds that holds the round shown, counted in whole
+    stretches from the latest round back, so the newest stretch is always full."""
+    place = next(
+        (n for n, round_ in enumerate(rounds) if shown and round_.number == shown.number), len(rounds) - 1
+    )
+    end = len(rounds) - (len(rounds) - 1 - place) // GRID_ROUNDS * GRID_ROUNDS
+    start = max(0, end - GRID_ROUNDS)
+    return RoundWindow(
+        rounds[start:end],
+        earlier=rounds[start - 1].number if start > 0 else None,
+        later=rounds[min(end + GRID_ROUNDS, len(rounds)) - 1].number if end < len(rounds) else None,
+    )
 
 
 def turn_at(views: list[LoopView]) -> int | None:

@@ -939,6 +939,44 @@ def test_the_menu_does_not_cover_the_name_on_a_phone() -> None:
     assert "@media (max-width: 520px) { .top .brand > span { position: absolute; width: 1px;" in style
 
 
+def test_a_loop_of_many_rounds_is_drawn_a_stretch_at_a_time(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    """A loop of thousands of rounds was one page of megabytes: every round a column, every finding a row."""
+    helper.emit("scan", "round_finished", {"round": 2, "verdict": "continue"}, scan)
+    for number in range(3, 76):
+        helper.emit("scan", "round_started", {"round": number}, scan)
+        findings = [{"id": f"{number}-{n}", "text": "No source."} for n in range(5)]
+        helper.emit("scan", "step_finished", {"round": number, "step": "facts", "findings": findings}, scan)
+        helper.emit("scan", "round_finished", {"round": number, "verdict": "continue"}, scan)
+
+    def columns(page: str) -> list[int]:
+        return [
+            int(n) for n in re.findall(r'<th scope="col" class="rnd"><a href="[^"]*round=(\d+)#round"', page)
+        ]
+
+    latest = client.get("/loop/some-repo/scan?tab=rounds").text
+    middle = client.get("/loop/some-repo/scan?tab=rounds&round=40").text
+    first = client.get("/loop/some-repo/scan?tab=rounds&round=2").text
+
+    assert columns(latest) == list(range(46, 76)) and "Rounds 46 to 75 of 75." in latest
+    assert 'round=45#round">Earlier rounds' in latest and "Later rounds" not in latest
+    assert columns(middle) == list(range(16, 46)) and 'round=75#round">Later rounds' in middle
+    assert columns(first) == list(range(1, 16)) and "Earlier rounds" not in first
+
+
+def test_a_table_of_open_findings_lists_the_first_rows_and_says_how_many_there_are(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    findings = [{"id": str(n), "text": f"gap {n}"} for n in range(320)]
+    helper.emit("scan", "step_finished", {"round": 2, "step": "facts", "findings": findings}, scan)
+
+    page = client.get("/loop/some-repo/scan?tab=findings").text
+
+    assert "The first 300 of 320 open findings are listed" in page
+    assert ">gap 299<" in page and ">gap 300<" not in page
+
+
 def test_the_page_says_beside_start_that_a_stop_is_waiting(
     client: TestClient, scan: Path, helper: types.ModuleType
 ) -> None:

@@ -488,3 +488,58 @@ def test_validate_names_values_no_loop_means_and_refuses_none(repo: Path, helper
     assert report.problems == []
     assert f"round {2**62}" in said and "a text of 200,000 characters" in said
     assert "a cost of 5,000,000,000 dollars" in said
+
+
+def test_a_log_is_parsed_once_per_state_of_its_file(
+    repo: Path, helper: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One page reads a loop's log several times, and a reloading page again with nothing written."""
+    helper.register("scan", {"title": "Scan"}, repo)
+    helper.emit("scan", "round_started", {"round": 1}, repo)
+    reads: list[Path] = []
+    lines = store.complete_lines
+
+    def counted(path: Path) -> list[tuple[int, str]]:
+        reads.append(path)
+        return lines(path)
+
+    monkeypatch.setattr(store, "complete_lines", counted)
+
+    first, _ = store.read_events(repo, "scan")
+    second, _ = store.read_events(repo, "scan")
+    second.clear()  # the list is the caller's: emptying it empties no other
+    time.sleep(0.01)
+    helper.emit("scan", "round_finished", {"round": 1, "verdict": "done"}, repo)
+    third, _ = store.read_events(repo, "scan")
+    fourth, _ = store.read_events(repo, "scan")
+
+    assert len(reads) == 2 and len(first) == 1
+    assert [event.event for event in third] == ["round_started", "round_finished"] and third == fourth
+
+
+def test_a_log_rewritten_to_the_same_size_is_read_again(repo: Path, helper: types.ModuleType) -> None:
+    helper.register("scan", {"title": "Scan"}, repo)
+    log = repo / ".loops" / "scan" / "events.jsonl"
+    log.write_text('{"ts": "2026-11-15T09:00:00Z", "event": "round_started", "round": 1}\n')
+    before, _ = store.read_events(repo, "scan")
+    time.sleep(0.01)
+
+    log.write_text('{"ts": "2026-11-15T09:00:00Z", "event": "round_started", "round": 7}\n')
+    after, _ = store.read_events(repo, "scan")
+
+    assert [event.round for event in before] == [1] and [event.round for event in after] == [7]  # type: ignore[union-attr]
+
+
+def test_validate_warns_of_a_log_past_half_of_what_the_board_reads(
+    repo: Path, helper: types.ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    helper.register("scan", {"title": "Scan"}, repo)
+    helper.emit("scan", "round_started", {"round": 1}, repo)
+    assert validate_report(repo).warnings == []
+
+    monkeypatch.setattr(store, "MAX_LOG_BYTES", 100)
+
+    assert validate_report(repo).warnings == [
+        "scan/events.jsonl: 0 MB; the board reads a log of up to 0 MB and refuses a larger one whole. "
+        "Go on under a new loop id"
+    ]

@@ -24,6 +24,11 @@ again (a new branch, a fresh start) is a loop of its own, with its own id
 such as `review-run-3`, so the rounds of two runs never mix. Whether `.loops/` is committed or
 ignored is the repository's choice.
 
+A board reads an `events.jsonl` of up to 20 MB and refuses a larger one
+whole, so a loop that would outgrow that goes on under a new id before it
+does: its earlier rounds stay readable under the old one. `loopcaptain
+validate` warns from 10 MB on.
+
 ## 1. `loop.json`: what the loop is
 
 Written when the loop starts; writing it again replaces it. A `loop.json`

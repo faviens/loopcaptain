@@ -105,8 +105,14 @@ vocabulary beside the helper's.
 ## 4. The board is server-rendered, local, and reads fresh
 
 **Decision.** FastAPI with Jinja templates, one stylesheet, one small
-script, vendored fonts; bound to 127.0.0.1; every request reads the files
-again. No build step, no framework, no CDN.
+script, vendored fonts; bound to 127.0.0.1; every request looks at the
+files again. A log is parsed once per state of its file (its time, size
+and inode: `read_events` in `protocol/store.py`), since one page reads it
+several times and a page that reloads itself reads it again; what is
+folded from it is folded on every request, because status depends on the
+time. A page draws a stretch of 30 rounds, 300 rows of a table and the
+last 200 rounds of a trend, with links to the rest. No build step, no
+framework, no CDN.
 
 **Why.** Three pages over a few small files need no client state. Nothing
 fetched from elsewhere means nothing about a loop leaves the laptop, and a
