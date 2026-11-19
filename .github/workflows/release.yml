@@ -3,7 +3,8 @@ name: release
 # Every push to main that brings a feat, fix or perf commit gets the next version as a tag and a
 # GitHub release, with those commits as its notes and the built wheel attached
 # (scripts/release.py, docs/ARCHITECTURE.md section 19). Nothing is committed back, so nobody
-# bumps a version, pushes a tag or opens a pull request for one. The wheel is stamped with the
+# bumps a version, pushes a tag or opens a pull request for one. No tag is made before `make check`
+# has passed on the very commit, in this workflow: a release never runs ahead of its checks. The wheel is stamped with the
 # tag's version in the runner, proved to work installed outside a checkout, and published to PyPI
 # by trusted publishing (no token stored anywhere) once the repository variable PUBLISH_PYPI is
 # "true".
@@ -21,8 +22,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    name: make check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Check
+        run: make check
+        env:
+          UV_NO_SYNC: "1"
+
   release:
     name: tag and release
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -104,5 +129,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
+      # The index's own attestations (PEP 740), written beside each file in dist/ and uploaded
+      # with it by `uv publish`: the package page then says which workflow built the file.
+      - uses: astral-sh/attest-action@39b6ce43875c196a579e31635b11aa2a2036384a # v0.0.7
+
       - name: Publish
-        run: uv publish --trusted-publishing always dist/*
+        run: uv publish --trusted-publishing always
