@@ -31,7 +31,7 @@ from loopcaptain.protocol.models import (
     is_slug,
     now,
 )
-from loopcaptain.protocol.signing import sign
+from loopcaptain.protocol.signing import BoardKeys, hand_out, marks
 from loopcaptain.protocol.state import STALE_AFTER
 
 #: The most the board reads of one file. A summary log of a long loop is a few hundred kilobytes.
@@ -216,13 +216,13 @@ def append_inbox(
     kind: InboxKind,
     text: str = "",
     round_: int | None = None,
-    key: bytes | None = None,
+    keys: BoardKeys | None = None,
     question: str | None = None,
     choice: str | None = None,
     finding: FindingRef | None = None,
 ) -> InboxEntry:
-    """What the person sends, signed with `key` when given. The loop's folder must exist: the board
-    never creates a loop."""
+    """What the person sends, signed for this loop when `keys` are given, and the loop's key put
+    where the loop looks for it. The loop's folder must exist: the board never creates a loop."""
     folder = loop_dir(repo, loop_id)
     if not (folder / MANIFEST_FILE).is_file():
         raise StoreError(f"no loop {loop_id!r} in {repo.name}")
@@ -239,8 +239,9 @@ def append_inbox(
         finding=finding,
         loop=loop_id,
     )
-    if key is not None:
-        entry = entry.model_copy(update={"sig": sign(entry.body(), key)})
+    if keys is not None:
+        hand_out(keys, folder)
+        entry = entry.model_copy(update=marks(entry.body(), keys, folder))
     append_line(folder / INBOX_FILE, entry.model_dump_json(exclude_none=True))
     return entry
 

@@ -565,11 +565,14 @@ class InboxEntry(Record):
     choice: str | None = None
     #: A reply that settles a finding names it; the loop closes it with `finding_closed`.
     finding: FindingRef | None = None
-    #: HMAC-SHA256 the board puts on every line it writes; a line without it is not from the board.
+    #: HMAC-SHA256 under this loop's own key, on every line the board writes; a line without it
+    #: is not from the board.
+    loop_sig: str | None = None
+    #: HMAC-SHA256 under the one key of earlier versions, for a helper pasted from an earlier text.
     sig: str | None = None
 
     def body(self) -> dict[str, object]:
-        """The line as written, for checking its `sig`."""
+        """The line as written, for checking its marks."""
         return dict(json.loads(self.model_dump_json(exclude_none=True)))
 
     _ts = field_validator("ts")(aware_time)

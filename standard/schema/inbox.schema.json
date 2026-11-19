@@ -97,6 +97,18 @@
       "default": null,
       "title": "Loop"
     },
+    "loop_sig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Loop Sig"
+    },
     "question": {
       "anyOf": [
         {

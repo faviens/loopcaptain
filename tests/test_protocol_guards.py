@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from loopcaptain.protocol import signing, store
-from loopcaptain.protocol.signing import board_key, is_signed, untrusted_ids
+from loopcaptain.protocol.signing import board_keys, hand_out, is_signed, loop_key, untrusted_ids
 from loopcaptain.protocol.store import StoreError
 
 
@@ -22,17 +22,21 @@ def test_a_signed_line_copied_into_another_loops_inbox_is_not_signed_there(
     repo: Path, helper: types.ModuleType
 ) -> None:
     two_loops(repo, helper)
-    key = board_key()
-    sent = store.append_inbox(repo, "scan", "stop", key=key)
-    shutil.copy(repo / ".loops" / "scan" / "inbox.jsonl", repo / ".loops" / "other" / "inbox.jsonl")
+    keys = board_keys()
+    here, there = repo / ".loops" / "scan", repo / ".loops" / "other"
+    sent = store.append_inbox(repo, "scan", "stop", keys=keys)
+    shutil.copy(here / "inbox.jsonl", there / "inbox.jsonl")
+    hand_out(keys, there)
 
     copied, _ = store.read_inbox(repo, "other")
     taken_there = helper.inbox("other", repo)
+    key = loop_key(keys.secret, here)
 
     assert is_signed(sent.body(), key, "scan") is True and is_signed(sent.body(), key) is True
     assert is_signed(copied[0].body(), key, "other") is False
-    assert untrusted_ids(copied, "other") == frozenset({sent.id})
-    assert untrusted_ids(store.read_inbox(repo, "scan")[0], "scan") == frozenset()
+    assert is_signed(copied[0].body(), loop_key(keys.secret, there), "other") is False
+    assert untrusted_ids(copied, "other", there) == frozenset({sent.id})
+    assert untrusted_ids(store.read_inbox(repo, "scan")[0], "scan", here) == frozenset()
     assert [entry["signed"] for entry in taken_there] == [False]
 
 

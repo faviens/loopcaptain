@@ -15,7 +15,12 @@ reaches a loop:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/steer-dark.svg">
-  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with the inbox key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that names the key's path, and keeps its records in the state folder." src="docs/assets/steer-light.svg">
+  <img alt="How steering reaches a loop: an answer or a stop is appended to the loop's inbox.jsonl as a line signed with that loop's own key, which the loop's helper checks before it acts; Start runs the loop's own commands.start without a shell, with a minimal environment that says where the keys are, and keeps its records in the state folder." src="docs/assets/steer-light.svg">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/keys-dark.svg">
+  <img alt="Who holds which key: the board makes a key for each loop folder from its secret and puts each in a file of its own; an answer for loop two is signed with loop two's key and taken; a stop that loop two signs for loop one with the one key it holds reads there as signed False." src="docs/assets/keys-light.svg">
 </picture>
 
 <!-- --8<-- [start:model] -->
@@ -47,16 +52,23 @@ reaches a loop:
 4. **The one command it runs:** `commands.start` of a loop's `loop.json`,
    when the person presses Start, split into arguments with no shell, with
    only `PATH`, `HOME`, `LANG` and `TERM` from the board's environment,
-   and `LOOPCAPTAIN_INBOX_KEY` naming the key the board signs with. The
+   and `LOOPCAPTAIN_INBOX_KEY` saying where the board's keys are. The
    first start of a command for a loop needs a tick; a command with
    characters that do not show is never started, and the page names a
    script that changed since the last start. Do not put a
    folder of repositories you have not read under `roots:`.
-5. **The inbox:** the board signs every line it writes with a key in
-   `~/.config/loopcaptain/`, naming the loop, so a loop can tell the person
-   from an agent that writes files in its repository. The board's own
-   status ignores a line whose signature fails. A process with the user's
-   full file access can read that key too.
+5. **The inbox:** the board signs every line it writes with a key of that
+   loop alone, naming the loop, so a loop can tell the person from an
+   agent that writes files in its repository. The keys are files in
+   `~/.config/loopcaptain/`: `board.key`, the secret every loop's key is
+   made from, which only the board reads, and `keys/`, one file per loop
+   folder, which that loop reads. A loop that holds its key can sign for
+   its own inbox and for no other loop's. The board's own status ignores
+   a line whose signature fails. `inbox.key`, the one key of earlier
+   versions, still signs a second mark, `sig`, for loops with a helper
+   pasted from an earlier text: whoever holds it can deceive such a loop,
+   and no other loop and not the board. A process with the user's full
+   file access can read all of these too.
 6. **The network:** the board listens on `127.0.0.1` only and answers only
    to its own host name. No page loads anything from another origin.
    Nothing is sent off the machine.
@@ -71,7 +83,7 @@ reaches a loop:
    lets nobody in. Another browser needs a restart of `serve`.
 8. **What that does not cover:** a process that runs as you and can read
    your terminal, your browser's cookie store or the board's memory can
-   get in, as it can read the watched repositories and the inbox key
+   get in, as it can read the watched repositories and the board's keys
    directly. The boundary is between you and everything else that can
    reach the port: other accounts on the machine, a container on the host
    network, a forwarded port, a process confined to its own folder.

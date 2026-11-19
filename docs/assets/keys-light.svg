@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="552" viewBox="0 0 1200 552" role="img" aria-label="Who holds which key. On the left, the board on this machine holds board.key, its secret, which only the board reads; it makes a key for each loop folder from the secret and the folder's place, signs every answer, note and stop with the key of that loop alone, and reads a line with that loop's key too. In the middle, its key folder, ~/.config/loopcaptain/keys, in no repository: one file per loop, named by a digest of the place of its loop folder, readable by you only; a loop finds its own, stores none and is handed none. On the right, two loops, each reading its own key file. Your answer is one line in loop two's inbox.jsonl with loop_sig under loop two's key, and loop two, a script, reads it as signed True. A stop that loop two signs for loop one with the one key it holds reads there, in an agent session using inbox_read, as signed False.">
+  <title>Who holds which key</title>
+  <g font-family="Inter Tight, Inter, ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="1200" height="552" fill="#FDFDFB"/>
+  <defs><marker id="tip" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#71716E"/></marker><marker id="tip-red" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#D6000B"/></marker><filter id="lift" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#0E0E10" flood-opacity="0.16"/></filter></defs>
+  <text x="40" y="44" font-size="11" font-weight="600" fill="#71716E" letter-spacing="1.6">THE BOARD, ON THIS MACHINE</text>
+  <text x="440" y="44" font-size="11" font-weight="600" fill="#71716E" letter-spacing="1.6">ITS KEY FOLDER, IN NO REPOSITORY</text>
+  <text x="840" y="44" font-size="11" font-weight="600" fill="#71716E" letter-spacing="1.6">TWO LOOPS, A KEY EACH</text>
+  <rect x="40" y="70" width="320" height="320" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="40" y="64" width="320" height="320" rx="20" fill="#FFFFFF"/>
+  <g transform="translate(58 82)" fill="none" stroke="#0E0E10" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18 M6 6.5h.5 M8.5 6.5h.5"/></g>
+  <text x="94" y="100" font-size="16" font-weight="600" fill="#0E0E10" >Loopcaptain</text>
+  <text x="342" y="100" font-size="12" fill="#71716E" text-anchor="end" font-family="ui-monospace, SF Mono, Menlo, monospace">127.0.0.1:8484</text>
+  <rect x="58" y="118" width="284" height="52" rx="8" fill="#EDECE8" stroke="#E4E3DE" stroke-width="1.2"/>
+  <g transform="translate(68 132)" fill="none" stroke="#0E0E10" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/></g>
+  <text x="100" y="141" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="ui-monospace, SF Mono, Menlo, monospace">board.key</text>
+  <text x="100" y="159" font-size="12.5" font-weight="400" fill="#71716E" >its secret; only the board reads it</text>
+  <text x="58" y="204" font-size="13" font-weight="400" fill="#71716E" >1  Makes a key for each loop folder,</text>
+  <text x="58" y="223" font-size="13" font-weight="400" fill="#71716E" >    from the secret and the folder's place</text>
+  <text x="58" y="248" font-size="13" font-weight="400" fill="#71716E" >2  Signs every answer, note and stop</text>
+  <text x="58" y="267" font-size="13" font-weight="400" fill="#71716E" >    with the key of that loop alone</text>
+  <text x="58" y="292" font-size="13" font-weight="400" fill="#71716E" >3  Reads a line with that loop's key too</text>
+  <rect x="58" y="324" width="284" height="42" rx="6" fill="#0E0E10"/>
+  <text x="74" y="350" font-size="13" font-weight="600" fill="#FDFDFB" >Answer · Stop after this round</text>
+  <rect x="440" y="70" width="320" height="320" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="440" y="64" width="320" height="320" rx="20" fill="#ECEAE5" stroke="#E4E3DE"/>
+  <g transform="translate(458 82)" fill="none" stroke="#0E0E10" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6l2 2h10v11H3z"/></g>
+  <text x="494" y="100" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="ui-monospace, SF Mono, Menlo, monospace">~/.config/loopcaptain/keys/</text>
+  <rect x="458" y="126" width="264" height="52" rx="8" fill="#FFFFFF" stroke="#E4E3DE" stroke-width="1.2"/>
+  <g transform="translate(468 140)" fill="none" stroke="#D6000B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/></g>
+  <text x="500" y="149" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="ui-monospace, SF Mono, Menlo, monospace">9287e217….key</text>
+  <text x="500" y="167" font-size="12.5" font-weight="400" fill="#71716E" >the key of loop one's folder</text>
+  <rect x="458" y="190" width="264" height="52" rx="8" fill="#FFFFFF" stroke="#E4E3DE" stroke-width="1.2"/>
+  <g transform="translate(468 204)" fill="none" stroke="#D6000B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/></g>
+  <text x="500" y="213" font-size="13.5" font-weight="600" fill="#0E0E10" font-family="ui-monospace, SF Mono, Menlo, monospace">c05d44a1….key</text>
+  <text x="500" y="231" font-size="12.5" font-weight="400" fill="#71716E" >the key of loop two's folder</text>
+  <text x="458" y="276" font-size="13" font-weight="400" fill="#71716E" >A file is named by a digest of the place</text>
+  <text x="458" y="295" font-size="13" font-weight="400" fill="#71716E" >of its loop folder: a loop finds its own,</text>
+  <text x="458" y="314" font-size="13" font-weight="400" fill="#71716E" >stores none, and is handed none.</text>
+  <text x="458" y="348" font-size="13" font-weight="400" fill="#71716E" >Readable by you only.</text>
+  <rect x="840" y="70" width="320" height="128" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="840" y="64" width="320" height="128" rx="20" fill="#FFFFFF"/>
+  <g transform="translate(858 82)" fill="none" stroke="#0E0E10" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H11l-4 4v-4H4z"/><path d="M12 8v5 M9.5 10.5h5"/></g>
+  <text x="894" y="100" font-size="16" font-weight="600" fill="#0E0E10" >Loop one, an agent session</text>
+  <text x="858" y="130" font-size="13" font-weight="400" fill="#71716E" >inbox_read checks with the key of its</text>
+  <text x="858" y="149" font-size="13" font-weight="400" fill="#71716E" >own folder: the stop from loop two</text>
+  <text x="858" y="168" font-size="13" font-weight="600" fill="#D6000B" >reads as signed False.</text>
+  <rect x="840" y="262" width="320" height="128" rx="20" fill="#CBC8C0" filter="url(#lift)"/><rect x="840" y="256" width="320" height="128" rx="20" fill="#FFFFFF"/>
+  <g transform="translate(858 274)" fill="none" stroke="#0E0E10" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z M15 3v4h4"/><path d="M9 12l-2 2 2 2 M13 12l2 2-2 2"/></g>
+  <text x="894" y="292" font-size="16" font-weight="600" fill="#0E0E10" >Loop two, a script</text>
+  <text x="858" y="322" font-size="13" font-weight="400" fill="#71716E" >Its helper checks with the key of its</text>
+  <text x="858" y="341" font-size="13" font-weight="400" fill="#71716E" >own folder: your answer reads as</text>
+  <text x="858" y="360" font-size="13" font-weight="600" fill="#0E0E10" >signed True.</text>
+  <path d="M 342 144 C 395 144, 400 152, 452 152" fill="none" stroke="#71716E" stroke-width="1.6" marker-end="url(#tip)"/>
+  <path d="M 342 144 C 395 144, 400 216, 452 216" fill="none" stroke="#71716E" stroke-width="1.6" marker-end="url(#tip)"/>
+  <text x="374" y="132" font-size="12" font-weight="400" fill="#71716E" >makes</text>
+  <path d="M 722 152 C 780 152, 780 128, 834 128" fill="none" stroke="#71716E" stroke-width="1.6" marker-end="url(#tip)"/>
+  <path d="M 722 216 C 790 216, 780 320, 834 320" fill="none" stroke="#71716E" stroke-width="1.6" marker-end="url(#tip)"/>
+  <text x="764" y="118" font-size="12" font-weight="400" fill="#71716E" >reads</text>
+  <text x="790" y="262" font-size="12" font-weight="400" fill="#71716E" >reads</text>
+  <path d="M 200 392 C 200 462, 1000 462, 1000 394" fill="none" stroke="#D6000B" stroke-width="1.6" marker-end="url(#tip-red)"/>
+  <text x="600" y="470" font-size="12.5" font-weight="600" fill="#D6000B" text-anchor="middle">your answer: one line in loop two's inbox.jsonl, loop_sig under loop two's key</text>
+  <path d="M 900 254 V 206" fill="none" stroke="#D6000B" stroke-width="1.6" stroke-dasharray="5 5" marker-end="url(#tip-red)"/>
+  <text x="916" y="224" font-size="12" font-weight="600" fill="#D6000B" >signs a stop for loop one</text>
+  <text x="916" y="240" font-size="12" font-weight="600" fill="#D6000B" >with the one key it holds</text>
+  <rect x="40" y="494" width="1120" height="1" fill="#E4E3DE"/><text x="40" y="526" font-size="14" font-weight="400" fill="#71716E" >A loop holds the key of its own inbox and no other. A helper pasted from an earlier text checks sig, which the board still writes and no longer trusts.</text>
+  </g>
+</svg>

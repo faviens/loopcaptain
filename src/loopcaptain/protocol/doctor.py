@@ -15,7 +15,7 @@ from pathlib import Path
 
 from loopcaptain.protocol import store
 from loopcaptain.protocol.models import InboxRead, LoopStopped, RoundFinished
-from loopcaptain.protocol.signing import board_key
+from loopcaptain.protocol.signing import board_keys
 
 POLL_S = 1.0
 #: A round that took the stop ends with `stopped`, or with `done` where it met the goal anyway.
@@ -60,7 +60,7 @@ def examine(
 ) -> Checkup:
     store.read_manifest(repo, loop_id)  # refuses a loop that is not there before writing anything
     before = len(store.read_events(repo, loop_id)[0])
-    entry = store.append_inbox(repo, loop_id, "stop", key=board_key())
+    entry = store.append_inbox(repo, loop_id, "stop", keys=board_keys())
     started = clock()
     taken = ended = False
     while True:

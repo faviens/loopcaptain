@@ -696,18 +696,18 @@ def steer_picture(theme: str) -> str:
     answer: list[Step] = [
         ("Answer or Stop", ("a form on the loop's page,", "past the three gates"), "plain"),
         (
-            "Signed with inbox.key",
-            ("~/.config/loopcaptain/, or the", "file LOOPCAPTAIN_INBOX_KEY", "names"),
+            "Signed for that loop",
+            ("with the loop's own key, made", "from the board's secret in", "~/.config/loopcaptain/"),
             "plain",
         ),
         (
             "inbox.jsonl",
-            ("one line appended; it names", "its loop, and sig is an HMAC", "over the rest"),
+            ("one line appended; it names", "its loop, and loop_sig is an", "HMAC over the rest"),
             "mono",
         ),
         (
             "The loop's helper",
-            ("checks sig with the same key", "and acts only on", "signed is True"),
+            ("checks loop_sig with the key", "of its own folder and acts", "only on signed is True"),
             "key-plain",
         ),
     ]
@@ -716,7 +716,7 @@ def steer_picture(theme: str) -> str:
         ("commands.start", ("from the loop's loop.json,", "split, run without a shell"), "mono"),
         (
             "A minimal environment",
-            ("PATH, HOME, LANG, TERM, and", "LOOPCAPTAIN_INBOX_KEY:", "the key's path"),
+            ("PATH, HOME, LANG, TERM, and", "LOOPCAPTAIN_INBOX_KEY:", "where the keys are, no key"),
             "plain",
         ),
         ("~/.local/state/loopcaptain", ("the tick, the pid, the log,", "readable by this user only"), "mono"),
@@ -736,13 +736,119 @@ def steer_picture(theme: str) -> str:
     label = (
         "How steering reaches a loop. An answer or a stop, sent from the loop's page past the three "
         "gates, is appended to the loop's inbox.jsonl as one line that names its loop, signed with an "
-        "HMAC under the key in ~/.config/loopcaptain/inbox.key or the file LOOPCAPTAIN_INBOX_KEY names. "
-        "The loop's helper checks the signature with the same key and acts only on signed is True. "
+        "HMAC, loop_sig, under that loop's own key, which the board makes from its secret in "
+        "~/.config/loopcaptain. The loop's helper checks the signature with the key of its own "
+        "folder and acts only on signed is True. "
         "Start runs commands.start from the loop's loop.json, after a tick the first time, split into "
-        "arguments without a shell, with only PATH, HOME, LANG, TERM and the key's path in its "
-        "environment; the tick, the pid and the log are kept in ~/.local/state/loopcaptain."
+        "arguments without a shell, with only PATH, HOME, LANG, TERM and the place of the key folder "
+        "in its environment; the tick, the pid and the log are kept in ~/.local/state/loopcaptain."
     )
     return picture("How steering reaches a loop", label, height, body, t)
+
+
+def key_file(x: int, y: int, name: str, what: str, t: dict[str, str]) -> list[str]:
+    return [
+        card(x, y, 264, 52, t),
+        icon("file", x + 10, y + 14, t["accent"]),
+        f'<text x="{x + 42}" y="{y + 23}" font-size="13.5" font-weight="600" fill="{t["ink"]}" '
+        f'font-family="{MONO}">{name}</text>',
+        text(x + 42, y + 41, what, 12.5, t["grey"]),
+    ]
+
+
+def keys_picture(theme: str) -> str:
+    """Who holds which key: the board and its secret, the key folder, and two loops with a key each."""
+    t = THEMES[theme]
+    ink, grey, accent = t["ink"], t["grey"], t["accent"]
+    height = 552
+    body = [
+        text(40, 44, "THE BOARD, ON THIS MACHINE", 11, grey, 600, 'letter-spacing="1.6"'),
+        text(440, 44, "ITS KEY FOLDER, IN NO REPOSITORY", 11, grey, 600, 'letter-spacing="1.6"'),
+        text(840, 44, "TWO LOOPS, A KEY EACH", 11, grey, 600, 'letter-spacing="1.6"'),
+        # left: the board and its secret
+        plate(40, 64, 320, 320, t, t["card"]),
+        icon("browser", 58, 82, ink),
+        text(94, 100, "Loopcaptain", 16, ink, 600),
+        f'<text x="342" y="100" font-size="12" fill="{grey}" text-anchor="end" font-family="{MONO}">'
+        "127.0.0.1:8484</text>",
+        card(58, 118, 284, 52, t, "sunk"),
+        icon("file", 68, 132, ink),
+        f'<text x="100" y="141" font-size="13.5" font-weight="600" fill="{ink}" font-family="{MONO}">'
+        "board.key</text>",
+        text(100, 159, "its secret; only the board reads it", 12.5, grey),
+        text(58, 204, "1  Makes a key for each loop folder,", 13, grey),
+        text(58, 223, "    from the secret and the folder's place", 13, grey),
+        text(58, 248, "2  Signs every answer, note and stop", 13, grey),
+        text(58, 267, "    with the key of that loop alone", 13, grey),
+        text(58, 292, "3  Reads a line with that loop's key too", 13, grey),
+        f'<rect x="58" y="324" width="284" height="42" rx="6" fill="{ink}"/>',
+        text(74, 350, "Answer · Stop after this round", 13, t["paper"], 600),
+        # middle: the key folder
+        plate(440, 64, 320, 320, t),
+        icon("folder", 458, 82, ink),
+        f'<text x="494" y="100" font-size="13.5" font-weight="600" fill="{ink}" font-family="{MONO}">'
+        "~/.config/loopcaptain/keys/</text>",
+        *key_file(458, 126, "9287e217….key", "the key of loop one's folder", t),
+        *key_file(458, 190, "c05d44a1….key", "the key of loop two's folder", t),
+        text(458, 276, "A file is named by a digest of the place", 13, grey),
+        text(458, 295, "of its loop folder: a loop finds its own,", 13, grey),
+        text(458, 314, "stores none, and is handed none.", 13, grey),
+        text(458, 348, "Readable by you only.", 13, grey),
+        # right: two loops, two sessions
+        plate(840, 64, 320, 128, t, t["card"]),
+        icon("agent", 858, 82, ink),
+        text(894, 100, "Loop one, an agent session", 16, ink, 600),
+        text(858, 130, "inbox_read checks with the key of its", 13, grey),
+        text(858, 149, "own folder: the stop from loop two", 13, grey),
+        text(858, 168, "reads as signed False.", 13, accent, 600),
+        plate(840, 256, 320, 128, t, t["card"]),
+        icon("script", 858, 274, ink),
+        text(894, 292, "Loop two, a script", 16, ink, 600),
+        text(858, 322, "Its helper checks with the key of its", 13, grey),
+        text(858, 341, "own folder: your answer reads as", 13, grey),
+        text(858, 360, "signed True.", 13, ink, 600),
+        # the board makes the keys, each loop reads its own
+        arrow("M 342 144 C 395 144, 400 152, 452 152", grey, "tip"),
+        arrow("M 342 144 C 395 144, 400 216, 452 216", grey, "tip"),
+        text(374, 132, "makes", 12, grey),
+        arrow("M 722 152 C 780 152, 780 128, 834 128", grey, "tip"),
+        arrow("M 722 216 C 790 216, 780 320, 834 320", grey, "tip"),
+        text(764, 118, "reads", 12, grey),
+        text(790, 262, "reads", 12, grey),
+        # your answer, signed for loop two; and what loop two signs for loop one
+        arrow("M 200 392 C 200 462, 1000 462, 1000 394", accent, "tip-red"),
+        text(
+            600,
+            470,
+            "your answer: one line in loop two's inbox.jsonl, loop_sig under loop two's key",
+            12.5,
+            accent,
+            600,
+            'text-anchor="middle"',
+        ),
+        arrow("M 900 254 V 206", accent, "tip-red", dashed=True),
+        text(916, 224, "signs a stop for loop one", 12, accent, 600),
+        text(916, 240, "with the one key it holds", 12, accent, 600),
+        footer(
+            height,
+            "A loop holds the key of its own inbox and no other. A helper pasted from an earlier text "
+            "checks sig, which the board still writes and no longer trusts.",
+            t,
+        ),
+    ]
+    label = (
+        "Who holds which key. On the left, the board on this machine holds board.key, its secret, "
+        "which only the board reads; it makes a key for each loop folder from the secret and the "
+        "folder's place, signs every answer, note and stop with the key of that loop alone, and reads "
+        "a line with that loop's key too. In the middle, its key folder, ~/.config/loopcaptain/keys, "
+        "in no repository: one file per loop, named by a digest of the place of its loop folder, "
+        "readable by you only; a loop finds its own, stores none and is handed none. On the right, "
+        "two loops, each reading its own key file. Your answer is one line in loop two's inbox.jsonl "
+        "with loop_sig under loop two's key, and loop two, a script, reads it as signed True. A stop "
+        "that loop two signs for loop one with the one key it holds reads there, in an agent session "
+        "using inbox_read, as signed False."
+    )
+    return picture("Who holds which key", label, height, body, t)
 
 
 def main() -> int:
@@ -756,6 +862,7 @@ def main() -> int:
             ("request", request_picture),
             ("entry", entry_picture),
             ("steer", steer_picture),
+            ("keys", keys_picture),
         ):
             path = ASSETS / f"{name}-{theme}.svg"
             path.write_text(draw(theme), encoding="utf-8")

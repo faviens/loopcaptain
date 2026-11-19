@@ -91,7 +91,9 @@ Restart the board after an upgrade: a running board does not reload.
 | Path | Holds | Removed by |
 |---|---|---|
 | `~/.config/loopcaptain/config.yaml` | the folders the board watches | deleting the file |
-| `~/.config/loopcaptain/inbox.key` | the key the board signs your answers with | deleting the file; a new one is made |
+| `~/.config/loopcaptain/board.key` | the secret the board makes every loop's key from | deleting the file; a new one is made, and earlier answers read as not from the board |
+| `~/.config/loopcaptain/keys/` | one key file per loop, for that loop to check your answers with | deleting the folder; the board writes the files again |
+| `~/.config/loopcaptain/inbox.key` | the one key of earlier versions, for loops with an earlier helper | deleting the file; a new one is made |
 | `~/.local/state/loopcaptain/` (`$XDG_STATE_HOME/loopcaptain/` where that is set) | records and logs of loops the board started, the confirmed start commands | deleting the folder |
 | `~/.local/share/loopcaptain/demo/` | the example loop, after `loopcaptain demo` | deleting the folder |
 
