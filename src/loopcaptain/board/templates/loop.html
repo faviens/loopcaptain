@@ -16,7 +16,7 @@
   'verdict': '<path d="M2.5 11V1.5h7l-1.6 2.6 1.6 2.6h-7"/>',
 } %}{{ (paths.get(kind) or '<circle cx="6" cy="6" r="2.6"/>')|safe }}{% endmacro %}
 {% block main %}
-<p class="crumb"><a href="{{ url_for('overview') }}">Loops</a> / {{ view.repo.key }} / {{ view.loop_id }}</p>
+<p class="crumb eyebrow"><a href="{{ url_for('overview') }}">Loops</a> / {{ view.repo.key }} / {{ view.loop_id }}</p>
 <h1>{{ view.title }}</h1>
 <p class="meta"><span class="pill {{ state.status }}">{{ state.status }}</span><span>{{ 'went quiet between rounds, past the time it said it would be back' if state.status == 'stalled' and state.rounds and not state.rounds[-1].running else status_text[state.status] }}</span>{% if state.last_event %}<span>last line {{ state.last_event|ago }}</span>{% endif %}{% if branch %}<span>branch <code>{{ branch }}</code></span>{% endif %}{% if view.repo.others %}<span title="{% for other in view.repo.others %}{{ other|place }}{% if not loop.last %}, {% endif %}{% endfor %}">written from <code>{{ view.repo.path|place }}</code>, the latest of {{ view.repo.others|length + 1 }} worktrees</span>{% endif %}{% if manifest.pace %}<span>{{ manifest.pace }}</span>{% endif %}{% if state.status == 'sleeping' and state.expected %}<span>back at {{ state.expected|stamp }}</span>{% endif %}{% if state.ended %}<span>ended between rounds: {{ state.ended.stop_reason|replace('_', ' ') }}{% if state.ended.summary %}, {{ state.ended.summary }}{% endif %}</span>{% endif %}</p>
 {% if note %}<p class="flash" role="status">{{ note }}</p>{% endif %}
@@ -325,8 +325,8 @@
 <h2>Convergence<small>per finished round{% if state.rounds|length > chart_rounds %}, the last {{ chart_rounds }}{% endif %}; point at a round to read it, click to open it{% if charts|selectattr('target_y', 'ne', none)|list %}; dashed: the loop's target{% endif %}</small></h2>
 <section class="trends">
   {% for c in charts %}
-  <figure class="card trend {{ c.tone }}">
-    <figcaption><span class="eyebrow">{{ c.series.label }}</span><b>{{ c.last|figure(c.series.unit) }}</b>{% if c.met is true %}<span class="flag">on target</span>{% elif c.left %}<span class="flag">{{ c.left }}</span>{% elif c.met is false %}<span class="flag">target {{ c.series.target|figure(c.series.unit) }}</span>{% endif %}</figcaption>
+  <figure class="card trend {{ c.tone }}{{ ' worse' if c.direction in ('rising', 'falling') }}">
+    <figcaption><span class="eyebrow">{{ c.series.label }}</span><b>{{ c.last|figure(c.series.unit) }}</b>{% if c.direction and c.met is not true %}<span class="flag way">{{ c.direction }}</span>{% endif %}{% if c.met is true %}<span class="flag">on target</span>{% elif c.left %}<span class="flag">{{ c.left }}</span>{% elif c.met is false %}<span class="flag">target {{ c.series.target|figure(c.series.unit) }}</span>{% endif %}</figcaption>
     {% if c.series.about or c.series.file %}<p class="about">{{ c.series.about }}{% if c.series.file %} {{ file_link(c.series.file, 'the list') }}{% endif %}</p>{% endif %}
     <svg viewBox="0 0 {{ c.width }} {{ c.height }}" role="group" aria-label="{{ c.series.label }} per round">
       {% if c.target_y is not none %}<line class="target" x1="0" x2="{{ c.width }}" y1="{{ c.target_y }}" y2="{{ c.target_y }}"/>{% endif %}

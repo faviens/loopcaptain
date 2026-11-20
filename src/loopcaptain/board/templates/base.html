@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-board="monitoring">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  {% set t = totals() %}
+  {% set t = totals() %}{% from "totals.html" import totals_line with context %}
   <title>{% if t and t.waiting %}({{ t.waiting }}) {% endif %}Loopcaptain{% set part %}{% block title %}{% endblock %}{% endset %}{% if part|trim %} · {{ part|trim }}{% endif %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='mark.svg') }}">
   <link rel="preload" href="{{ url_for('static', path='fonts/inter-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
@@ -13,16 +13,9 @@
 </head>
 <body{% block body_attrs %}{% endblock %}>
 <header class="top">
-  <a class="brand" href="{{ url_for('overview') }}" aria-label="Loopcaptain, all loops"><img src="{{ url_for('static', path='mark.svg') }}" alt="" width="28" height="28"><span>L<span class="oo">oo</span>pcaptain</span></a>
-  {% if t and t.loops %}{% set home = url_for('overview') %}
-  <nav class="kpis" aria-label="Totals">
-    <a href="{{ home }}" class="kpi"><b>{{ t.loops }}</b><span title="in {{ t.projects }} project{{ 's' if t.projects != 1 }}">loop{{ 's' if t.loops != 1 }}</span></a>
-    <a href="{{ home }}?tab=waiting" class="kpi{{ ' hot' if t.waiting }}"{% if page == 'overview' and tab == 'waiting' %} aria-current="page"{% endif %}><b>{{ t.waiting }}</b><span>waiting for you</span></a>
-    <a href="{{ home }}?show=running" class="kpi{{ ' live' if t.running }}"><b>{{ t.running }}</b><span>running</span></a>
-    <a href="{{ home }}?show=look" class="kpi{{ ' alarm' if t.troubled }}" title="stalled, failed or capped, or going round without progress"><b>{{ t.troubled }}</b><span>need{{ 's' if t.troubled == 1 }} a look</span></a>
-    <span class="kpi" title="the reported cost of all rounds"><b>{{ t.usd|usd or '$0' }}</b><span>spent</span></span>
-  </nav>
-  {% else %}<span class="where">{% block where %}{% endblock %}</span>{% endif %}
+  <a class="brand" href="{{ url_for('overview') }}" aria-label="Loopcaptain, all loops"><img src="{{ url_for('static', path='mark.svg') }}" alt="" width="32" height="32"><span class="words"><span class="board">the agent loops on this machine</span><span>L<span class="oo">oo</span>pcaptain</span></span></a>
+  <span class="where">{% block where %}{% endblock %}</span>
+  {{ totals_line() }}
   <nav class="strip" aria-label="Pages">
     <a href="{{ url_for('overview') }}"{% if page == 'overview' and tab != 'waiting' %} aria-current="page"{% elif page == 'loop' %} aria-current="true"{% endif %}>Loops</a>
     <a href="{{ url_for('connect') }}"{% if page == 'connect' %} aria-current="page"{% endif %}>Connect a loop</a>

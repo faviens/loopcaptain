@@ -88,6 +88,31 @@ def test_overview_groups_the_loops_under_the_project_they_live_in(client: TestCl
     assert '<span class="id">scan</span>' in page
 
 
+def test_every_page_carries_the_figures_in_its_header_and_the_overview_head_does_not_repeat_them(
+    client: TestClient,
+) -> None:
+    for path in ("/", "/loop/some-repo/scan", "/connect"):
+        header = client.get(path).text.split('<header class="top">', 1)[1].split("</header>", 1)[0]
+        assert '<nav class="kpis" aria-label="Totals">' in header, path
+
+    page = client.get("/").text
+    head = page.split('<div class="head">', 1)[1].split("</div>", 1)[0]
+    assert 'class="kpi' not in head and "waiting for you" not in head and "1 loop in 1 project" in head
+
+
+def test_a_loop_row_shows_the_branch_it_runs_on_and_keeps_its_id_for_hover(
+    client: TestClient, scan: Path, helper: types.ModuleType
+) -> None:
+    helper.register(
+        "side", {"title": "Side task", "steps": STEPS, "workspace": {"branch": "loop/side"}}, scan
+    )
+
+    page = client.get("/").text
+
+    assert '<span class="id" title="loop side"><code>loop/side</code></span>' in page
+    assert '<span class="id">scan</span>' in page  # no branch known: the id stands in
+
+
 def test_the_repository_line_names_the_folder_once_and_keeps_the_path_for_hover(
     client: TestClient, scan: Path
 ) -> None:

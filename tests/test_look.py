@@ -79,3 +79,11 @@ def test_the_two_os_of_the_name_are_the_marks_lenses_in_red() -> None:
             f'L<tspan fill="{red}">oo</tspan>pcaptain'
             in (ROOT / "docs/assets" / f"banner-{theme}.svg").read_text()
         )
+
+
+def test_a_step_that_finished_well_is_green_and_one_that_runs_is_blue() -> None:
+    sheet = STYLE.read_text(encoding="utf-8")
+    light, dark = sheet.split("@media (prefers-color-scheme: dark)", 1)
+
+    assert "--ok-mark: #1E8E5A;" in light and "--run-mark: #2563A8;" in light
+    assert "--ok-mark: #5CC98F;" in dark and "--run-mark: #7DB3EE;" in dark

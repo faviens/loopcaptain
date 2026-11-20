@@ -96,7 +96,20 @@ class Chart:
             return "short"
         if self.improving is True:
             return "good" if self.met is None else "short"
-        return "short" if self.met is False else "plain"
+        return "short" if self.met is False or self.direction else "plain"
+
+    @property
+    def direction(self) -> str:
+        """In one or two words whether the measure converges, where the loop says which way is
+        better: "converging" when it got better, "not converging" when it stayed, else the way it
+        went the wrong way ("rising" for a measure that should fall). "" without a direction."""
+        if self.series.better is None or len(self.series.values) < 2:
+            return ""
+        if self.improving is None:
+            return "not converging"
+        if self.improving:
+            return "converging"
+        return "rising" if self.series.better == "lower" else "falling"
 
     @property
     def area(self) -> str:

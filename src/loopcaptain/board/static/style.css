@@ -15,27 +15,34 @@
 :root {
   --s1: 8px; --s2: 16px; --s3: 24px; --s4: 32px; --s5: 48px; --s6: 72px;
   --t12: 12px; --t14: 14px; --t16: 16px; --t20: 20px; --t26: 26px; --t36: 36px;
-  --radius: 10px; --radius-l: 18px; --pill: 999px; --target: 44px;
-  --font-display: "Inter Tight", "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius: 10px; --radius-l: 14px; --pill: 999px; --target: 44px;
+  --font-display: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --rgb-paper: 253 253 251; --rgb-surface: 255 255 255; --rgb-ink: 14 14 16; --rgb-grey: 113 113 110;
   --rgb-accent: 214 0 11;
   --bg: rgb(var(--rgb-paper)); --surface: rgb(var(--rgb-surface));
   --text: rgb(var(--rgb-ink)); --text-2: rgb(var(--rgb-grey));
-  --tint: rgb(var(--rgb-ink) / .035); --tint-2: rgb(var(--rgb-ink) / .07); --line: rgb(var(--rgb-ink) / .09);
+  --tint: rgb(var(--rgb-ink) / .035); --tint-2: rgb(var(--rgb-ink) / .07); --line: var(--hair);
   --accent: rgb(var(--rgb-accent)); --on-accent: #FFFFFF; --accent-tint: rgb(var(--rgb-accent) / .08);
   --accent-line: rgb(var(--rgb-accent) / .28);
   /* status: text colour (4.5:1 on its tint and on the canvas), tint, marker */
-  --ok: #0E6B3D; --ok-bg: rgb(19 128 75 / .12); --ok-mark: #13804B;
-  --run: #0B5F7A; --run-bg: rgb(11 114 150 / .12); --run-mark: #0B7296;
-  --warn: #C2560C; --warn-bg: rgb(232 119 14 / .12); --warn-mark: #E8770E;
-  --bad: #B00E28; --bad-bg: rgb(200 16 46 / .10); --bad-mark: #C8102E;
-  --idle: #55565C; --idle-bg: rgb(var(--rgb-ink) / .06); --idle-mark: #8A8B92;
+  /* The house neutrals around paper and ink. */
+  --ink-2: #3A3A3D; --muted: #6A6A67; --faint: #9C9B96; --hair: #E5E4DE; --sunk: #F4F3EF; --line-2: #D9D8D2;
+  /* The fade: the one red as a gradient, in six places only; numbers take --num. */
+  --fade: linear-gradient(90deg, #E5101C 0%, #B0081A 100%); --num: #C0122F;
+  /* Status. Green is a step or round that concluded well, blue one that runs: never swapped.
+     A loop's own status chip stays neutral when done; the green marks steps, cells and trends. */
+  --ok: #187A4C; --ok-bg: #E3F3EA; --ok-mark: #1E8E5A;
+  --run: #2563A8; --run-bg: #E6EEF8; --run-mark: #2563A8;
+  --warn: #B45309; --warn-bg: #FDEEDC; --warn-mark: #E8770E;
+  --bad: #B3261E; --bad-bg: #FBEAE7; --bad-mark: #B3261E;
+  --idle: #55565C; --idle-bg: var(--sunk); --idle-mark: #9C9B96;
   /* open findings: one ink ramp, four steps */
   --heat-1: rgb(var(--rgb-ink) / .10); --heat-2: rgb(var(--rgb-ink) / .22); --heat-3: rgb(var(--rgb-ink) / .55); --heat-4: rgb(var(--rgb-ink) / .92);
   --on-heat: rgb(var(--rgb-paper));
-  --edge: inset 0 1px 0 rgb(255 255 255 / .85), inset 0 0 0 1px rgb(var(--rgb-ink) / .06);
+  --edge: inset 0 1px 0 rgb(255 255 255 / .85), inset 0 0 0 1px rgb(var(--rgb-ink) / .07);
+  --lift: var(--edge), 0 2px 4px rgb(var(--rgb-ink) / .06), 0 18px 36px -18px rgb(var(--rgb-ink) / .3);
   --shadow: var(--edge), 0 1px 2px rgb(var(--rgb-ink) / .04), 0 12px 32px -18px rgb(var(--rgb-ink) / .22);
   --ring: 0 0 0 3px rgb(var(--rgb-accent) / .28);
   --ease: cubic-bezier(.2, .7, .2, 1);
@@ -43,16 +50,18 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --rgb-paper: 14 14 16; --rgb-surface: 28 28 31; --rgb-ink: 245 245 243; --rgb-grey: 160 160 156;
+    --rgb-paper: 14 14 16; --rgb-surface: 24 24 27; --rgb-ink: 245 245 243; --rgb-grey: 160 160 156;
     --rgb-accent: 255 107 115; --on-accent: #2B0003;
-    --line: rgb(255 255 255 / .10);
-    --ok: #6FD09A; --ok-bg: rgb(111 208 154 / .14); --ok-mark: #4FBF82;
-    --run: #7CCBE6; --run-bg: rgb(124 203 230 / .14); --run-mark: #5BB8D8;
-    --warn: #FFB067; --warn-bg: rgb(245 154 60 / .16); --warn-mark: #F59A3C;
-    --bad: #FF8A94; --bad-bg: rgb(255 138 148 / .14); --bad-mark: #F06272;
-    --idle: #B7B8BF; --idle-bg: rgb(238 238 240 / .08); --idle-mark: #8E8F96;
+    --ink-2: #D6D6D1; --muted: #A3A39D; --faint: #6F6F6B; --hair: #3A3A40; --sunk: #232327; --line-2: #54545A;
+    --fade: linear-gradient(90deg, #FF6B73 0%, #F0485A 100%); --num: #FF6B73;
+    --ok: #5CC98F; --ok-bg: #12291D; --ok-mark: #5CC98F;
+    --run: #7DB3EE; --run-bg: #16263A; --run-mark: #7DB3EE;
+    --warn: #FFB067; --warn-bg: #3A2410; --warn-mark: #F59A3C;
+    --bad: #F28B82; --bad-bg: #3B1513; --bad-mark: #F28B82;
+    --idle: #B7B8BF; --idle-bg: var(--sunk); --idle-mark: #7A7A80;
     --edge: inset 0 1px 0 rgb(255 255 255 / .07), inset 0 0 0 1px rgb(255 255 255 / .06);
     --shadow: var(--edge), 0 12px 32px -16px rgb(0 0 0 / .7);
+    --lift: var(--edge), 0 16px 36px -14px rgb(0 0 0 / .8);
     color-scheme: dark;
   }
 }
@@ -82,18 +91,11 @@ code { background: var(--tint-2); padding: 1px 6px; border-radius: 6px; }
 .sr { position: absolute; left: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---- header ---- */
-.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: var(--s2); padding: 10px var(--s4);
-  background: rgb(var(--rgb-paper) / .82); -webkit-backdrop-filter: saturate(1.7) blur(22px); backdrop-filter: saturate(1.7) blur(22px); border-bottom: 1px solid var(--line); }
-.brand { display: inline-flex; align-items: center; gap: 10px; min-height: var(--target); color: var(--text); font: 700 18px/1 var(--font-display); letter-spacing: -.03em; }
+.brand { display: inline-flex; align-items: center; color: var(--text); }
 .brand:hover { text-decoration: none; }
 .brand .oo { color: var(--accent); } /* the two lenses of the mark, in its red */
-.brand img { width: 28px; height: 28px; display: block; border-radius: 7px; }
-.top .where { color: var(--text-2); font-size: var(--t14); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-nav.strip { margin-left: auto; display: flex; gap: 2px; padding: 3px; border-radius: var(--pill); background: var(--tint-2); }
-nav.strip a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: var(--pill); color: var(--text-2); font-size: var(--t14); font-weight: 500; white-space: nowrap; transition: background .2s var(--ease), color .2s var(--ease); }
-nav.strip a:hover { color: var(--text); text-decoration: none; }
-/* the page itself, or a page that belongs under it: a loop, a file of a loop */
-nav.strip a[aria-current] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+nav.strip { display: flex; }
+nav.strip a { display: inline-flex; align-items: center; white-space: nowrap; transition: color .2s var(--ease); }
 
 /* One column frames the page and its header: wide, so a large screen is used, with the logo and
    the menu at its edges. */
@@ -241,7 +243,6 @@ table.loops tr.project th { padding-top: var(--s2); padding-bottom: 10px; text-a
 table.loops tr.project:hover { background: none; }
 table.loops tr.project .eyebrow { margin-right: var(--s1); }
 table.loops tr.project b { font: 700 var(--t16)/1.3 var(--font-display); letter-spacing: -.01em; color: var(--text); }
-table.loops tr.project .where { margin-left: 12px; color: var(--text-2); font-size: 13px; overflow-wrap: anywhere; }
 table.loops tr.project .waits { position: relative; margin-left: 12px; padding: 2px 10px; border-radius: var(--pill); background: var(--accent); color: var(--on-accent); font-size: var(--t12); font-weight: 600; white-space: nowrap; }
 table.loops tr.project .waits::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
 table.loops tbody tr:not(.project) td.name { padding-left: var(--s4); }
@@ -364,8 +365,6 @@ pre.raw { background: var(--surface); box-shadow: var(--shadow); padding: var(--
 @media (max-width: 900px) {
   .steer { grid-template-columns: 1fr; }
   main, .foot { padding-left: var(--s2); padding-right: var(--s2); }
-  .top { padding: var(--s1) var(--s2); }
-  .top .where { display: none; }
   h1 { font-size: var(--t26); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -523,8 +522,6 @@ svg.key { width: 14px; height: 14px; }
 .kpis.compact .kpi { padding-top: 12px; padding-bottom: 10px; }
 .kpis.compact .kpi b { font-size: var(--t26); }
 .kpis.compact .kpi span { margin-top: 4px; }
-nav.strip .n { margin-left: 6px; min-width: 20px; padding: 0 6px; border-radius: var(--pill); background: var(--tint-2); font-size: 11px; font-weight: 700; text-align: center; }
-nav.strip .n.hot { background: var(--accent); color: var(--on-accent); }
 nav.strip a.out::after { content: "↗"; margin-left: 4px; font-size: 11px; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: var(--s3) 0 var(--s2); }
 .toolbar form.find { margin: 0; }
@@ -578,17 +575,6 @@ details.standard > summary > span:first-child::after { content: " +"; color: var
 details.standard[open] > summary > span:first-child::after { content: " −"; }
 details.standard > summary .grey { font-size: var(--t14); }
 
-/* ---- the board's figures, small, in the header of every page ---- */
-.top nav.kpis { display: flex; flex-wrap: nowrap; gap: 2px; margin: 0 0 0 var(--s2); grid-template-columns: none; min-width: 0; overflow: hidden; }
-.top .kpi { display: inline-flex; align-items: baseline; gap: 6px; padding: 8px 14px; border-radius: var(--pill); background: none; box-shadow: none; color: var(--text); white-space: nowrap; }
-.top a.kpi:hover { background: var(--tint); text-decoration: none; }
-.top .kpi b { display: inline; font: 700 var(--t16)/1 var(--font-display); letter-spacing: -.02em; }
-.top .kpi span { display: inline; margin: 0; font-size: 13px; }
-.top .kpi.hot { background: var(--accent-tint); box-shadow: none; } .top .kpi.hot span { color: var(--accent); }
-.top .kpi.alarm { background: var(--bad-bg); box-shadow: none; }
-.top .kpi.live b::after { width: 6px; height: 6px; margin-left: 5px; vertical-align: 3px; }
-@media (max-width: 1250px) { .top .kpi span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } }
-@media (max-width: 720px) { .top nav.kpis { display: none; } }
 
 /* ---- a question: the loop first, long options as a list ---- */
 .ask .loopline { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 6px; }
@@ -610,11 +596,7 @@ figure.trend .r.on circle { stroke: var(--ok-mark); } figure.trend .r.on.last ci
 figure.trend figcaption .flag { padding: 2px 8px; border-radius: var(--pill); background: var(--tone-bg); color: var(--tone); font-size: var(--t12); font-weight: 700; }
 figure.trend.good figcaption .flag { color: var(--ok); } figure.trend.short figcaption .flag { color: var(--warn); }
 figure.trend.good figcaption b { color: var(--ok); }
-/* The header lines up with the page under it. */
-.top { padding-left: max(var(--s4), calc((100% - var(--page)) / 2 + var(--s4))); padding-right: max(var(--s4), calc((100% - var(--page)) / 2 + var(--s4))); }
-.top nav.kpis { margin-left: var(--s3); }
 svg.round a, svg.round a text, figure.trend a { text-decoration: none; }
-.top .kpi[aria-current] { box-shadow: inset 0 0 0 1.5px var(--accent); }
 div.project > .summary { cursor: default; }
 div.project > .summary::before { display: none; }
 div.project table.loops { table-layout: fixed; width: 100%; }
@@ -658,14 +640,7 @@ section.band { box-shadow: var(--shadow), inset 4px 0 0 var(--warn-mark); }
 section.band .eyebrow { color: var(--warn); }
 section.band .acts a:first-child { background: none; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
 section.band .acts a:first-child:hover { box-shadow: inset 0 0 0 1px var(--text); }
-.top .kpi.alarm { background: var(--warn-bg); } .top .kpi.alarm span, .top .kpi.alarm b { color: var(--warn); }
 nav.chips a.g-look, nav.chips a.g-look .n { color: var(--warn); } nav.chips a.g-waiting, nav.chips a.g-waiting .n { color: var(--accent); }
-/* The header in three: the logo, the board's figures in the true middle, the menu. */
-.top { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; }
-.top .brand { justify-self: start; }
-.top nav.kpis, .top .where { justify-self: center; margin: 0 var(--s2); }
-.top nav.strip { justify-self: end; margin-left: 0; }
-@media (max-width: 720px) { .top { grid-template-columns: auto minmax(0, 1fr); } .top nav.strip { grid-column: 2; } }
 /* On a phone the menu needs the width: the mark stays, the name beside it is left to the link's label. */
 @media (max-width: 520px) { .top .brand > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 
@@ -688,3 +663,180 @@ table.runs td.settle .acts { margin: 0; gap: 6px; }
 table.runs td.settle button { min-height: 34px; padding: 0 12px; font-size: 13px; }
 table.runs td.settle p.sent { margin: 0; font-size: var(--t14); }
 figure.trend p.about { margin: -2px 0 8px; font-size: var(--t12); color: var(--text-2); line-height: 1.4; }
+
+/* ==== The house look: the parts as the house style writes them, over the components above. ==== */
+body { font: 400 .95rem/1.55 var(--font); }
+h1, h2, h3 { font-family: var(--font); }
+code { background: var(--sunk); color: var(--ink-2); font-size: .8em; }
+
+/* Header: one row, 64px, the mark and name left, text tabs right. */
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: var(--s3); height: 64px; padding-top: 0; padding-bottom: 0; background: var(--bg);
+  -webkit-backdrop-filter: none; backdrop-filter: none; border-bottom: 1px solid var(--hair);
+  padding-left: max(32px, calc((100% - 1440px) / 2 + 32px)); padding-right: max(32px, calc((100% - 1440px) / 2 + 32px)); }
+.top .brand { gap: 10px; min-height: 44px; font: 700 20px/1.1 var(--font); letter-spacing: -.01em; }
+.top .brand img, .brand img { width: 32px; height: 32px; border-radius: 0; }
+.brand .words { display: flex; flex-direction: column-reverse; }
+.brand .board { font-size: .74rem; font-weight: 600; letter-spacing: 0; color: var(--ink-2); line-height: 1.3; margin-top: 1px; }
+.top .where { display: none; }
+.top nav.strip { margin-left: 0; align-self: stretch; gap: 0; padding: 0; border-radius: 0; background: none; }
+.top nav.strip a { position: relative; min-height: 0; height: 100%; padding: 0 12px; border-radius: 0; font-size: .86rem; font-weight: 500;
+  letter-spacing: .01em; color: var(--muted); }
+.top nav.strip a:hover { color: var(--text); }
+.top nav.strip a[aria-current] { background: none; box-shadow: none; color: var(--text); font-weight: 600; }
+.top nav.strip a[aria-current]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--fade); }
+.top nav.strip a.out::after { color: var(--faint); }
+
+/* The page: at most 1440px, the head three lines. */
+main, .foot { max-width: 1440px; }
+main { padding: 22px 32px 40px; }
+.head { margin: 0 0 22px; }
+.head .eyebrow, .eyebrow { font-size: .66rem; font-weight: 700; letter-spacing: .16em; color: var(--ink-2); }
+.head .eyebrow::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
+h1, h1.title { font-size: 1.35rem; font-weight: 700; line-height: 1.22; letter-spacing: -.018em; margin: 8px 0 4px; max-width: none; }
+h1 .em { background: var(--fade); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.crumb { font-size: .82rem; color: var(--muted); }
+.crumb a { min-height: 44px; font-weight: 600; }
+.lede { font-size: .9rem; line-height: 1.5; color: var(--muted); letter-spacing: 0; }
+.meta { font-size: .9rem; color: var(--muted); }
+
+/* The points line under a title: two to four short points, fade dots between them. */
+p.points { display: flex; flex-wrap: wrap; align-items: baseline; margin: 0; font-size: .9rem; color: var(--muted); }
+p.points span + span::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 10px; border-radius: 50%; background: var(--fade); vertical-align: 2px; }
+
+/* The board's figures, quiet, in the middle of the header on every page: the number in ink, the
+   label muted; only loops waiting for you take the accent, and only what needs a look the warn. */
+.top nav.kpis { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 0 18px; margin: 0 auto; min-width: 0; overflow: hidden; }
+.top .kpi { display: inline-flex; align-items: baseline; gap: 5px; padding: 0; background: none; box-shadow: none; border-radius: 0; white-space: nowrap; font-size: .84rem; color: var(--muted); }
+.top .kpi b { display: inline; font: 600 .84rem/1.4 var(--font); letter-spacing: 0; color: var(--text); font-variant-numeric: tabular-nums; }
+.top .kpi span { display: inline; margin: 0; font-size: inherit; color: inherit; }
+.top a.kpi:hover { text-decoration: none; } .top a.kpi:hover span { color: var(--text); text-decoration: underline; }
+.top .kpi.hot, .top .kpi.hot b { color: var(--accent); }
+.top .kpi.alarm, .top .kpi.alarm b { color: var(--warn); }
+.top .kpi.live b::after { content: none; }
+.top .kpi[aria-current] span { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+@media (max-width: 1250px) { .top .kpi span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
+@media (max-width: 720px) { .top nav.kpis { display: none; } }
+
+/* Sections: a hairline, then the heading; an aside in muted. */
+h2, main > h2 { font-size: 1.02rem; font-weight: 600; letter-spacing: -.005em; margin: 22px 0 14px; padding-top: 16px; border-top: 1px solid var(--hair); }
+h2 small { font-size: .74rem; color: var(--muted); }
+nav.tabs + h2, nav.tabs ~ .split h2 { border-top: 0; padding-top: 0; }
+.ways .way h2, .round-head h2 { border-top: 0; padding-top: 0; }
+.round-head h2 { font-size: 1.15rem; letter-spacing: -.015em; }
+
+/* Tiles: lifted, 14px radius; exhibits carry a 5px fade bar on top. */
+.card { border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+.card.flush { padding: 0; }
+a.kpi:hover, .card a.kpi:hover { box-shadow: var(--lift); transform: translateY(-1px); }
+figure.trend.card, .card:has(> .scroll) { position: relative; overflow: hidden; padding-top: 22px; }
+figure.trend.card::before, .card:has(> .scroll)::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--fade); }
+
+/* The loop's figures: group cards, the count solid. */
+section.kpis { gap: 14px; margin-top: 18px; }
+section.kpis .kpi { padding: 16px 18px; border-radius: 14px; }
+section.kpis .kpi b { font: 700 1.3rem/1.2 var(--font); letter-spacing: -.03em; }
+section.kpis .kpi b sup { font-size: .8rem; }
+section.kpis .kpi span { font-size: .82rem; color: var(--ink-2); }
+
+/* Tables: capitals for the head, hairlines between rows, one coloured column: the status. */
+th { font-size: .64rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 11px 16px; border-bottom: 1px solid var(--line-2); }
+td { padding: 11px 16px; border-bottom: 1px solid var(--hair); }
+table { font-size: .86rem; }
+table.loops tbody tr:hover { background: rgb(var(--rgb-ink) / .025); }
+table.loops td.name a { font: 600 .9rem/1.35 var(--font); letter-spacing: 0; }
+table.loops td.name span.id { margin-top: 3px; font-size: .72rem; color: var(--muted); }
+table.loops td.name span.id code { background: none; padding: 0; font-size: inherit; color: inherit; }
+table.loops td.goal { color: var(--ink-2); font-size: .82rem; line-height: 1.45; }
+table.loops td.go { color: var(--muted); font-weight: 500; font-size: .8rem; }
+table.loops tr.is-waiting, table.loops tr.is-failed { background: none; }
+table.loops tr[class^="is-"] td.name { box-shadow: none; }
+table.loops tr.is-waiting td.name { box-shadow: inset 3px 0 0 var(--accent); }
+table.loops .stuck, table.loops .old, table.loops .asks { font-size: .7rem; }
+
+/* The status chip: one width, each status its own shape; running is blue, waiting the solid accent. */
+.pill { min-width: 88px; min-height: 22px; gap: 7px; padding: 2px 9px; font-size: .72rem; font-weight: 600; border-radius: 999px; background: var(--sunk); color: var(--ink-2); }
+.pill::before { width: 7px; height: 7px; }
+.pill.waiting { background: var(--accent); color: var(--on-accent); }
+.pill.running { background: var(--run-bg); color: var(--run); }
+.pill.running::before { background: var(--run-mark); }
+.pill.sleeping { background: var(--sunk); color: var(--ink-2); }
+.pill.done { background: var(--sunk); color: var(--muted); } .pill.done::before { background: none; box-shadow: inset 0 0 0 1.5px currentColor; }
+.pill.stopped { background: var(--sunk); color: var(--muted); }
+.pill.failed { background: var(--bad-bg); color: var(--bad); }
+.pill.stalled, .pill.capped { background: var(--warn-bg); color: var(--warn); }
+
+
+/* A repository: its name and branch on the tile's head. */
+details.project > summary, div.project > .summary { padding: 12px 18px 10px; border-bottom: 1px solid var(--hair); }
+.project > .summary .name { font: 700 .92rem/1.3 var(--font); }
+.project > .summary code.branch, details.project > summary code.branch { background: none; padding: 0; color: var(--muted); font-size: .74rem; }
+.project > .summary .count { font-size: .76rem; color: var(--muted); }
+.project > .summary .wt { background: var(--sunk); color: var(--ink-2); font-size: .74rem; }
+.projects { gap: 14px; }
+
+/* Find and the segmented filter: a grey track, the open pill white and lifted with an accent dot. */
+.toolbar { gap: 12px; margin: 0 0 14px; }
+.toolbar form.find input { min-height: 40px; width: 280px; box-shadow: var(--shadow); }
+nav.chips { background: var(--tint-2); }
+nav.chips a { min-height: 34px; font-size: .84rem; color: var(--muted); }
+nav.chips a[aria-current] { box-shadow: var(--shadow); color: var(--text); }
+nav.chips a[aria-current]::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+nav.chips a.g-look, nav.chips a.g-look .n { color: var(--warn); }
+nav.chips a.g-running, nav.chips a.g-running .n { color: var(--run); }
+
+/* The loop's tabs: text, the open one in ink with a fade underline. */
+nav.tabs { box-shadow: inset 0 -1px 0 var(--hair); }
+nav.tabs a { font-size: .86rem; color: var(--muted); padding: 0 12px; border-bottom: 0; position: relative; }
+nav.tabs a[aria-current="page"] { color: var(--text); }
+nav.tabs a[aria-current="page"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; border-radius: 2px; background: var(--fade); }
+nav.tabs a:first-child[aria-current="page"]::after { left: 2px; }
+nav.tabs .n { background: var(--sunk); color: var(--ink-2); }
+
+/* What waits for the person: the highlight tile, a fade border and a fade chip. */
+section.ask:not(.inline) { padding: 16px 20px 18px; border: 2px solid transparent; border-radius: 14px; box-shadow: var(--shadow);
+  background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--fade) border-box; }
+section.ask:not(.inline)::before { content: "Waiting for you"; display: inline-block; margin-bottom: 10px; padding: 3px 10px; border-radius: 999px;
+  background: var(--fade); color: var(--on-accent); font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.ask .eyebrow { color: var(--ink-2); }
+.ask p.q { font: 600 1.05rem/1.4 var(--font); letter-spacing: -.005em; }
+.ask.inline { box-shadow: inset 0 1px 0 var(--hair), inset 3px 0 0 var(--accent); }
+form.choices button, .ask form.choices button { background: var(--surface); color: var(--text); border: 0; box-shadow: var(--shadow); border-radius: 10px; }
+form.choices button:hover, .ask form.choices button:hover { background: var(--surface); color: var(--text); box-shadow: var(--lift), inset 0 0 0 1.5px var(--accent); }
+textarea { background: var(--sunk); border: 0; box-shadow: inset 0 0 0 1px var(--hair); font-size: .9rem; border-radius: 10px; }
+textarea:focus-visible { box-shadow: inset 0 0 0 1.5px var(--text), var(--ring); }
+
+/* Buttons: 10px corners; answering is the accent, other main actions ink, the rest lifted. */
+button { border-radius: 10px; font-size: .86rem; }
+button.quiet { background: var(--surface); border-color: transparent; box-shadow: var(--shadow); }
+
+/* Missing content: grey, a dashed rule on the left. */
+.empty { border: 0; border-left: 2px dashed var(--faint); border-radius: 0; padding: 12px; color: var(--muted); font-size: .86rem; }
+
+/* Connect: the recommended way is the highlight tile. */
+.ways .way.first { border-top: 0; border: 2px solid transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--fade) border-box; }
+.ways .pick > div, .ways pre, .how pre, .steer pre.log, .prose pre { background: var(--sunk); }
+nav.agents a[aria-current="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+nav.agents a[aria-current="true"]::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
+.ways .way h2 { font-size: 1.1rem; }
+details.standard > summary { border-top: 1px solid var(--hair); }
+
+/* Footer: faint, a hairline above. */
+.foot { padding: 20px 32px 40px; font-size: .74rem; color: var(--muted); border-top: 1px solid var(--hair); }
+@media (max-width: 900px) { .top, main, .foot { padding-left: 16px; padding-right: 16px; } }
+.crumb.eyebrow { display: flex; align-items: center; gap: 6px; font-size: .66rem; color: var(--ink-2); }
+.crumb.eyebrow::before { content: ""; flex: none; width: 7px; height: 7px; margin-right: 2px; border-radius: 50%; background: var(--accent); }
+.crumb.eyebrow + h1 { margin-top: 0; }
+
+/* A chart says whether its measure converges: green line and fill getting better, orange staying
+   put, red going the wrong way; a measure without a direction (cost) stays grey. */
+figure.trend.good .line { stroke: var(--ok-mark); } figure.trend.good .area { fill: var(--ok-bg); }
+figure.trend.short .line { stroke: var(--warn-mark); } figure.trend.short .area { fill: var(--warn-bg); }
+figure.trend.worse { --tone: var(--bad-mark); --tone-bg: var(--bad-bg); }
+figure.trend.worse .line { stroke: var(--bad-mark); } figure.trend.worse .area { fill: var(--bad-bg); }
+figure.trend.good figcaption b { color: var(--ok); } figure.trend.worse figcaption b { color: var(--bad); }
+figure.trend figcaption .flag.way { text-transform: none; }
+figure.trend.worse figcaption .flag { color: var(--bad); }
+
+/* The answers offered as buttons sit side by side, each as wide as its words, and wrap. */
+.ask form.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.ask form.choices button { width: auto; min-width: 120px; justify-content: center; text-align: center; padding: 10px 18px; }
