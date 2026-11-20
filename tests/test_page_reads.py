@@ -62,3 +62,15 @@ def test_a_unit_that_only_looks_like_a_whole_does_not_break_the_page() -> None:
     odd = chart(Series("score", ((1, 1.0),), "of ,", better="higher"))
 
     assert odd.left == ""
+
+
+def test_a_chart_says_in_a_word_whether_the_measure_converges() -> None:
+    falling = chart(Series("open_findings", ((1, 7.0), (2, 4.0), (3, 2.0)), better="lower"))
+    flat = chart(Series("open_findings", ((1, 3.0), (2, 3.0)), better="lower"))
+    rising = chart(Series("open_findings", ((1, 2.0), (2, 5.0)), better="lower"))
+    cost = chart(Series("cost", ((1, 2.0), (2, 1.0)), "$"))
+
+    assert (falling.direction, falling.tone) == ("converging", "good")
+    assert (flat.direction, flat.tone) == ("not converging", "short")
+    assert (rising.direction, rising.tone) == ("rising", "short")
+    assert (cost.direction, cost.tone) == ("", "plain")

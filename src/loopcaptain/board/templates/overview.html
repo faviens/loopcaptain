@@ -2,10 +2,10 @@
 {% set page = 'overview' %}
 {% block title %}{{ 'Waiting for you' if tab == 'waiting' else '' }}{% endblock %}
 {% block body_attrs %} data-pulse-url="{{ url_for('overview_pulse') }}" data-pulse="{{ pulse }}"{% if turn_at %} data-turn-at="{{ turn_at }}"{% endif %}{% endblock %}
-{% macro project_head(project) %}<span class="name"{% if not project.worktree %} title="{{ project.place }}"{% endif %}>{{ project.name or project.repo.key }}</span>{% if project.worktree %}<span class="wt" title="a worktree of {{ project.name }}, at {{ project.place }}">worktree {{ project.worktree }}</span>{% endif %}{% if project.branch %}<code class="branch">{{ project.branch }}</code>{% endif %}<span class="count">{{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}{% endmacro %}
-{% macro loop_row(view) %}
+{% macro project_head(project) %}<span class="name"{% if not project.worktree %} title="{{ project.place }}"{% endif %}>{{ project.name or project.repo.key }}</span>{% if project.worktree and project.worktree != project.branch %}<span class="wt" title="a worktree of {{ project.name }}, at {{ project.place }}">worktree {{ project.worktree }}</span>{% endif %}{% if project.branch %}<code class="branch">{{ project.branch }}</code>{% endif %}<span class="count">{{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</span>{% if project.waiting %}<a class="waits" href="{{ here }}?tab=waiting">{{ project.waiting }} wait{{ 's' if project.waiting == 1 }} for you</a>{% endif %}{% endmacro %}
+{% macro loop_row(view, project_branch=none) %}
   <tr class="is-{{ view.state.status if view.state else 'failed' }}">
-    <td class="name"><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a><span class="id">{{ view.loop_id }}</span></td>
+    <td class="name"><a href="{{ url_for('loop_page', repo_key=view.repo.key, loop_id=view.loop_id) }}">{{ view.title }}</a>{% set ws = view.state.manifest.workspace if view.state else none %}{% set branch = (ws.branch if ws and ws.branch else none) or project_branch %}{% if branch %}<span class="id" title="loop {{ view.loop_id }}"><code>{{ branch }}</code></span>{% else %}<span class="id">{{ view.loop_id }}</span>{% endif %}</td>
     {% if view.state %}
     {% set s = view.state %}
     <td><span class="pill {{ s.status }}" title="{{ status_text[s.status] }}">{{ s.status }}</span>{% if group_of(view) == 'old' %}<span class="old" title="no line for over two weeks: listed, and no longer counted as needing a look">old</span>{% endif %}{% if s.question and s.status != 'waiting' %}<span class="asks" title="it has a question for you">asks</span>{% endif %}{% set signs = no_progress(s) %}{% if signs %}<span class="stuck" title="{{ signs|join('; ') }}">no progress</span>{% endif %}</td>
@@ -27,7 +27,11 @@
   </tr></thead>{% endmacro %}
 {% macro cols() %}<colgroup><col class="c-loop"><col class="c-status"><col class="c-goal"><col class="c-rounds"><col class="c-n"><col class="c-n"><col class="c-n"><col class="c-last"><col class="c-go"></colgroup>{% endmacro %}
 {% block main %}
-<h1 class="sr">{{ 'Waiting for you' if tab == 'waiting' else 'Loops' }}</h1>
+{% set t = totals() %}<div class="head">
+  <p class="eyebrow">Loops · {{ 'Waiting for you' if tab == 'waiting' else 'All projects' }}</p>
+  <h1 class="title">{% if tab == 'waiting' %}Which <span class="em">loops</span> wait for your answer{% else %}Which <span class="em">loops</span> wait for you, and how the rest are going{% endif %}</h1>
+  {% if t and t.loops %}<p class="points"><span>{{ t.loops }} loop{{ 's' if t.loops != 1 }} in {{ t.projects }} project{{ 's' if t.projects != 1 }}</span><span>{{ t.usd|usd or '$0' }} spent on all rounds</span><span>read fresh from each <code>.loops/</code> folder</span></p>{% endif %}
+</div>
 {% if note %}<p class="flash" role="status">{{ note }}</p>{% endif %}
 {% if error %}<p class="flash bad" role="alert">{{ error }}</p>{% endif %}
 {% if repeated %}<p class="flash warn" role="status">Two watched repositories have a loop with the same id: {% for loop_id, keys in repeated.items() %}<code>{{ loop_id }}</code> in {{ keys[:-1]|join(', ') }} and {{ keys[-1] }}{{ '; ' if not loop.last }}{% endfor %}. Check you are answering the right one.</p>{% endif %}
@@ -50,7 +54,7 @@
 {% for project in waiting_projects %}
 <div class="project card flush">
   <div class="summary project">{{ project_head(project) }}</div>
-  <table class="loops">{{ cols() }}{{ head_row(false) }}<tbody>{% for view in project.views %}{{ loop_row(view) }}{% endfor %}</tbody></table>
+  <table class="loops">{{ cols() }}{{ head_row(false) }}<tbody>{% for view in project.views %}{{ loop_row(view, project.branch) }}{% endfor %}</tbody></table>
   {% for view in project.views %}
 <section class="ask inline" aria-label="Question from {{ view.title }}">
   {% set q = view.state.question %}
@@ -106,7 +110,7 @@
   {{ head_row(loop.first) }}
   <tbody>
   <tr class="project"><th scope="rowgroup" colspan="9" class="sr">Project {{ project.repo.key }} · {{ project.place }} · {{ project.views|length }} loop{{ 's' if project.views|length != 1 }}</th></tr>
-  {% for view in project.views %}{{ loop_row(view) }}
+  {% for view in project.views %}{{ loop_row(view, project.branch) }}
   {% endfor %}
   </tbody>
 </table>

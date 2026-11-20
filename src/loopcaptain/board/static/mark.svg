@@ -3,7 +3,7 @@
     .lc-ink { fill: #0E0E10; } .lc-line { stroke: #0E0E10; } .lc-crown { fill: #FFFFFF; stroke: #0E0E10; }
     .lc-loop { fill: #FF000D; stroke: #FF000D; } .lc-arc { fill: none; stroke: #FF000D; }
     @media (prefers-color-scheme: dark) {
-      .lc-ink { fill: #5C5C64; } .lc-crown { stroke: #5C5C64; }
+      .lc-ink { fill: #8E8E96; } .lc-crown { stroke: #8E8E96; }
       .lc-loop { fill: #FF6B73; stroke: #FF6B73; } .lc-arc { stroke: #FF6B73; }
     }
   </style>

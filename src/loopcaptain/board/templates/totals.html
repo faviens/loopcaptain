@@ -1,0 +1,11 @@
+{# The board's figures, one line of links in the middle of the header on every page. #}
+{% macro totals_line() %}{% set t = totals() %}  {% if t and t.loops %}{% set home = url_for('overview') %}
+  <nav class="kpis" aria-label="Totals">
+    <a href="{{ home }}" class="kpi"><b>{{ t.loops }}</b><span title="in {{ t.projects }} project{{ 's' if t.projects != 1 }}">loop{{ 's' if t.loops != 1 }}</span></a>
+    <a href="{{ home }}?tab=waiting" class="kpi{{ ' hot' if t.waiting }}"{% if page == 'overview' and tab == 'waiting' %} aria-current="page"{% endif %}><b>{{ t.waiting }}</b><span>waiting for you</span></a>
+    <a href="{{ home }}?show=running" class="kpi{{ ' live' if t.running }}"><b>{{ t.running }}</b><span>running</span></a>
+    <a href="{{ home }}?show=look" class="kpi{{ ' alarm' if t.troubled }}" title="stalled, failed or capped, or going round without progress"><b>{{ t.troubled }}</b><span>need{{ 's' if t.troubled == 1 }} a look</span></a>
+    <span class="kpi" title="the reported cost of all rounds"><b>{{ t.usd|usd or '$0' }}</b><span>spent</span></span>
+  </nav>
+  {% endif %}
+{% endmacro %}
